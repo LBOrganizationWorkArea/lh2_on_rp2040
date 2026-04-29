@@ -1,49 +1,46 @@
 /**
  * @file
  * @author Said Alvarado-Marin <said-alexander.alvarado-marin@inria.fr>
- * @brief This is a short example of how to interface with the lighthouse v2 chip (TS4231) using the RP2040 microcontroller.
- *
- * Load this program on your board. with a TS4231 connected to pins 15 (Data) and 16 (Envelope).
- *
- * @date 2024
- *
- * @copyright Inria, 2024
- *
+ * @brief Interface with Lighthouse v2 chip TS4231 using RP2040/RP2350.
  */
+
 #include "hardware/pio.h"
 #include "pico/time.h"
 #include "lh2/lh2.h"
 #include "pico/stdlib.h"
-// #include "pico/cyw43_arch.h"
+
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include "pico/multicore.h"
-#include "hardware/pio.h"
 #include "hardware/dma.h"
 #include "hardware/clocks.h"
 
 //=========================== defines ==========================================
 
-#define LH2_0_DATA_PIN 10                     // 
-#define LH2_0_ENV_PIN  (LH2_0_DATA_PIN + 1)   // The Envelope pin will be (Data pin + 1)
-#define LH2_1_DATA_PIN 12                     // 
-#define LH2_1_ENV_PIN  (LH2_1_DATA_PIN + 1)   // The Envelope pin will be (Data pin + 1)
-#define LH2_2_DATA_PIN 18                     // 
-#define LH2_2_ENV_PIN  (LH2_2_DATA_PIN + 1)   // The Envelope pin will be (Data pin + 1)
-#define LH2_3_DATA_PIN 20                     // 
-#define LH2_3_ENV_PIN  (LH2_3_DATA_PIN + 1)   // The Envelope pin will be (Data pin + 1)
-#define TIMER_DELAY_US 100000                 // How often the LH2 updates are sent through the serial (in microseconds)
+#define LH2_0_DATA_PIN 10
+#define LH2_0_ENV_PIN  (LH2_0_DATA_PIN + 1)
 
+#define LH2_1_DATA_PIN 12
+#define LH2_1_ENV_PIN  (LH2_1_DATA_PIN + 1)
 
+#define LH2_2_DATA_PIN 18
+#define LH2_2_ENV_PIN  (LH2_2_DATA_PIN + 1)
+
+#define LH2_3_DATA_PIN 20
+#define LH2_3_ENV_PIN  (LH2_3_DATA_PIN + 1)
+
+// Envoie les données série toutes les 100 ms
+#define TIMER_DELAY_US 100000
 
 //=========================== variables ========================================
 
-// is nedeed so the variable is accesible to both cores [1]
 db_lh2_t        _lh2_0;
 db_lh2_t        _lh2_1;
 db_lh2_t        _lh2_2;
 db_lh2_t        _lh2_3;
+
 absolute_time_t timer_0;
 bool            clk_conf_OK;
 
@@ -52,82 +49,54 @@ uint8_t sensor_1 = 1;
 uint8_t sensor_2 = 2;
 uint8_t sensor_3 = 3;
 
-//=========================== prototypes ========================================
+//=========================== prototypes =======================================
 
-void core1_entry();
+void core1_entry(void);
+void print_sensor_csv(uint8_t sensor_id, db_lh2_t *lh2);
 
-//=========================== main core #0 =============================================
+//=========================== main core #0 =====================================
 
 int main() {
-    // configure the clock for 128MHz
+    // Configure clock to 128 MHz
     clk_conf_OK = set_sys_clock_khz(128000, true);
 
-    // init the USB UART
+    // Init USB serial
     stdio_init_all();
     sleep_ms(3000);
+
     printf("Start code\n");
+    printf("LH2,sensor,sweep,basestation,polynomial,lfsr_location\n");
 
-    // set-up the on-board LED for the W version of the Raspberry Pi Pico
-    // cyw43_arch_init();
-    // cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-
-    // LH2 config, before starting the second core
+    // Init sensors on core 0
     db_lh2_init(&_lh2_0, sensor_0, LH2_0_DATA_PIN, LH2_0_ENV_PIN);
     db_lh2_init(&_lh2_1, sensor_1, LH2_1_DATA_PIN, LH2_1_ENV_PIN);
 
-    // Launch the second core
+    // Launch second core for sensors 2 and 3
     multicore_launch_core1(core1_entry);
 
-    // Start timer 
     timer_0 = get_absolute_time();
 
     while (true) {
-
-        // the location function has to be running all the time
+        // These functions must run continuously
         db_lh2_process_location(&_lh2_0);
         db_lh2_process_location(&_lh2_1);
 
         if (absolute_time_diff_us(timer_0, get_absolute_time()) > TIMER_DELAY_US) {
 
-            // // Print the first two base stations of all 4 sensors
-            // printf("sen_0 (%d-%d %d-%d %d-%d %d-%d)   \tsen_1 (%d-%d %d-%d %d-%d %d-%d)   \tsen_2 (%d-%d %d-%d %d-%d %d-%d)   \tsen_3 (%d-%d %d-%d %d-%d %d-%d)\n",
-            //        _lh2_0.locations[0][0].selected_polynomial, _lh2_0.locations[0][0].lfsr_location, _lh2_0.locations[1][0].selected_polynomial, _lh2_0.locations[1][0].lfsr_location,
-            //        _lh2_0.locations[0][1].selected_polynomial, _lh2_0.locations[0][1].lfsr_location, _lh2_0.locations[1][1].selected_polynomial, _lh2_0.locations[1][1].lfsr_location,
-            //        _lh2_1.locations[0][0].selected_polynomial, _lh2_1.locations[0][0].lfsr_location, _lh2_1.locations[1][0].selected_polynomial, _lh2_1.locations[1][0].lfsr_location,
-            //        _lh2_1.locations[0][1].selected_polynomial, _lh2_1.locations[0][1].lfsr_location, _lh2_1.locations[1][1].selected_polynomial, _lh2_1.locations[1][1].lfsr_location,
-            //        _lh2_2.locations[0][0].selected_polynomial, _lh2_2.locations[0][0].lfsr_location, _lh2_2.locations[1][0].selected_polynomial, _lh2_2.locations[1][0].lfsr_location,
-            //        _lh2_2.locations[0][1].selected_polynomial, _lh2_2.locations[0][1].lfsr_location, _lh2_2.locations[1][1].selected_polynomial, _lh2_2.locations[1][1].lfsr_location,
-            //        _lh2_3.locations[0][0].selected_polynomial, _lh2_3.locations[0][0].lfsr_location, _lh2_3.locations[1][0].selected_polynomial, _lh2_3.locations[1][0].lfsr_location,
-            //        _lh2_3.locations[0][1].selected_polynomial, _lh2_3.locations[0][1].lfsr_location, _lh2_3.locations[1][1].selected_polynomial, _lh2_3.locations[1][1].lfsr_location);
-            
-            // Print the first sweep of all basestations of Sensor 0
-            printf("%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d\t%d-%d)\n",
-                _lh2_0.locations[0][0].selected_polynomial, _lh2_0.locations[0][0].lfsr_location,
-                _lh2_0.locations[0][1].selected_polynomial, _lh2_0.locations[0][1].lfsr_location,
-                _lh2_0.locations[0][2].selected_polynomial, _lh2_0.locations[0][2].lfsr_location,
-                _lh2_0.locations[0][3].selected_polynomial, _lh2_0.locations[0][3].lfsr_location,
-                _lh2_0.locations[0][4].selected_polynomial, _lh2_0.locations[0][4].lfsr_location,
-                _lh2_0.locations[0][5].selected_polynomial, _lh2_0.locations[0][5].lfsr_location,
-                _lh2_0.locations[0][6].selected_polynomial, _lh2_0.locations[0][6].lfsr_location,
-                _lh2_0.locations[0][7].selected_polynomial, _lh2_0.locations[0][7].lfsr_location,
-                _lh2_0.locations[0][8].selected_polynomial, _lh2_0.locations[0][8].lfsr_location,
-                _lh2_0.locations[0][9].selected_polynomial, _lh2_0.locations[0][9].lfsr_location,
-                _lh2_0.locations[0][10].selected_polynomial, _lh2_0.locations[0][10].lfsr_location,
-                _lh2_0.locations[0][11].selected_polynomial, _lh2_0.locations[0][11].lfsr_location,
-                _lh2_0.locations[0][12].selected_polynomial, _lh2_0.locations[0][12].lfsr_location,
-                _lh2_0.locations[0][13].selected_polynomial, _lh2_0.locations[0][13].lfsr_location,
-                _lh2_0.locations[0][14].selected_polynomial, _lh2_0.locations[0][14].lfsr_location,
-                _lh2_0.locations[0][15].selected_polynomial, _lh2_0.locations[0][15].lfsr_location);
+            // Print all valid decoded values for all 4 sensors
+            print_sensor_csv(0, &_lh2_0);
+            print_sensor_csv(1, &_lh2_1);
+            print_sensor_csv(2, &_lh2_2);
+            print_sensor_csv(3, &_lh2_3);
 
             timer_0 = get_absolute_time();
         }
     }
 }
 
-//=========================== main core #0 =============================================
+//=========================== core #1 ==========================================
 
-void core1_entry() {
-
+void core1_entry(void) {
     db_lh2_init(&_lh2_2, sensor_2, LH2_2_DATA_PIN, LH2_2_ENV_PIN);
     db_lh2_init(&_lh2_3, sensor_3, LH2_3_DATA_PIN, LH2_3_ENV_PIN);
 
@@ -137,4 +106,26 @@ void core1_entry() {
     }
 }
 
-//=========================== references ========================================
+//=========================== serial output ====================================
+
+void print_sensor_csv(uint8_t sensor_id, db_lh2_t *lh2) {
+    for (uint8_t sweep = 0; sweep < LH2_SWEEP_COUNT; sweep++) {
+        for (uint8_t basestation = 0; basestation < LH2_BASESTATION_COUNT; basestation++) {
+
+            uint8_t polynomial = lh2->locations[sweep][basestation].selected_polynomial;
+            uint32_t lfsr_location = lh2->locations[sweep][basestation].lfsr_location;
+
+            // Ignore invalid/uninitialized data
+            if (polynomial == 255 || lfsr_location == 0xFFFFFFFF) {
+                continue;
+            }
+
+            printf("LH2,%u,%u,%u,%u,%lu\n",
+                   sensor_id,
+                   sweep,
+                   basestation,
+                   polynomial,
+                   (unsigned long)lfsr_location);
+        }
+    }
+}
