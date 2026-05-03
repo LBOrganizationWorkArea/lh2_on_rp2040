@@ -1,0 +1,21 @@
+{
+  "unit": "radians",
+  "points": {
+    "top_left": {
+      "theta": 0.10,
+      "phi": -0.05
+    },
+    "top_right": {
+      "theta": -0.20,
+      "phi": 0.10
+    },
+    "bottom_right": {
+      "theta": 0.05,
+      "phi": 0.20
+    },
+    "bottom_left": {
+      "theta": -0.10,
+      "phi": -0.15
+    }
+  }
+}
