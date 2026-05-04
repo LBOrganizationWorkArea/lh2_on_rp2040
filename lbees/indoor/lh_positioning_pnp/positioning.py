@@ -18,14 +18,12 @@ Antoine el Kahi
 Eduardo Gonzalez
 """
 
-DISTANCE_BETWEEN_SENSORS = 0.1  #FIXME: fill this distance with the correct one guys
+DISTANCE_BETWEEN_SENSORS = 0.1  #FIXME: please fill this distance with the correct one!!
 WORK_DIR = Path(__file__).resolve().parent
 ANGLES_FILE = WORK_DIR / "angles.json"
 POINT_ORDER = ("top_left", "top_right", "bottom_right", "bottom_left")
 
 # 1. Object points perfectly following the IPPE_SQUARE specification
-# squareLength = 0.1 meters (10 cm)
-# Half squareLength = 0.05 meters
 object_points = np.array([
     [-DISTANCE_BETWEEN_SENSORS/2,  DISTANCE_BETWEEN_SENSORS/2, 0.0],  # point 0: top-left
     [ DISTANCE_BETWEEN_SENSORS/2,  DISTANCE_BETWEEN_SENSORS/2, 0.0],  # point 1: top-right
@@ -81,7 +79,7 @@ def load_angles_json(path):
 
     return np.array(angle_pairs, dtype=float)
 
-
+#TODO: double check this math
 def angles_to_image_points(angles):
     image_points = []
     for theta, phi in angles:
