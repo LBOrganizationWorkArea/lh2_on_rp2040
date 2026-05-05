@@ -20,7 +20,8 @@ Eduardo Gonzalez
 SERIAL_PORT = "/dev/ttyACM0" # port on linux, to be changed if on another OS
 BAUD_RATE = 115200
 TARGET_SENSOR = 2 # sensor id, to be changed if another sensor is used   
-TARGET_BASE = 4 # 
+TARGET_BASE = 10 # BS indexed 10 is actually indexed 5
+TARGET_POLYS = (20, 21)  # était (8, 9)
 WORK_DIR = Path("/home/vbianchi029/lbees/indoor") # needs to be changed for your own path
 LOG_FILE = WORK_DIR / "history_calibration.txt" # same
 
@@ -52,7 +53,7 @@ def collect_samples(ser, target_angle):
                     poly  = int(parts[4])   
                     lfsr  = int(parts[5])
 
-                    if s_id == TARGET_SENSOR and b_id == TARGET_BASE and poly in (8, 9):
+                    if s_id == TARGET_SENSOR and b_id == TARGET_BASE and poly in TARGET_POLYS:
                         if sweep == 0 and len(samples_0) < SAMPLES_PER_POINT:
                             samples_0.append(lfsr)
                         elif sweep == 1 and len(samples_1) < SAMPLES_PER_POINT:
