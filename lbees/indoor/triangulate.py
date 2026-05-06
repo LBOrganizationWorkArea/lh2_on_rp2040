@@ -21,6 +21,7 @@ SERIAL_PORT   = "/dev/ttyACM0"
 BAUD_RATE     = 115200
 TARGET_SENSOR = 2
 LOG_FILE      = Path("/home/vbianchi029/lbees/indoor/history_calibration.txt")
+Y_OFFSET 	  = 0.2
 
 # Géométrie du setup
 # BS1 (base=4)  en (0, 0) — gauche
@@ -78,7 +79,7 @@ def triangulate(alpha_deg, beta_deg, d):
     Y = d / denom
     X = -Y * tan_a
 
-    return X, Y
+    return X, Y - Y_OFFSET
 
 def run_monitor():
     print("\n" + "="*60)

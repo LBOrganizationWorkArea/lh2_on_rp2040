@@ -22,7 +22,7 @@ BAUD_RATE = 115200
 TARGET_SENSOR = 2
 TARGET_BASE   = 10 # index 4 but the actual BS is indexed at 11
 TARGET_POLYS  = (20, 21)
-LOG_FILE = Path("/home/vbianchi029/lbees/indoor/calibration_history.txt")
+LOG_FILE = Path("/home/vbianchi029/lbees/indoor/history_calibration.txt")
 
 def load_latest_coefficients(target_base, target_sensor):
     if not LOG_FILE.exists():

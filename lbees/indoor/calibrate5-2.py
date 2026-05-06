@@ -20,18 +20,23 @@ Eduardo Gonzalez
 SERIAL_PORT = "/dev/ttyACM0" # port on linux, to be changed if on another OS
 BAUD_RATE = 115200
 TARGET_SENSOR = 2 # sensor id, to be changed if another sensor is used   
-TARGET_BASE = 4 # 
-
+TARGET_BASE = 10 # indexed at n°5 in real life 
 WORK_DIR = Path("/home/vbianchi029/lbees/indoor") # needs to be changed for your own path
 LOG_FILE = WORK_DIR / "history_calibration.txt" # same
 
 """
-Description of the setup :
-This calibration works with 3 points. 1° precision can be achieved with such calibration.
-The Base Station is placed in a fixed position, it shall never move. Then, 3 markers should be placed on the ground.
-One in front of the BS at 1m distance, one at 57.7 cm at the left from the first point, and the last one at 57.7 cm at the right from the first point. This 57.7 cm distance comes from basic trogonometry to achieve 3 angles to sample : +/- 30° and 0°
+Description of the setup (High Precision 5-Points):
+This calibration uses 5 points and a linear regression algorithm to dilute human error.
+The Base Station is placed in a fixed position, it shall never move. 
+
+Draw a straight line at exactly 2.00 meters from the BS (and perfectly parallel to it).
+Place 5 markers on this line:
+- Point 0°   : Exactly in front of the BS (Center).
+- Point +/-15° : At 53.6 cm to the left, and 53.6 cm to the right of the Center point.
+- Point +/-30° : At 115.5 cm to the left, and 115.5 cm to the right of the Center point.
 """
-CALIBRATION_ANGLES = [-30.0, 0.0, 30.0]
+# Angles modifiés pour 5 points
+CALIBRATION_ANGLES = [-30.0, -15.0, 0.0, 15.0, 30.0]
 SAMPLES_PER_POINT = 50
 
 def collect_samples(ser, target_angle):
@@ -53,7 +58,7 @@ def collect_samples(ser, target_angle):
                     poly  = int(parts[4])   
                     lfsr  = int(parts[5])
 
-                    if s_id == TARGET_SENSOR and b_id == TARGET_BASE and poly in (8, 9):
+                    if s_id == TARGET_SENSOR and b_id == TARGET_BASE and poly in (20, 21):
                         if sweep == 0 and len(samples_0) < SAMPLES_PER_POINT:
                             samples_0.append(lfsr)
                         elif sweep == 1 and len(samples_1) < SAMPLES_PER_POINT:
