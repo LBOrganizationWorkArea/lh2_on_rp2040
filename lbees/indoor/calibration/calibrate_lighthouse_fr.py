@@ -40,13 +40,13 @@ import numpy as np
 from calibration_lib.lighthouse_types import (
     LhMeasurement, LhCfPoseSample, Pose, LhDeck4SensorPositions
 )
+
 from calibration_lib.lighthouse_sample_matcher import LighthouseSampleMatcher
 from calibration_lib.lighthouse_initial_estimator import LighthouseInitialEstimator
 from calibration_lib.lighthouse_geometry_solver import LighthouseGeometrySolver
 from calibration_lib.lighthouse_system_aligner import LighthouseSystemAligner
 from calibration_lib.lighthouse_system_scaler import LighthouseSystemScaler
 from calibration_lib.lighthouse_config_manager import LighthouseConfigFileManager
-
 
 class LighthouseCalibrator:
     """Orchestrates the calibration pipeline."""
@@ -75,6 +75,77 @@ class LighthouseCalibrator:
         """
 
         try:
+
+            """
+            ================================================================================
+            MATHEMATICAL DIFFERENCES: STEP 3 (XY plane) vs STEP 4 (XYZ space)
+            ================================================================================
+
+            STEP 3 - XY data colection - averaging
+            ---------------------------------------------------
+            Reader: LighthouseSweepAngleAverageReader (instantiated at base, line 145)
+            Mathematical Operation: AVERAGING (statistical reduction)
+
+                angles_calibrated[bs_id] = data[1]  # Average of angles
+                
+                Formula: angles_calibrated = (1/N) * Σ(raw_angles)
+                
+                - Aggregation in REAL TIME during collection
+                - Returns a single LhCfPoseSample per measurement
+                - Reduces dimensionality: less data to store
+                - Loss of temporal information (timestamps are discarded)
+
+            Output: LhCfPoseSample with averaged angles per BS
+
+
+            STEP 4 - XYZ data colection - timestamping
+            ---------------------------------------------------
+            Reader: LighthouseSweepAngleReader (instantiated here, line 276)
+            Mathematical Operation: TEMPORAL MATCHING (grouping by time proximity)
+
+                measurement = LhMeasurement(timestamp=now, base_station_id=bs_id, angles=angles)
+                self.recorded_angles_result.append(measurement)
+                
+            Then in STEP 5, in _estimate_geometry (line 355):
+                
+                LighthouseSampleMatcher.match(samples, max_time_diff=0.020)
+                
+                Formula: group if |t_i - t_{i-1}| ≤ 0.020s (20 milliseconds)
+                
+                - Collects RAW data with timestamps
+                - Groups samples from multiple base stations that were measured
+                approximately at the same instant (20ms window)
+                - Preserves temporal and sequential information
+                - Maintains CF "movement" over time
+
+            Output: List of LhMeasurement → converted to LhCfPoseSample with temporal matching
+
+
+            DIRECT COMPARISON
+            ------------------
+            Aspect                   | Step 3              | Step 4
+            -------------------------|--------------------|--------------------
+            Reader                   | AverageReader       | SweepAngleReader
+            Aggregation              | Arithmetic mean     | Temporal matching
+            Time window              | N/A (realtime avg)  | 20ms (max_time_diff)
+            Intermediate type        | LhCfPoseSample      | LhMeasurement
+            When processing?         | Real time           | Step 5 (_estimate_geometry)
+            Preserves movement?      | No (mean loses it)  | Yes (timestamps preserve order)
+            Use case                 | Initial calibration | Data for optimization
+
+
+            PRACTICAL CONSEQUENCE
+            ---------------------
+            - Step 3: Reduces noise/outliers via averaging, but loses dynamics
+            - Step 4: Maintains CF movement dynamics, enables spatial optimization
+                    in LighthouseGeometrySolver
+
+            NOT just a "record vs process" difference - it's a REAL MATHEMATICAL DIFFERENCE
+            in data reduction/aggregation algorithms!
+
+            ================================================================================
+            """
+
             # Step 1: Load and parse measurements
             self.log("Loading measurements...")
             measurements = self._load_measurements(measurements_file)
