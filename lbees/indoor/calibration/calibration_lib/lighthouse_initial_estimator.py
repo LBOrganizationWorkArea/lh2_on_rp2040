@@ -27,10 +27,10 @@ import numpy as np
 import numpy.typing as npt
 
 from .ippe_cf import IppeCf
-from .lighthouse_types import LhBsCfPoses
-from .lighthouse_types import LhCfPoseSample
-from .lighthouse_types import LhException
-from .lighthouse_types import Pose
+from ...angle_lib.lighthouse_types import LhBsCfPoses
+from ...angle_lib.lighthouse_types import LhCfPoseSample
+from ...angle_lib.lighthouse_types import LhException
+from ...angle_lib.lighthouse_types import Pose
 
 
 ArrayFloat = npt.NDArray[np.float64]

@@ -27,7 +27,7 @@ import numpy as np
 import numpy.typing as npt
 from scipy.spatial.transform import Rotation
 
-from .lighthouse_bs_vector import LighthouseBsVectors
+from ..calibration.calibration_lib.lighthouse_bs_vector import LighthouseBsVectors
 
 
 class Pose:

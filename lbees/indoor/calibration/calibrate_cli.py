@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
-from calibration_lib.lighthouse_types import (
+from lbees.indoor.angle_lib.lighthouse_types import (
     LhMeasurement, LhCfPoseSample, Pose, LhDeck4SensorPositions
 )
 
@@ -37,7 +37,7 @@ from calibration_lib.lighthouse_config_manager import LighthouseConfigFileManage
 from angle_lib.angle_decoder import AngleDecoder
 from angle_lib.angle import Angle
 
-from calibration.calibrate_lighthouse_fr import LighthouseCalibrator
+from lbees.indoor.calibration.calibrate_lighthouse import LighthouseCalibrator
 from calibration.calibration_pose_acquisition import CalibrationObtainMeasuraments 
 
 

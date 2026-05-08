@@ -21,8 +21,8 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 from __future__ import annotations
 
-from .lighthouse_types import LhCfPoseSample
-from .lighthouse_types import LhMeasurement
+from ...angle_lib.lighthouse_types import LhCfPoseSample
+from ...angle_lib.lighthouse_types import LhMeasurement
 
 
 class LighthouseSampleMatcher:

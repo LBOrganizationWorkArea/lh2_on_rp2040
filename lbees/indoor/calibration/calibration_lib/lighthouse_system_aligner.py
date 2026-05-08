@@ -25,7 +25,7 @@ import numpy as np
 import numpy.typing as npt
 import scipy.optimize
 
-from .lighthouse_types import Pose
+from ...angle_lib.lighthouse_types import Pose
 
 
 class LighthouseSystemAligner:

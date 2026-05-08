@@ -26,9 +26,9 @@ import numpy.typing as npt
 import scipy.optimize
 import scipy.sparse
 
-from .lighthouse_types import LhBsCfPoses
-from .lighthouse_types import LhCfPoseSample
-from .lighthouse_types import Pose
+from ...angle_lib.lighthouse_types import LhBsCfPoses
+from ...angle_lib.lighthouse_types import LhCfPoseSample
+from ...angle_lib.lighthouse_types import Pose
 
 
 class LighthouseGeometrySolution:

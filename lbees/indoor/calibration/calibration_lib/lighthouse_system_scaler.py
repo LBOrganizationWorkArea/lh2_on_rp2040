@@ -27,8 +27,8 @@ import numpy as np
 import numpy.typing as npt
 
 from .lighthouse_bs_vector import LighthouseBsVector
-from .lighthouse_types import LhCfPoseSample
-from .lighthouse_types import Pose
+from ...angle_lib.lighthouse_types import LhCfPoseSample
+from ...angle_lib.lighthouse_types import Pose
 
 
 class LighthouseSystemScaler:

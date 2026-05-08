@@ -23,7 +23,7 @@ from pathlib import Path
 
 import numpy as np
 
-from calibration_lib.lighthouse_types import (
+from lbees.indoor.angle_lib.lighthouse_types import (
     LhMeasurement, LhCfPoseSample, Pose, LhDeck4SensorPositions
 )
 
@@ -39,7 +39,7 @@ from angle_lib.angle import Angle
 
 class CalibrationObtainMeasuraments:
     def __init__(self):
-        self.origin, self.x_axis, self.xy_plane, self.samples = None, None, [], []
+        self.origin, self.x_axis, self.xy_plane, self.samples = None, [], [], []
         self.origin_samples = 100
         self.x_axis_samples = 100
         self.xy_plane_positions = 5
@@ -50,34 +50,19 @@ class CalibrationObtainMeasuraments:
 
 
     def record_origin(self):
-        origin = Angle(0.0, 0, np.zeros((4, 2)))
-
-        for sample in self.origin_samples:
-            cur_decoded = self.decoder.decode()
-            origin.angles += cur_decoded.angles
-
-        origin /= self.origin_samples
-
-        self.origin = origin
+        self.origin = self.decoder.decode()
 
     def record_x_axis(self):
-        x_axis = Angle(0.0, 0, np.zeros((4, 2)))
-
         for sample in self.x_axis_samples:
             cur_decoded = self.decoder.decode()
-            x_axis.angles += cur_decoded.angles
-
-        x_axis /= self.x_axis_samples
-
-        self.x_axis = x_axis
+            self.x_axis.append(cur_decoded)
 
     def record_xy_plane(self):
+        cur_pos_samples = []
         for sample in self.xy_plane_samples:
-            cur_decoded = self.decoder.decode()
-            pos_samples.angles += cur_decoded.angles
+            cur_pos_samples.append(self.decoder.decode())
 
-        pos_samples /= self.xy_plane_samples
-        self.xy_plane.append(pos_samples) #FIXME: do this break??
+        self.xy_plane.append(cur_pos_samples)
 
     def record_samples(self):
         self.samples = []
