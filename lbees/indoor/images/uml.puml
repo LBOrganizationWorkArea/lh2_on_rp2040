@@ -1,0 +1,62 @@
+@startuml
+
+class LhPoseSample {
+  +timestamp
+  +angles
+}
+
+class AngleDecoder {
+  +decode()
+  +gets latest serial data from RP2350 and
+  +transform into angles
+}
+
+class PolyAcquisition {
+    +get_cable()
+    +get_wifi()
+}
+
+class CalibrationMeasurements {
+  +origin
+  +Yaxis
+  +XYplane
+  +XYZspace
+  +record_0
+  +record_y1
+  +record_xy2()
+}
+
+class CalibrateLighthouseCli {
+  +origin
+  +Xaxis
+  +XYZplane
+  +XYZspace
+  +set_origins()
+  +set_x()
+  +set_floor()
+  +set_3d()
+}
+
+class CalibrateLighthouse{
+  +origin
+  +Xaxis
+  +XYZplane
+  +XYZspace
+  +run()
+  +get_poses()
+  +estimate_geometry()
+}
+
+oval CRAZYFLIE_MATH
+
+PolyAcquisition --> LhPoseSample : uses
+AngleDecoder --> LhPoseSample : uses
+CalibrateLighthouse --> LhPoseSample : uses
+CalibrationMeasurements --> LhPoseSample : uses
+CalibrationMeasurements --> AngleDecoder : uses
+CalibrateLighthouseCli --> CalibrationMeasurements : uses
+AngleDecoder --> LhPoseSample
+CalibrateLighthouseCli --> CalibrateLighthouse : uses
+CalibrateLighthouse --> CRAZYFLIE_MATH : uses
+
+@enduml

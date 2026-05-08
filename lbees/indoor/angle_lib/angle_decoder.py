@@ -1,6 +1,6 @@
 import numpy as np
 
-from angle import Angle
+from lighthouse_types import LhCfPoseSample
 
 class AngleDecoder:
     """Decodes angles from raw sensor data."""
@@ -11,4 +11,4 @@ class AngleDecoder:
         """Convert raw sensor data to angles."""
         # Placeholder for actual decoding logic
         
-        return Angle
+        return #LhCfPoseSample
