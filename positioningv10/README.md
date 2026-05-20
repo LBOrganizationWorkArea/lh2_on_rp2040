@@ -58,6 +58,38 @@ py .\tools\05_live_position.py --port COM3 --baudrate 115200 --planar-2d --fixed
 
 For full 3D pose later, capture calibration points at different heights and run live without `--planar-2d`.
 
+## Optional: wand-style 3D calibration
+
+The v7 wand point list has been ported to:
+
+```text
+config/wand_3d_points.json
+```
+
+Capture these known 3D poses with the current v10 `LH2P` parser and factory calibration:
+
+```powershell
+py .\tools\07_capture_wand_poses.py --port COM3 --baudrate 115200 --duration 4 --resume
+```
+
+Fit a 3D Lighthouse geometry from the wand capture:
+
+```powershell
+py .\tools\08_fit_wand_geometry.py
+```
+
+The output geometry is:
+
+```text
+config/lighthouse_geometry_wand_3d.json
+```
+
+Use it live with:
+
+```powershell
+py .\tools\05_live_position.py --port COM3 --baudrate 115200 --geometry config\lighthouse_geometry_wand_3d.json
+```
+
 ## ROS2 bridge
 
 A progressive ROS2 bridge lives in:
