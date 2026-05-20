@@ -405,7 +405,7 @@ def main():
     parser.add_argument("--port", required=True, help="Serial port, example: COM3")
     parser.add_argument("--baudrate", type=int, default=115200)
     parser.add_argument("--layout", default="config/sensors_layout.json")
-    parser.add_argument("--geometry", default="config/lighthouse_geometry_lh2_guided_ultrafast.json")
+    parser.add_argument("--geometry", default="config/lighthouse_geometry_wand_3d.json")
     parser.add_argument("--basestations", default="4,10")
     parser.add_argument(
         "--factory-calibs",

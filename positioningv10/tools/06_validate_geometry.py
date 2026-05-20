@@ -36,8 +36,8 @@ def pose_observations(pose):
 def main():
     parser = argparse.ArgumentParser(description="Validate a Lighthouse geometry file against known calibration poses.")
     parser.add_argument("--layout", default="config/sensors_layout.json")
-    parser.add_argument("--geometry", default="config/lighthouse_geometry_lh2_guided_ultrafast.json")
-    parser.add_argument("--poses", default="config/calibration_poses_2d.json")
+    parser.add_argument("--geometry", default="config/lighthouse_geometry_wand_3d.json")
+    parser.add_argument("--poses", default="config/wand_calibration_poses_3d.json")
     parser.add_argument("--position-only", action="store_true")
     parser.add_argument("--planar-2d", action="store_true", help="Validate by solving x,y at a fixed z.")
     parser.add_argument("--fixed-z", type=float, default=0.0)
