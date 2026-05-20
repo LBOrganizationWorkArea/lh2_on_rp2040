@@ -1,0 +1,15 @@
+{
+  "description": "Known drone center poses on the floor: 4 corners of a 60 cm square.",
+  "frame": {
+    "origin": "P00_center",
+    "x_positive": "right from the initial drone direction",
+    "y_positive": "front from the initial drone direction",
+    "yaw_deg": "keep yaw fixed at 0 for v4 first version"
+  },
+  "poses": [
+    {"name": "P00_front_left", "x_m": -0.30, "y_m": 0.30, "yaw_deg": 0.0},
+    {"name": "P01_front_right", "x_m": 0.30, "y_m": 0.30, "yaw_deg": 0.0},
+    {"name": "P02_back_right", "x_m": 0.30, "y_m": -0.30, "yaw_deg": 0.0},
+    {"name": "P03_back_left", "x_m": -0.30, "y_m": -0.30, "yaw_deg": 0.0}
+  ]
+}

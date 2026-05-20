@@ -1,0 +1,366 @@
+{
+    "description":  "Ground-only floor calibration converted from v7, excluding P02 outlier.",
+    "input":  "positioningv7_selfcalib_wand/data/angle3d_calibration.json",
+    "poses":  [
+                  {
+                      "name":  "P00_bas_avant_gauche",
+                      "x_m":  -0.4,
+                      "y_m":  0.4,
+                      "yaw_deg":  0,
+                      "observations":  [
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  0,
+                                               "lfsr0":  46443,
+                                               "lfsr1":  77157,
+                                               "samples0":  74,
+                                               "samples1":  74
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  1,
+                                               "lfsr0":  76763,
+                                               "lfsr1":  46830,
+                                               "samples0":  74,
+                                               "samples1":  74
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  2,
+                                               "lfsr0":  45612,
+                                               "lfsr1":  75603,
+                                               "samples0":  74,
+                                               "samples1":  74
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  3,
+                                               "lfsr0":  76023,
+                                               "lfsr1":  45261,
+                                               "samples0":  73,
+                                               "samples1":  73
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  0,
+                                               "lfsr0":  76043,
+                                               "lfsr1":  44731,
+                                               "samples0":  74,
+                                               "samples1":  74
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  1,
+                                               "lfsr0":  45446,
+                                               "lfsr1":  76241,
+                                               "samples0":  74,
+                                               "samples1":  74
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  2,
+                                               "lfsr0":  44670,
+                                               "lfsr1":  75232,
+                                               "samples0":  73,
+                                               "samples1":  73
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  3,
+                                               "lfsr0":  43952,
+                                               "lfsr1":  75059,
+                                               "samples0":  73,
+                                               "samples1":  73
+                                           }
+                                       ]
+                  },
+                  {
+                      "name":  "P01_bas_avant_centre",
+                      "x_m":  0,
+                      "y_m":  0.4,
+                      "yaw_deg":  0,
+                      "observations":  [
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  0,
+                                               "lfsr0":  38868,
+                                               "lfsr1":  70360,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  1,
+                                               "lfsr0":  69600,
+                                               "lfsr1":  38785,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  2,
+                                               "lfsr0":  37662,
+                                               "lfsr1":  68720,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  3,
+                                               "lfsr0":  69460,
+                                               "lfsr1":  37764,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  0,
+                                               "lfsr0":  69077,
+                                               "lfsr1":  38933,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  1,
+                                               "lfsr0":  39442,
+                                               "lfsr1":  68839,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  2,
+                                               "lfsr0":  37876,
+                                               "lfsr1":  67365,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  3,
+                                               "lfsr0":  37572,
+                                               "lfsr1":  67787,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           }
+                                       ]
+                  },
+                  {
+                      "name":  "P03_bas_centre_gauche",
+                      "x_m":  -0.4,
+                      "y_m":  0,
+                      "yaw_deg":  0,
+                      "observations":  [
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  0,
+                                               "lfsr0":  38873,
+                                               "lfsr1":  70362,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  1,
+                                               "lfsr0":  69605,
+                                               "lfsr1":  38796,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  2,
+                                               "lfsr0":  37669,
+                                               "lfsr1":  68724,
+                                               "samples0":  81,
+                                               "samples1":  81
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  3,
+                                               "lfsr0":  69459,
+                                               "lfsr1":  37768,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  0,
+                                               "lfsr0":  69081,
+                                               "lfsr1":  38937,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  1,
+                                               "lfsr0":  39453,
+                                               "lfsr1":  68847,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  2,
+                                               "lfsr0":  38381,
+                                               "lfsr1":  67667,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  3,
+                                               "lfsr0":  37894,
+                                               "lfsr1":  67931,
+                                               "samples0":  80,
+                                               "samples1":  80
+                                           }
+                                       ]
+                  },
+                  {
+                      "name":  "P04_bas_centre",
+                      "x_m":  0,
+                      "y_m":  0,
+                      "yaw_deg":  0,
+                      "observations":  [
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  0,
+                                               "lfsr0":  73571,
+                                               "lfsr1":  42604,
+                                               "samples0":  88,
+                                               "samples1":  87
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  1,
+                                               "lfsr0":  72947,
+                                               "lfsr1":  42750,
+                                               "samples0":  87,
+                                               "samples1":  87
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  2,
+                                               "lfsr0":  41535,
+                                               "lfsr1":  71893,
+                                               "samples0":  87,
+                                               "samples1":  87
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  3,
+                                               "lfsr0":  72522,
+                                               "lfsr1":  41422,
+                                               "samples0":  87,
+                                               "samples1":  87
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  0,
+                                               "lfsr0":  42055,
+                                               "lfsr1":  72706,
+                                               "samples0":  87,
+                                               "samples1":  87
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  1,
+                                               "lfsr0":  42706,
+                                               "lfsr1":  72705,
+                                               "samples0":  87,
+                                               "samples1":  87
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  2,
+                                               "lfsr0":  41774,
+                                               "lfsr1":  71566,
+                                               "samples0":  88,
+                                               "samples1":  88
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  3,
+                                               "lfsr0":  41132,
+                                               "lfsr1":  71604,
+                                               "samples0":  87,
+                                               "samples1":  87
+                                           }
+                                       ]
+                  },
+                  {
+                      "name":  "P05_bas_centre_droite",
+                      "x_m":  0.4,
+                      "y_m":  0,
+                      "yaw_deg":  0,
+                      "observations":  [
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  0,
+                                               "lfsr0":  73573,
+                                               "lfsr1":  42604,
+                                               "samples0":  81,
+                                               "samples1":  82
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  1,
+                                               "lfsr0":  72950,
+                                               "lfsr1":  42752,
+                                               "samples0":  81,
+                                               "samples1":  81
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  2,
+                                               "lfsr0":  41536,
+                                               "lfsr1":  71896,
+                                               "samples0":  81,
+                                               "samples1":  81
+                                           },
+                                           {
+                                               "basestation":  4,
+                                               "sensor":  3,
+                                               "lfsr0":  72524,
+                                               "lfsr1":  41424,
+                                               "samples0":  81,
+                                               "samples1":  81
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  0,
+                                               "lfsr0":  42055,
+                                               "lfsr1":  72708,
+                                               "samples0":  81,
+                                               "samples1":  81
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  1,
+                                               "lfsr0":  42708,
+                                               "lfsr1":  72707,
+                                               "samples0":  81,
+                                               "samples1":  81
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  2,
+                                               "lfsr0":  41775,
+                                               "lfsr1":  71569,
+                                               "samples0":  81,
+                                               "samples1":  81
+                                           },
+                                           {
+                                               "basestation":  10,
+                                               "sensor":  3,
+                                               "lfsr0":  41134,
+                                               "lfsr1":  71605,
+                                               "samples0":  81,
+                                               "samples1":  81
+                                           }
+                                       ]
+                  }
+              ]
+}

@@ -1,0 +1,463 @@
+{
+  "source": "C:/Users/elkah/lh2_positioning/positioningv10/config/calibration_poses_2d.json",
+  "output": "C:/Users/elkah/lh2_positioning/positioningv10/config/calibration_poses_2d_filtered.json",
+  "max_spread_ticks": 50000,
+  "poses": [
+    {
+      "name": "P0_center",
+      "before": 16,
+      "removed": [
+        {
+          "bs": 4,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 78503,
+          "values": [
+            308140,
+            306878,
+            152396,
+            151948
+          ]
+        },
+        {
+          "bs": 4,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 78514,
+          "values": [
+            308144,
+            306872,
+            152388,
+            151952
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 74886,
+          "values": [
+            295352,
+            294976,
+            147708,
+            146456
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 74894,
+          "values": [
+            295348,
+            294988,
+            147712,
+            146456
+          ]
+        }
+      ],
+      "kept_groups": [],
+      "after": 0,
+      "missing": 16
+    },
+    {
+      "name": "P1_right_40cm",
+      "before": 16,
+      "removed": [
+        {
+          "bs": 4,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 153510,
+          "values": [
+            318208,
+            166316,
+            163080,
+            162240
+          ]
+        },
+        {
+          "bs": 4,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 153496,
+          "values": [
+            318204,
+            166328,
+            163088,
+            162252
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 146424,
+          "values": [
+            305144,
+            160112,
+            157328,
+            155768
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 146424,
+          "values": [
+            305136,
+            160104,
+            157320,
+            155784
+          ]
+        }
+      ],
+      "kept_groups": [],
+      "after": 0,
+      "missing": 16
+    },
+    {
+      "name": "P2_left_40cm",
+      "before": 16,
+      "removed": [
+        {
+          "bs": 4,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 153242,
+          "values": [
+            298280,
+            296700,
+            293768,
+            141992
+          ]
+        },
+        {
+          "bs": 4,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 153240,
+          "values": [
+            298280,
+            296696,
+            293768,
+            141992
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 145920,
+          "values": [
+            285112,
+            284320,
+            281104,
+            136792
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 145916,
+          "values": [
+            285108,
+            284316,
+            281100,
+            136792
+          ]
+        }
+      ],
+      "kept_groups": [],
+      "after": 0,
+      "missing": 16
+    },
+    {
+      "name": "P3_front_40cm",
+      "before": 16,
+      "removed": [
+        {
+          "bs": 4,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 75708,
+          "values": [
+            303884,
+            302276,
+            154076,
+            153452
+          ]
+        },
+        {
+          "bs": 4,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 75708,
+          "values": [
+            303884,
+            302276,
+            154076,
+            153456
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 72252,
+          "values": [
+            294212,
+            293732,
+            152588,
+            150908
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 72238,
+          "values": [
+            294206,
+            293724,
+            152580,
+            150914
+          ]
+        }
+      ],
+      "kept_groups": [],
+      "after": 0,
+      "missing": 16
+    },
+    {
+      "name": "P4_back_40cm",
+      "before": 16,
+      "removed": [
+        {
+          "bs": 4,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 80610,
+          "values": [
+            311406,
+            310410,
+            151182,
+            150810
+          ]
+        },
+        {
+          "bs": 4,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 80628,
+          "values": [
+            311424,
+            310416,
+            151176,
+            150816
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 150780,
+          "values": [
+            296160,
+            146712,
+            144048,
+            143040
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 150794,
+          "values": [
+            296168,
+            146696,
+            144052,
+            143048
+          ]
+        }
+      ],
+      "kept_groups": [],
+      "after": 0,
+      "missing": 16
+    },
+    {
+      "name": "P5_front_right",
+      "before": 16,
+      "removed": [
+        {
+          "bs": 4,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 75297,
+          "values": [
+            312492,
+            311244,
+            163146,
+            162204
+          ]
+        },
+        {
+          "bs": 4,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 75301,
+          "values": [
+            312494,
+            311244,
+            163142,
+            162204
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 140256,
+          "values": [
+            302670,
+            302574,
+            160638,
+            299214
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 140256,
+          "values": [
+            302668,
+            302572,
+            160636,
+            299212
+          ]
+        }
+      ],
+      "kept_groups": [],
+      "after": 0,
+      "missing": 16
+    },
+    {
+      "name": "P6_front_left",
+      "before": 16,
+      "removed": [
+        {
+          "bs": 4,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 147948,
+          "values": [
+            292890,
+            290826,
+            142290,
+            289650
+          ]
+        },
+        {
+          "bs": 4,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 147952,
+          "values": [
+            292896,
+            290832,
+            142292,
+            289656
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 71312,
+          "values": [
+            282524,
+            281444,
+            141116,
+            139968
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 71314,
+          "values": [
+            282516,
+            281436,
+            141112,
+            139960
+          ]
+        }
+      ],
+      "kept_groups": [],
+      "after": 0,
+      "missing": 16
+    },
+    {
+      "name": "P7_back_left",
+      "before": 16,
+      "removed": [
+        {
+          "bs": 4,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 159216,
+          "values": [
+            302524,
+            144676,
+            141940,
+            141892
+          ]
+        },
+        {
+          "bs": 4,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 159216,
+          "values": [
+            302524,
+            144676,
+            141940,
+            141892
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 0,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 150604,
+          "values": [
+            287068,
+            137820,
+            135108,
+            134412
+          ]
+        },
+        {
+          "bs": 10,
+          "sweep": 1,
+          "reason": "sensor offset spread too large",
+          "spread_ticks": 150616,
+          "values": [
+            287068,
+            137808,
+            135096,
+            134400
+          ]
+        }
+      ],
+      "kept_groups": [],
+      "after": 0,
+      "missing": 16
+    }
+  ]
+}

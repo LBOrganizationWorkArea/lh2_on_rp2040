@@ -1,0 +1,10 @@
+{
+  "description": "4 sensors mounted as a 12.5 cm square. Origin is the drone center.",
+  "unit": "meter",
+  "sensors": [
+    {"sensor": 0, "x_m": 0.0625, "y_m": 0.0625},
+    {"sensor": 1, "x_m": 0.0625, "y_m": -0.0625},
+    {"sensor": 2, "x_m": -0.0625, "y_m": -0.0625},
+    {"sensor": 3, "x_m": -0.0625, "y_m": 0.0625}
+  ]
+}

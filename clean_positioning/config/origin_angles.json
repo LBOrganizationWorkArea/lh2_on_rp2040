@@ -1,0 +1,92 @@
+{
+  "unit": "radians",
+  "type": "origin_angles",
+  "origin": "drone_start_pose_is_local_origin",
+  "duration_s": 8.0,
+  "layout_file": "config\\sensors_layout.json",
+  "basestations": [
+    4,
+    10,
+    13
+  ],
+  "measurements": {
+    "4": {
+      "0": {
+        "theta": -0.8925972015991813,
+        "phi": -1.1655501363661893,
+        "lfsr0_median": 44874,
+        "lfsr1_median": 78153,
+        "samples0": 82,
+        "samples1": 81
+      },
+      "1": {
+        "theta": -0.893753308158145,
+        "phi": -1.1663360802733163,
+        "lfsr0_median": 44875,
+        "lfsr1_median": 77232,
+        "samples0": 81,
+        "samples1": 81
+      },
+      "2": {
+        "theta": -0.89683584010286,
+        "phi": -1.18450172851612,
+        "lfsr0_median": 76220,
+        "lfsr1_median": 43434,
+        "samples0": 81,
+        "samples1": 81
+      },
+      "3": {
+        "theta": -0.8956458043296659,
+        "phi": -1.1841811287385144,
+        "lfsr0_median": 77127,
+        "lfsr1_median": 43474,
+        "samples0": 81,
+        "samples1": 81
+      }
+    },
+    "10": {
+      "0": {
+        "theta": -0.9153574211599964,
+        "phi": -1.1771755757650444,
+        "lfsr0_median": 38045,
+        "lfsr1_median": 66870,
+        "samples0": 81,
+        "samples1": 81
+      },
+      "1": {
+        "theta": -0.9144601819392355,
+        "phi": -1.1770578260462792,
+        "lfsr0_median": 38932,
+        "lfsr1_median": 66697,
+        "samples0": 81,
+        "samples1": 81
+      },
+      "2": {
+        "theta": -0.9178141475977942,
+        "phi": -1.192559510531877,
+        "lfsr0_median": 65192,
+        "lfsr1_median": 37768,
+        "samples0": 81,
+        "samples1": 81
+      },
+      "3": {
+        "theta": -0.9185995460753511,
+        "phi": -1.1787576596340974,
+        "lfsr0_median": 36909,
+        "lfsr1_median": 65426,
+        "samples0": 81,
+        "samples1": 81
+      }
+    },
+    "13": {
+      "1": {
+        "theta": -1.0152638774179188,
+        "phi": -1.2326993483397388,
+        "lfsr0_median": 12706,
+        "lfsr1_median": 12706,
+        "samples0": 81,
+        "samples1": 81
+      }
+    }
+  }
+}

@@ -1,0 +1,12 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.log
+
+data/captures/*.csv
+!data/captures/example_capture.csv
+
+.DS_Store
+Thumbs.db
+.vscode/

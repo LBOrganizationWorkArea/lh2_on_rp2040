@@ -1,0 +1,156 @@
+{
+  "description": "t=0 Lighthouse angle capture. Drone pose at this moment is world origin.",
+  "created_unix_time_s": 1777891349.7303362,
+  "ticks_per_rev": 833333,
+  "stable_basestations": [
+    4,
+    10
+  ],
+  "duration_s": 6.0,
+  "measurements": [
+    {
+      "sensor": 0,
+      "basestation": 4,
+      "sweep": 0,
+      "median_lfsr_location": 47039.0,
+      "angle_deg": -53.22638129055252,
+      "angle_rad": -0.92897560244205,
+      "sample_count": 59
+    },
+    {
+      "sensor": 0,
+      "basestation": 4,
+      "sweep": 1,
+      "median_lfsr_location": 75350.0,
+      "angle_deg": -49.14959565983826,
+      "angle_rad": -0.8578222702880927,
+      "sample_count": 59
+    },
+    {
+      "sensor": 0,
+      "basestation": 10,
+      "sweep": 0,
+      "median_lfsr_location": 43293.0,
+      "angle_deg": -53.7658055063222,
+      "angle_rad": -0.9383903310722193,
+      "sample_count": 59
+    },
+    {
+      "sensor": 0,
+      "basestation": 10,
+      "sweep": 1,
+      "median_lfsr_location": 69539.0,
+      "angle_deg": -49.986379994551996,
+      "angle_rad": -0.8724269120579575,
+      "sample_count": 59
+    },
+    {
+      "sensor": 1,
+      "basestation": 4,
+      "sweep": 0,
+      "median_lfsr_location": 48074.0,
+      "angle_deg": -53.07734123093649,
+      "angle_rad": -0.9263743626843817,
+      "sample_count": 59
+    },
+    {
+      "sensor": 1,
+      "basestation": 4,
+      "sweep": 1,
+      "median_lfsr_location": 75406.0,
+      "angle_deg": -49.14153165661266,
+      "angle_rad": -0.8576815268809145,
+      "sample_count": 59
+    },
+    {
+      "sensor": 1,
+      "basestation": 10,
+      "sweep": 0,
+      "median_lfsr_location": 68488.0,
+      "angle_deg": -50.13772405508962,
+      "angle_rad": -0.8750683642176768,
+      "sample_count": 59
+    },
+    {
+      "sensor": 1,
+      "basestation": 10,
+      "sweep": 1,
+      "median_lfsr_location": 43308.0,
+      "angle_deg": -53.7636455054582,
+      "angle_rad": -0.9383526319452966,
+      "sample_count": 59
+    },
+    {
+      "sensor": 2,
+      "basestation": 4,
+      "sweep": 0,
+      "median_lfsr_location": 47041.0,
+      "angle_deg": -53.22609329043732,
+      "angle_rad": -0.9289705758917938,
+      "sample_count": 59
+    },
+    {
+      "sensor": 2,
+      "basestation": 4,
+      "sweep": 1,
+      "median_lfsr_location": 73925.0,
+      "angle_deg": -49.354795741918295,
+      "angle_rad": -0.8614036873457517,
+      "sample_count": 59
+    },
+    {
+      "sensor": 2,
+      "basestation": 10,
+      "sweep": 0,
+      "median_lfsr_location": 41810.0,
+      "angle_deg": -53.97935759174304,
+      "angle_rad": -0.942117518087313,
+      "sample_count": 59
+    },
+    {
+      "sensor": 2,
+      "basestation": 10,
+      "sweep": 1,
+      "median_lfsr_location": 67504.0,
+      "angle_deg": -50.27942011176805,
+      "angle_rad": -0.8775414269438078,
+      "sample_count": 59
+    },
+    {
+      "sensor": 3,
+      "basestation": 4,
+      "sweep": 0,
+      "median_lfsr_location": 46006.0,
+      "angle_deg": -53.37513335005334,
+      "angle_rad": -0.9315718156494618,
+      "sample_count": 59
+    },
+    {
+      "sensor": 3,
+      "basestation": 4,
+      "sweep": 1,
+      "median_lfsr_location": 73934.0,
+      "angle_deg": -49.3534997413999,
+      "angle_rad": -0.8613810678695982,
+      "sample_count": 59
+    },
+    {
+      "sensor": 3,
+      "basestation": 10,
+      "sweep": 0,
+      "median_lfsr_location": 41856.0,
+      "angle_deg": -53.97273358909344,
+      "angle_rad": -0.9420019074314168,
+      "sample_count": 59
+    },
+    {
+      "sensor": 3,
+      "basestation": 10,
+      "sweep": 1,
+      "median_lfsr_location": 68530.0,
+      "angle_deg": -50.13167605267042,
+      "angle_rad": -0.8749628066622931,
+      "sample_count": 59
+    }
+  ]
+}

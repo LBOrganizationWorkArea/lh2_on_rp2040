@@ -1,0 +1,30 @@
+{
+  "source": "usb",
+  "device": "COM4",
+  "timestamp": "2026-05-14T10:42:42.781650+00:00",
+  "base_station": {
+    "serial": null,
+    "channel": null,
+    "model": "LH2"
+  },
+  "calibration": {
+    "axis0": {
+      "phase": 0.0,
+      "tilt": -0.04748,
+      "gibmag": -0.000799,
+      "gibphase": 1.760402,
+      "curve": 0.110528,
+      "ogeemag": -0.145667,
+      "ogeephase": 1.220282
+    },
+    "axis1": {
+      "phase": 0.000301,
+      "tilt": 0.04616,
+      "gibmag": -0.003324,
+      "gibphase": 1.278937,
+      "curve": 0.558356,
+      "ogeemag": 0.055231,
+      "ogeephase": 3.018561
+    }
+  }
+}

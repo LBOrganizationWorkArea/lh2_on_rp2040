@@ -1,0 +1,39 @@
+{
+  "description": "Relative Lighthouse calibration from drone wand PnP.",
+  "world_bs": 4,
+  "other_bs": 10,
+  "transform_world_from_other": [
+    [
+      0.8958089206119562,
+      -0.4187023407572273,
+      -0.1490460586411518,
+      0.22456329221501703
+    ],
+    [
+      0.4178341773706798,
+      0.9077017775795388,
+      -0.038627492798699856,
+      0.1554037166576293
+    ],
+    [
+      0.15146279402219617,
+      -0.02767368467271833,
+      0.9880754977245543,
+      0.7137631674841478
+    ],
+    [
+      0.0,
+      0.0,
+      0.0,
+      1.0
+    ]
+  ],
+  "num_frames_total": 437,
+  "num_frames_used": 349,
+  "quality": {
+    "translation_median_error_m": 1.4517559863631688,
+    "translation_p95_error_m": 2.54909900820601,
+    "rotation_median_error_deg": 66.79823438745721,
+    "rotation_p95_error_deg": 130.36012926987001
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "type": "origin_2d_maps",
+  "description": "2D homography maps from Lighthouse angular image coordinates to origin-plane coordinates.",
+  "frame": "origin_drone_2d_frame",
+  "layout_file": "config\\sensors_layout.json",
+  "origin_file": "config\\origin_angles.json",
+  "basestations": {
+    "4": {
+      "used_sensors": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "sweep_swap": true,
+      "H_image_to_world": [
+        [
+          -3.3577879020781216,
+          -0.17045069076040992,
+          -4.838026431357495
+        ],
+        [
+          -0.24176438000174197,
+          0.06540785054208215,
+          -0.05077748178813275
+        ],
+        [
+          0.46182698393975014,
+          0.08582141249013996,
+          0.9999999999999999
+        ]
+      ],
+      "fit_rmse_m": 6.796319513779133e-07
+    },
+    "10": {
+      "used_sensors": [
+        0,
+        1,
+        2,
+        3
+      ],
+      "sweep_swap": false,
+      "H_image_to_world": [
+        [
+          -1.0936183777762436,
+          0.22041738172264,
+          -0.5510852826268584
+        ],
+        [
+          -0.4171941898961156,
+          0.19697732322647538,
+          0.23613055785353568
+        ],
+        [
+          -8.712500612979433,
+          3.1239811207712402,
+          1.0
+        ]
+      ],
+      "fit_rmse_m": 4.645485586317217e-06
+    }
+  }
+}

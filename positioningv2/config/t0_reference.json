@@ -1,0 +1,126 @@
+{
+  "description": "t=0 reference. Drone center is defined as [0, 0].",
+  "created_unix_time_s": 1777888577.2342677,
+  "duration_s": 5.0,
+  "format": {
+    "sensor": "TS4231 sensor id",
+    "basestation": "Lighthouse base station id",
+    "sweep": "sweep id",
+    "median_lfsr_location": "median lfsr_location during t=0 capture",
+    "sample_count": "number of samples used"
+  },
+  "reference": [
+    {
+      "sensor": 0,
+      "basestation": 4,
+      "sweep": 0,
+      "median_lfsr_location": 43094.0,
+      "sample_count": 50
+    },
+    {
+      "sensor": 0,
+      "basestation": 4,
+      "sweep": 1,
+      "median_lfsr_location": 72852.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 0,
+      "basestation": 10,
+      "sweep": 0,
+      "median_lfsr_location": 41121.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 0,
+      "basestation": 10,
+      "sweep": 1,
+      "median_lfsr_location": 69612.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 1,
+      "basestation": 4,
+      "sweep": 0,
+      "median_lfsr_location": 44155.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 1,
+      "basestation": 4,
+      "sweep": 1,
+      "median_lfsr_location": 72677.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 1,
+      "basestation": 10,
+      "sweep": 0,
+      "median_lfsr_location": 40944.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 1,
+      "basestation": 10,
+      "sweep": 1,
+      "median_lfsr_location": 68395.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 2,
+      "basestation": 4,
+      "sweep": 0,
+      "median_lfsr_location": 42909.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 2,
+      "basestation": 4,
+      "sweep": 1,
+      "median_lfsr_location": 71003.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 2,
+      "basestation": 10,
+      "sweep": 0,
+      "median_lfsr_location": 67532.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 2,
+      "basestation": 10,
+      "sweep": 1,
+      "median_lfsr_location": 39426.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 3,
+      "basestation": 4,
+      "sweep": 0,
+      "median_lfsr_location": 71246.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 3,
+      "basestation": 4,
+      "sweep": 1,
+      "median_lfsr_location": 41873.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 3,
+      "basestation": 10,
+      "sweep": 0,
+      "median_lfsr_location": 39649.0,
+      "sample_count": 49
+    },
+    {
+      "sensor": 3,
+      "basestation": 10,
+      "sweep": 1,
+      "median_lfsr_location": 68697.0,
+      "sample_count": 49
+    }
+  ]
+}

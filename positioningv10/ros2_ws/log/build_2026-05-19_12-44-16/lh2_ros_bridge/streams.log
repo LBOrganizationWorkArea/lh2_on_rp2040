@@ -1,0 +1,20 @@
+[5.815s] Invoking command in '/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge': CONDA_PROMPT_MODIFIER=(base) DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge/build --no-deps symlink_data
+[8.288s] running develop
+[9.598s] running egg_info
+[9.680s] writing lh2_ros_bridge.egg-info/PKG-INFO
+[9.690s] writing dependency_links to lh2_ros_bridge.egg-info/dependency_links.txt
+[9.696s] writing entry points to lh2_ros_bridge.egg-info/entry_points.txt
+[9.704s] writing requirements to lh2_ros_bridge.egg-info/requires.txt
+[9.711s] writing top-level names to lh2_ros_bridge.egg-info/top_level.txt
+[10.004s] reading manifest file 'lh2_ros_bridge.egg-info/SOURCES.txt'
+[10.239s] writing manifest file 'lh2_ros_bridge.egg-info/SOURCES.txt'
+[10.349s] running build_ext
+[10.354s] Creating /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/python3.12/site-packages/lh2-ros-bridge.egg-link (link to .)
+[10.407s] Installing lh2_calibration_recorder_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge
+[10.486s] Installing lh2_parser_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge
+[10.537s] Installing lh2_position_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge
+[10.588s] Installing lh2_serial_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge
+[10.647s] 
+[10.651s] Installed /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge
+[10.658s] running symlink_data
+[10.930s] Invoked command in '/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge' returned '0': CONDA_PROMPT_MODIFIER=(base) DEBUGINFOD_URLS=https://debuginfod.ubuntu.com PYTHONPATH=/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/python3.12/site-packages:${PYTHONPATH} /usr/bin/python3 -W ignore:setup.py install is deprecated -W ignore:easy_install command is deprecated setup.py develop --editable --build-directory /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge/build --no-deps symlink_data

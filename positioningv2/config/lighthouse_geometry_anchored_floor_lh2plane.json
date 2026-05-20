@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "model": "anchored_floor_lh2-plane",
+  "units": "meters",
+  "angle_units": "radians",
+  "drone_z_assumed": 0.0,
+  "anchors": {
+    "yaw_fixed_deg": 0.0,
+    "note": "Drone anchor point x/y/yaw are fixed by floor marks."
+  },
+  "lighthouses": [
+    {
+      "id": 4,
+      "translation": [
+        0.7108924754651996,
+        7.402679103758841,
+        3.4912281144999313
+      ],
+      "rotation_vector": [
+        0.5925868887542086,
+        0.0020238586318249707,
+        1.1217985856155621
+      ]
+    },
+    {
+      "id": 10,
+      "translation": [
+        -0.23192096041382582,
+        0.5173275048847726,
+        1.9207013945752598
+      ],
+      "rotation_vector": [
+        0.9254944891542021,
+        0.40401192473017056,
+        -0.9159109120076667
+      ]
+    }
+  ],
+  "calibration_quality": {
+    "rmse_rad": 0.17453292519943295,
+    "rmse_deg": 10.0,
+    "median_error_deg": 10.0,
+    "max_error_deg": 10.0,
+    "num_observations": 71,
+    "num_points": 9,
+    "sweep_source": "ordered",
+    "sweep_columns": [
+      "sweep0_deg",
+      "sweep1_deg"
+    ],
+    "geometry_model": "lh2-plane",
+    "outliers_removed": 0
+  }
+}

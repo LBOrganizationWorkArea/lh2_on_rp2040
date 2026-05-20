@@ -1,0 +1,27 @@
+running develop
+running egg_info
+creating lh2_ros_bridge.egg-info
+writing lh2_ros_bridge.egg-info/PKG-INFO
+writing dependency_links to lh2_ros_bridge.egg-info/dependency_links.txt
+writing entry points to lh2_ros_bridge.egg-info/entry_points.txt
+writing requirements to lh2_ros_bridge.egg-info/requires.txt
+writing top-level names to lh2_ros_bridge.egg-info/top_level.txt
+writing manifest file 'lh2_ros_bridge.egg-info/SOURCES.txt'
+reading manifest file 'lh2_ros_bridge.egg-info/SOURCES.txt'
+writing manifest file 'lh2_ros_bridge.egg-info/SOURCES.txt'
+running build_ext
+Creating /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/python3.12/site-packages/lh2-ros-bridge.egg-link (link to .)
+Installing lh2_calibration_recorder_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge
+Installing lh2_parser_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge
+Installing lh2_position_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge
+Installing lh2_serial_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge
+
+Installed /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge
+running symlink_data
+creating /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/share/ament_index
+creating /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/share/ament_index/resource_index
+creating /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/share/ament_index/resource_index/packages
+symbolically linking /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge/resource/lh2_ros_bridge -> /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/share/ament_index/resource_index/packages
+symbolically linking /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge/package.xml -> /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/share/lh2_ros_bridge
+creating /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/share/lh2_ros_bridge/launch
+symbolically linking /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge/launch/lh2_bridge.launch.py -> /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/share/lh2_ros_bridge/launch

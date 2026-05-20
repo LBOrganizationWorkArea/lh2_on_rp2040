@@ -1,0 +1,17 @@
+{
+  "description": "Fixed LH2 sweep pairing modes. Swapped means lfsr0/lfsr1 are exchanged before applying A0/B0 and A1/B1.",
+  "modes": {
+    "4": {
+      "0": "normal",
+      "1": "normal",
+      "2": "swapped",
+      "3": "swapped"
+    },
+    "10": {
+      "0": "swapped",
+      "1": "normal",
+      "2": "normal",
+      "3": "normal"
+    }
+  }
+}

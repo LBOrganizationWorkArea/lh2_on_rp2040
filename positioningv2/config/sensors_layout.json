@@ -1,0 +1,30 @@
+{
+  "units": "meters",
+  "body_frame": {
+    "x": "front",
+    "y": "left",
+    "z": "up"
+  },
+  "sensors": [
+    {
+      "id": 0,
+      "name": "front_left",
+      "position": [0.05, 0.05, 0.0]
+    },
+    {
+      "id": 1,
+      "name": "front_right",
+      "position": [0.05, -0.05, 0.0]
+    },
+    {
+      "id": 2,
+      "name": "rear_left",
+      "position": [-0.05, 0.05, 0.0]
+    },
+    {
+      "id": 3,
+      "name": "rear_right",
+      "position": [-0.05, -0.05, 0.0]
+    }
+  ]
+}

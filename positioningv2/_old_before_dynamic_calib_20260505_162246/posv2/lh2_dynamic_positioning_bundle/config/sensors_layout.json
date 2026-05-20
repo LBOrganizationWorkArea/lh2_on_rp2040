@@ -1,0 +1,10 @@
+{
+  "unit": "m",
+  "description": "Positions of the 4 TS4231 sensors in the drone body frame. Origin = drone center / barycenter target. Edit the values with your real measurements.",
+  "sensors": {
+    "S0": {"x": 0.10, "y": 0.10, "z": 0.00, "label": "front_left"},
+    "S1": {"x": 0.10, "y": -0.10, "z": 0.00, "label": "front_right"},
+    "S2": {"x": -0.10, "y": -0.10, "z": 0.00, "label": "rear_right"},
+    "S3": {"x": -0.10, "y": 0.10, "z": 0.00, "label": "rear_left"}
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "drone_z": 0.0,
+  "lighthouse_z_guess": 1.5,
+  "expected_lighthouses": [4, 10],
+  "min_observations_per_pose": 4,
+  "angle_units": "degrees",
+  "max_angle_error_deg": 5.0,
+  "robust_loss": "soft_l1"
+}

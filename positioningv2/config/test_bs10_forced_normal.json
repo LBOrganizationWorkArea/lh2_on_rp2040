@@ -1,0 +1,40 @@
+{
+  "version": 1,
+  "model": "anchored_floor_sweep_approximation",
+  "units": "meters",
+  "angle_units": "radians",
+  "drone_z_assumed": 0.0,
+  "anchors": {
+    "yaw_fixed_deg": 0.0,
+    "note": "Drone anchor point x/y/yaw are fixed by floor marks."
+  },
+  "lighthouses": [
+    {
+      "id": 10,
+      "translation": [
+        7.999999936354496,
+        7.999999687390338,
+        0.9725624063971544
+      ],
+      "rotation_vector": [
+        1.5637411495125992,
+        1.6687587172819307,
+        -2.098961454760401
+      ]
+    }
+  ],
+  "calibration_quality": {
+    "rmse_rad": 0.09787907125154408,
+    "rmse_deg": 5.608057685373744,
+    "median_error_deg": 3.3780335648159423,
+    "max_error_deg": 12.489415288258595,
+    "num_observations": 18,
+    "num_points": 6,
+    "sweep_source": "model",
+    "sweep_columns": [
+      "model_sweep0_deg",
+      "model_sweep1_deg"
+    ],
+    "outliers_removed": 17
+  }
+}

@@ -1,0 +1,951 @@
+{
+  "description": "Relative 2D calibration using a 30 cm grid.",
+  "created_unix_time_s": 1777891923.8942075,
+  "duration_s_per_point": 6.0,
+  "frame": {
+    "origin": "drone center at point A",
+    "x": "forward from drone orientation at point A",
+    "y": "left from drone orientation at point A",
+    "unit": "meter"
+  },
+  "points": [
+    {
+      "name": "P0_center",
+      "x_m": 0.0,
+      "y_m": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 0,
+          "sweep": 0,
+          "median_lfsr_location": 106136.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 0,
+          "basestation": 0,
+          "sweep": 1,
+          "median_lfsr_location": 98680.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 0,
+          "basestation": 3,
+          "sweep": 0,
+          "median_lfsr_location": 62716.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 47039.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 75348.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 69538.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 43293.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 48076.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 75403.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 68487.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 43307.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 73923.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 47040.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 67503.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 41809.0,
+          "sample_count": 74
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 46006.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 73932.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 3,
+          "basestation": 7,
+          "sweep": 0,
+          "median_lfsr_location": 101426.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 3,
+          "basestation": 8,
+          "sweep": 0,
+          "median_lfsr_location": 130976.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 3,
+          "basestation": 8,
+          "sweep": 1,
+          "median_lfsr_location": 52937.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 3,
+          "basestation": 9,
+          "sweep": 0,
+          "median_lfsr_location": 68871.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 3,
+          "basestation": 9,
+          "sweep": 1,
+          "median_lfsr_location": 68871.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 41856.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 68528.0,
+          "sample_count": 73
+        },
+        {
+          "sensor": 3,
+          "basestation": 11,
+          "sweep": 0,
+          "median_lfsr_location": 112872.0,
+          "sample_count": 73
+        }
+      ]
+    },
+    {
+      "name": "P1_right_30cm",
+      "x_m": -0.3,
+      "y_m": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 0,
+          "sweep": 0,
+          "median_lfsr_location": 106136.0,
+          "sample_count": 75
+        },
+        {
+          "sensor": 0,
+          "basestation": 0,
+          "sweep": 1,
+          "median_lfsr_location": 98680.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 0,
+          "basestation": 3,
+          "sweep": 0,
+          "median_lfsr_location": 62716.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 48492.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 77890.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 72066.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 46150.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 49750.5,
+          "sample_count": 76
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 78402.5,
+          "sample_count": 76
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 71320.5,
+          "sample_count": 76
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 46767.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 77139.5,
+          "sample_count": 76
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 49046.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 70051.5,
+          "sample_count": 76
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 45220.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 47880.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 76704.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 3,
+          "basestation": 7,
+          "sweep": 0,
+          "median_lfsr_location": 101426.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 3,
+          "basestation": 8,
+          "sweep": 0,
+          "median_lfsr_location": 130976.0,
+          "sample_count": 76
+        },
+        {
+          "sensor": 3,
+          "basestation": 8,
+          "sweep": 1,
+          "median_lfsr_location": 52937.0,
+          "sample_count": 75
+        },
+        {
+          "sensor": 3,
+          "basestation": 9,
+          "sweep": 0,
+          "median_lfsr_location": 68871.0,
+          "sample_count": 75
+        },
+        {
+          "sensor": 3,
+          "basestation": 9,
+          "sweep": 1,
+          "median_lfsr_location": 68871.0,
+          "sample_count": 75
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 44766.0,
+          "sample_count": 75
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 70749.0,
+          "sample_count": 75
+        },
+        {
+          "sensor": 3,
+          "basestation": 11,
+          "sweep": 0,
+          "median_lfsr_location": 112872.0,
+          "sample_count": 75
+        }
+      ]
+    },
+    {
+      "name": "P2_left_30cm",
+      "x_m": 0.3,
+      "y_m": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 0,
+          "sweep": 0,
+          "median_lfsr_location": 106136.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 0,
+          "basestation": 0,
+          "sweep": 1,
+          "median_lfsr_location": 98680.0,
+          "sample_count": 92
+        },
+        {
+          "sensor": 0,
+          "basestation": 3,
+          "sweep": 0,
+          "median_lfsr_location": 62716.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 44658.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 72368.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 67696.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 40397.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 72105.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 45543.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 66587.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 40133.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 70571.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 44278.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 2,
+          "basestation": 5,
+          "sweep": 0,
+          "median_lfsr_location": 102101.0,
+          "sample_count": 58
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 65844.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 38812.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 43430.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 70898.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 3,
+          "basestation": 7,
+          "sweep": 0,
+          "median_lfsr_location": 101426.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 3,
+          "basestation": 8,
+          "sweep": 0,
+          "median_lfsr_location": 130976.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 3,
+          "basestation": 8,
+          "sweep": 1,
+          "median_lfsr_location": 52937.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 3,
+          "basestation": 9,
+          "sweep": 0,
+          "median_lfsr_location": 68871.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 3,
+          "basestation": 9,
+          "sweep": 1,
+          "median_lfsr_location": 68871.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 39108.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 66894.0,
+          "sample_count": 91
+        },
+        {
+          "sensor": 3,
+          "basestation": 11,
+          "sweep": 0,
+          "median_lfsr_location": 112872.0,
+          "sample_count": 91
+        }
+      ]
+    },
+    {
+      "name": "P3_up_30cm",
+      "x_m": 0.0,
+      "y_m": 0.3,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 0,
+          "sweep": 0,
+          "median_lfsr_location": 106136.0,
+          "sample_count": 115
+        },
+        {
+          "sensor": 0,
+          "basestation": 0,
+          "sweep": 1,
+          "median_lfsr_location": 98680.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 3,
+          "sweep": 0,
+          "median_lfsr_location": 62716.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 44660.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 72365.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 67693.5,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 40397.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 72107.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 45541.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 66587.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 40133.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 70572.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 44279.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 5,
+          "sweep": 0,
+          "median_lfsr_location": 102101.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 65845.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 38812.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 43431.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 70898.5,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 7,
+          "sweep": 0,
+          "median_lfsr_location": 101426.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 8,
+          "sweep": 0,
+          "median_lfsr_location": 130976.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 8,
+          "sweep": 1,
+          "median_lfsr_location": 52937.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 9,
+          "sweep": 0,
+          "median_lfsr_location": 68871.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 9,
+          "sweep": 1,
+          "median_lfsr_location": 68871.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 39109.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 66895.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 11,
+          "sweep": 0,
+          "median_lfsr_location": 112872.0,
+          "sample_count": 115
+        }
+      ]
+    },
+    {
+      "name": "P4_down_30cm",
+      "x_m": 0.0,
+      "y_m": -0.3,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 0,
+          "sweep": 0,
+          "median_lfsr_location": 106136.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 0,
+          "sweep": 1,
+          "median_lfsr_location": 98680.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 3,
+          "sweep": 0,
+          "median_lfsr_location": 62716.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 75029.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 48520.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 43200.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 67897.5,
+          "sample_count": 116
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 75107.5,
+          "sample_count": 116
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 51348.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 65090.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 43371.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 73771.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 48568.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 5,
+          "sweep": 0,
+          "median_lfsr_location": 102101.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 65639.5,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 41513.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 2,
+          "basestation": 14,
+          "sweep": 0,
+          "median_lfsr_location": 21481.0,
+          "sample_count": 22
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 47367.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 73876.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 7,
+          "sweep": 0,
+          "median_lfsr_location": 101426.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 8,
+          "sweep": 0,
+          "median_lfsr_location": 130976.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 8,
+          "sweep": 1,
+          "median_lfsr_location": 52937.0,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 9,
+          "sweep": 0,
+          "median_lfsr_location": 68871.0,
+          "sample_count": 115
+        },
+        {
+          "sensor": 3,
+          "basestation": 9,
+          "sweep": 1,
+          "median_lfsr_location": 68871.0,
+          "sample_count": 115
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 41684.0,
+          "sample_count": 115
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 66956.5,
+          "sample_count": 116
+        },
+        {
+          "sensor": 3,
+          "basestation": 11,
+          "sweep": 0,
+          "median_lfsr_location": 112872.0,
+          "sample_count": 116
+        }
+      ]
+    }
+  ]
+}

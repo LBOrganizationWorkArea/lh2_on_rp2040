@@ -1,0 +1,33 @@
+{
+  "description": "Fast 2D Lighthouse bearing geometry. Uses one sweep per Lighthouse.",
+  "layout": ".\\config\\sensors_layout.json",
+  "poses": ".\\config\\calibration_poses_2d.json",
+  "basestations": [
+    {
+      "basestation": 4,
+      "sweep": 0,
+      "position_m": [
+        -126582.42277286739,
+        -52929.3874165863
+      ],
+      "yaw_rad": 0.39604854169329673,
+      "scale": 1.4290891197014873e-06,
+      "rmse_deg": 8.34059300675731e-05,
+      "rmse_rad": 1.4557080953672874e-06,
+      "rows": 20
+    },
+    {
+      "basestation": 10,
+      "sweep": 1,
+      "position_m": [
+        179863.9279301432,
+        -109621.8184436163
+      ],
+      "yaw_rad": 2.5942446921313635,
+      "scale": 6.968766601141839e-06,
+      "rmse_deg": 5.2500517254162125e-05,
+      "rmse_rad": 9.163068850852217e-07,
+      "rows": 20
+    }
+  ]
+}

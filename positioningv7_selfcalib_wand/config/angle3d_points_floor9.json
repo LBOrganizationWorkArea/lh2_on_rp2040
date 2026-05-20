@@ -1,0 +1,16 @@
+{
+  "description": "Quick 9-point floor-only LH2 calibration. Place the anchor sensor on each point.",
+  "unit": "meter",
+  "rotation_unit": "degree",
+  "poses": [
+    {"name": "F00_avant_gauche", "x_m": -0.40, "y_m": 0.40, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "F01_avant_centre", "x_m": 0.00, "y_m": 0.40, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "F02_avant_droite", "x_m": 0.40, "y_m": 0.40, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "F03_centre_gauche", "x_m": -0.40, "y_m": 0.00, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "F04_centre", "x_m": 0.00, "y_m": 0.00, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "F05_centre_droite", "x_m": 0.40, "y_m": 0.00, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "F06_arriere_gauche", "x_m": -0.40, "y_m": -0.40, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "F07_arriere_centre", "x_m": 0.00, "y_m": -0.40, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "F08_arriere_droite", "x_m": 0.40, "y_m": -0.40, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0}
+  ]
+}

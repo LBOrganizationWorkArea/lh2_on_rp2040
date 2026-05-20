@@ -1,0 +1,17 @@
+{
+  "units": "meters",
+  "description": "Nine floor anchor points on an 80 cm square. Keep drone yaw fixed relative to the world.",
+  "drone_z": 0.0,
+  "yaw_deg": 0.0,
+  "points": [
+    {"id": "F00_avant_gauche", "x": -0.4, "y": 0.4, "z": 0.0, "yaw_deg": 0.0},
+    {"id": "F01_avant_centre", "x": 0.0, "y": 0.4, "z": 0.0, "yaw_deg": 0.0},
+    {"id": "F02_avant_droite", "x": 0.4, "y": 0.4, "z": 0.0, "yaw_deg": 0.0},
+    {"id": "F03_centre_gauche", "x": -0.4, "y": 0.0, "z": 0.0, "yaw_deg": 0.0},
+    {"id": "F04_centre", "x": 0.0, "y": 0.0, "z": 0.0, "yaw_deg": 0.0},
+    {"id": "F05_centre_droite", "x": 0.4, "y": 0.0, "z": 0.0, "yaw_deg": 0.0},
+    {"id": "F06_arriere_gauche", "x": -0.4, "y": -0.4, "z": 0.0, "yaw_deg": 0.0},
+    {"id": "F07_arriere_centre", "x": 0.0, "y": -0.4, "z": 0.0, "yaw_deg": 0.0},
+    {"id": "F08_arriere_droite", "x": 0.4, "y": -0.4, "z": 0.0, "yaw_deg": 0.0}
+  ]
+}

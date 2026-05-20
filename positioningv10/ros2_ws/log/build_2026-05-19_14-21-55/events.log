@@ -1,0 +1,68 @@
+[0.000000] (-) TimerEvent: {}
+[0.000319] (lh2_ros_bridge) JobQueued: {'identifier': 'lh2_ros_bridge', 'dependencies': OrderedDict()}
+[0.000710] (lh2_ros_bridge) JobStarted: {'identifier': 'lh2_ros_bridge'}
+[0.098755] (-) TimerEvent: {}
+[0.199344] (-) TimerEvent: {}
+[0.299900] (-) TimerEvent: {}
+[0.400425] (-) TimerEvent: {}
+[0.500996] (-) TimerEvent: {}
+[0.601623] (-) TimerEvent: {}
+[0.702173] (-) TimerEvent: {}
+[0.802660] (-) TimerEvent: {}
+[0.903181] (-) TimerEvent: {}
+[1.003730] (-) TimerEvent: {}
+[1.104282] (-) TimerEvent: {}
+[1.204878] (-) TimerEvent: {}
+[1.305424] (-) TimerEvent: {}
+[1.405992] (-) TimerEvent: {}
+[1.506502] (-) TimerEvent: {}
+[1.607099] (-) TimerEvent: {}
+[1.707713] (-) TimerEvent: {}
+[1.808286] (-) TimerEvent: {}
+[1.909189] (-) TimerEvent: {}
+[2.009797] (-) TimerEvent: {}
+[2.110352] (-) TimerEvent: {}
+[2.210873] (-) TimerEvent: {}
+[2.311310] (-) TimerEvent: {}
+[2.411720] (-) TimerEvent: {}
+[2.448575] (lh2_ros_bridge) Command: {'cmd': ['/usr/bin/python3', '-W', 'ignore:setup.py install is deprecated', '-W', 'ignore:easy_install command is deprecated', 'setup.py', 'develop', '--editable', '--build-directory', '/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge/build', '--no-deps', 'symlink_data'], 'cwd': '/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge', 'env': {'LESSOPEN': '| /usr/bin/lesspipe %s', 'CONDA_PROMPT_MODIFIER': '(base)', 'USER': 'root', 'GZ_CONFIG_PATH': '/opt/ros/jazzy/opt/gz_sim_vendor/share/gz:/opt/ros/jazzy/opt/sdformat_vendor/share/gz:/opt/ros/jazzy/opt/gz_gui_vendor/share/gz:/opt/ros/jazzy/opt/gz_transport_vendor/share/gz:/opt/ros/jazzy/opt/gz_rendering_vendor/share/gz:/opt/ros/jazzy/opt/gz_plugin_vendor/share/gz:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/share/gz:/opt/ros/jazzy/opt/gz_msgs_vendor/share/gz:/opt/ros/jazzy/opt/gz_common_vendor/share/gz', 'GIT_ASKPASS': '/root/.vscode-server/bin/0958016b2af9f09bb4257e0df4a95e2f90590f9f/extensions/git/dist/askpass.sh', 'SHLVL': '1', 'LD_LIBRARY_PATH': '/opt/ros/jazzy/opt/gz_sim_vendor/lib:/opt/ros/jazzy/opt/gz_sensors_vendor/lib:/opt/ros/jazzy/opt/gz_physics_vendor/lib:/opt/ros/jazzy/opt/sdformat_vendor/lib:/opt/ros/jazzy/opt/rviz_ogre_vendor/lib:/opt/ros/jazzy/lib/x86_64-linux-gnu:/opt/ros/jazzy/opt/gz_gui_vendor/lib:/opt/ros/jazzy/opt/gz_transport_vendor/lib:/opt/ros/jazzy/opt/gz_rendering_vendor/lib:/opt/ros/jazzy/opt/gz_plugin_vendor/lib:/opt/ros/jazzy/opt/gz_fuel_tools_vendor/lib:/opt/ros/jazzy/opt/gz_msgs_vendor/lib:/opt/ros/jazzy/opt/gz_common_vendor/lib:/opt/ros/jazzy/opt/gz_math_vendor/lib:/opt/ros/jazzy/opt/gz_utils_vendor/lib:/opt/ros/jazzy/opt/gz_tools_vendor/lib:/opt/ros/jazzy/opt/gz_ogre_next_vendor/lib:/opt/ros/jazzy/opt/gz_dartsim_vendor/lib:/opt/ros/jazzy/opt/gz_cmake_vendor/lib:/opt/ros/jazzy/lib', 'HOME': '/root', 'CONDA_SHLVL': '1', 'OLDPWD': '/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws', 'TERM_PROGRAM_VERSION': '1.120.0', 'VSCODE_IPC_HOOK_CLI': '/run/user/0/vscode-ipc-3dcbe3c6-452e-498a-aa89-4611ff6e2351.sock', 'ROS_PYTHON_VERSION': '3', 'VSCODE_GIT_ASKPASS_MAIN': '/root/.vscode-server/bin/0958016b2af9f09bb4257e0df4a95e2f90590f9f/extensions/git/dist/askpass-main.js', 'VSCODE_GIT_ASKPASS_NODE': '/root/.vscode-server/bin/0958016b2af9f09bb4257e0df4a95e2f90590f9f/node', 'VSCODE_PYTHON_AUTOACTIVATE_GUARD': '1', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/0/bus', 'COLORTERM': 'truecolor', '_CE_M': '', 'WSL_DISTRO_NAME': 'Ubuntu', '_CONDA_ROOT': '/root/miniconda3', 'DEBUGINFOD_URLS': 'https://debuginfod.ubuntu.com', 'WAYLAND_DISPLAY': 'wayland-0', 'COLCON_PREFIX_PATH': '/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install', 'ROS_DISTRO': 'jazzy', 'LOGNAME': 'root', 'NAME': 'antoine', 'WSL_INTEROP': '/run/WSL/487_interop', 'PULSE_SERVER': 'unix:/mnt/wslg/PulseServer', '_': '/usr/bin/colcon', 'ROS_VERSION': '2', 'TERM': 'xterm-256color', '_CE_CONDA': '', 'PATH': '/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/bin:/root/miniconda3/share/rubygems/bin:/root/.vscode-server/data/User/globalStorage/github.copilot-chat/debugCommand:/root/.vscode-server/data/User/globalStorage/github.copilot-chat/copilotCli:/root/.vscode-server/bin/0958016b2af9f09bb4257e0df4a95e2f90590f9f/bin/remote-cli:/root/miniconda3/share/rubygems/bin:/root/miniconda3/bin:/root/miniconda3/condabin:/opt/ros/jazzy/opt/gz_msgs_vendor/bin:/opt/ros/jazzy/opt/gz_tools_vendor/bin:/opt/ros/jazzy/opt/gz_ogre_next_vendor/bin:/opt/ros/jazzy/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/usr/lib/wsl/lib:/mnt/c/Users/elkah/AppData/Local/Programs/Microsoft VS Code:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0:/mnt/c/WINDOWS/System32/OpenSSH:/mnt/c/Program Files/dotnet:/mnt/c/Program Files/Common Files/Autodesk Shared:/mnt/c/Program Files (x86)/Windows Kits/8.1/Windows Performance Toolkit:/mnt/c/Program Files/MATLAB/R2024b/bin:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0:/mnt/c/WINDOWS/System32/OpenSSH:/mnt/c/Program Files/dotnet:/mnt/c/Program Files/Common Files/Autodesk Shared:/mnt/c/Program Files (x86)/Windows Kits/8.1/Windows Performance Toolkit:/mnt/c/Program Files/MATLAB/R2024b/bin:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0:/mnt/c/WINDOWS/System32/OpenSSH:/mnt/c/Program Files/dotnet:/mnt/c/Program Files/Common Files/Autodesk Shared:/mnt/c/Program Files (x86)/Windows Kits/8.1/Windows Performance Toolkit:/mnt/c/Program Files/MATLAB/R2024b/bin:/mnt/c/Program Files/Git/cmd:/mnt/c/Program Files (x86)/NVIDIA Corporation/PhysX/Common:/mnt/c/WINDOWS/system32:/mnt/c/WINDOWS:/mnt/c/WINDOWS/System32/Wbem:/mnt/c/WINDOWS/System32/WindowsPowerShell/v1.0:/mnt/c/WINDOWS/System32/OpenSSH:/mnt/c/Program Files/dotnet:/mnt/c/Program Files/Common Files/Autodesk Shared:/mnt/c/Users/elkah/AppData/Local/Programs/Microsoft VS Code/bin:/snap/bin:/root/flutter/bin:/root/flutter/bin', 'XDG_RUNTIME_DIR': '/run/user/0', 'DISPLAY': ':0', 'LANG': 'C.UTF-8', 'LS_COLORS': 'rs=0:di=01;34:ln=01;36:mh=00:pi=40;33:so=01;35:do=01;35:bd=40;33;01:cd=40;33;01:or=40;31;01:mi=00:su=37;41:sg=30;43:ca=00:tw=30;42:ow=34;42:st=37;44:ex=01;32:*.tar=01;31:*.tgz=01;31:*.arc=01;31:*.arj=01;31:*.taz=01;31:*.lha=01;31:*.lz4=01;31:*.lzh=01;31:*.lzma=01;31:*.tlz=01;31:*.txz=01;31:*.tzo=01;31:*.t7z=01;31:*.zip=01;31:*.z=01;31:*.dz=01;31:*.gz=01;31:*.lrz=01;31:*.lz=01;31:*.lzo=01;31:*.xz=01;31:*.zst=01;31:*.tzst=01;31:*.bz2=01;31:*.bz=01;31:*.tbz=01;31:*.tbz2=01;31:*.tz=01;31:*.deb=01;31:*.rpm=01;31:*.jar=01;31:*.war=01;31:*.ear=01;31:*.sar=01;31:*.rar=01;31:*.alz=01;31:*.ace=01;31:*.zoo=01;31:*.cpio=01;31:*.7z=01;31:*.rz=01;31:*.cab=01;31:*.wim=01;31:*.swm=01;31:*.dwm=01;31:*.esd=01;31:*.avif=01;35:*.jpg=01;35:*.jpeg=01;35:*.mjpg=01;35:*.mjpeg=01;35:*.gif=01;35:*.bmp=01;35:*.pbm=01;35:*.pgm=01;35:*.ppm=01;35:*.tga=01;35:*.xbm=01;35:*.xpm=01;35:*.tif=01;35:*.tiff=01;35:*.png=01;35:*.svg=01;35:*.svgz=01;35:*.mng=01;35:*.pcx=01;35:*.mov=01;35:*.mpg=01;35:*.mpeg=01;35:*.m2v=01;35:*.mkv=01;35:*.webm=01;35:*.webp=01;35:*.ogm=01;35:*.mp4=01;35:*.m4v=01;35:*.mp4v=01;35:*.vob=01;35:*.qt=01;35:*.nuv=01;35:*.wmv=01;35:*.asf=01;35:*.rm=01;35:*.rmvb=01;35:*.flc=01;35:*.avi=01;35:*.fli=01;35:*.flv=01;35:*.gl=01;35:*.dl=01;35:*.xcf=01;35:*.xwd=01;35:*.yuv=01;35:*.cgm=01;35:*.emf=01;35:*.ogv=01;35:*.ogx=01;35:*.aac=00;36:*.au=00;36:*.flac=00;36:*.m4a=00;36:*.mid=00;36:*.midi=00;36:*.mka=00;36:*.mp3=00;36:*.mpc=00;36:*.ogg=00;36:*.ra=00;36:*.wav=00;36:*.oga=00;36:*.opus=00;36:*.spx=00;36:*.xspf=00;36:*~=00;90:*#=00;90:*.bak=00;90:*.crdownload=00;90:*.dpkg-dist=00;90:*.dpkg-new=00;90:*.dpkg-old=00;90:*.dpkg-tmp=00;90:*.old=00;90:*.orig=00;90:*.part=00;90:*.rej=00;90:*.rpmnew=00;90:*.rpmorig=00;90:*.rpmsave=00;90:*.swp=00;90:*.tmp=00;90:*.ucf-dist=00;90:*.ucf-new=00;90:*.ucf-old=00;90:', 'VSCODE_GIT_IPC_HANDLE': '/run/user/0/vscode-git-74a6867d40.sock', 'TERM_PROGRAM': 'vscode', 'AMENT_PREFIX_PATH': '/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge:/opt/ros/jazzy', 'CONDA_PYTHON_EXE': '/root/miniconda3/bin/python', 'SHELL': '/bin/bash', 'GEM_HOME': '/root/miniconda3/share/rubygems/', 'LESSCLOSE': '/usr/bin/lesspipe %s %s', 'CONDA_DEFAULT_ENV': 'base', '_CONDA_EXE': '/root/miniconda3/bin/conda', 'ROS_AUTOMATIC_DISCOVERY_RANGE': 'SUBNET', 'VSCODE_GIT_ASKPASS_EXTRA_ARGS': '', 'PWD': '/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge', 'TURTLEBOT3_MODEL': 'burger', 'CONDA_EXE': '/root/miniconda3/bin/conda', 'XDG_DATA_DIRS': '/usr/local/share:/usr/share:/var/lib/snapd/desktop', 'PYTHONPATH': '/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge/prefix_override:/usr/lib/python3/dist-packages/colcon_core/task/python/colcon_distutils_commands:/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/python3.12/site-packages:/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge:/mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/python3.12/site-packages:/opt/ros/jazzy/lib/python3.12/site-packages', 'CONDA_PREFIX': '/root/miniconda3', 'COLCON': '1', 'WSL2_GUI_APPS_ENABLED': '1', 'HOSTTYPE': 'x86_64', 'CMAKE_PREFIX_PATH': '/opt/ros/jazzy/opt/gz_sim_vendor:/opt/ros/jazzy/opt/gz_sensors_vendor:/opt/ros/jazzy/opt/gz_physics_vendor:/opt/ros/jazzy/opt/sdformat_vendor:/opt/ros/jazzy/opt/gz_gui_vendor:/opt/ros/jazzy/opt/gz_transport_vendor:/opt/ros/jazzy/opt/gz_rendering_vendor:/opt/ros/jazzy/opt/gz_plugin_vendor:/opt/ros/jazzy/opt/gz_fuel_tools_vendor:/opt/ros/jazzy/opt/gz_msgs_vendor:/opt/ros/jazzy/opt/gz_common_vendor:/opt/ros/jazzy/opt/gz_math_vendor:/opt/ros/jazzy/opt/gz_utils_vendor:/opt/ros/jazzy/opt/gz_tools_vendor:/opt/ros/jazzy/opt/gz_ogre_next_vendor:/opt/ros/jazzy/opt/gz_dartsim_vendor:/opt/ros/jazzy/opt/gz_cmake_vendor', 'WSLENV': 'VSCODE_WSL_EXT_LOCATION/up'}, 'shell': False}
+[2.511835] (-) TimerEvent: {}
+[2.612302] (-) TimerEvent: {}
+[2.712767] (-) TimerEvent: {}
+[2.813220] (-) TimerEvent: {}
+[2.913652] (-) TimerEvent: {}
+[3.014128] (-) TimerEvent: {}
+[3.114522] (-) TimerEvent: {}
+[3.214989] (-) TimerEvent: {}
+[3.263900] (lh2_ros_bridge) StdoutLine: {'line': b'running develop\n'}
+[3.315129] (-) TimerEvent: {}
+[3.415576] (-) TimerEvent: {}
+[3.516116] (-) TimerEvent: {}
+[3.616554] (-) TimerEvent: {}
+[3.689697] (lh2_ros_bridge) StdoutLine: {'line': b'running egg_info\n'}
+[3.714114] (lh2_ros_bridge) StdoutLine: {'line': b'writing lh2_ros_bridge.egg-info/PKG-INFO\n'}
+[3.716644] (-) TimerEvent: {}
+[3.718038] (lh2_ros_bridge) StdoutLine: {'line': b'writing dependency_links to lh2_ros_bridge.egg-info/dependency_links.txt\n'}
+[3.720653] (lh2_ros_bridge) StdoutLine: {'line': b'writing entry points to lh2_ros_bridge.egg-info/entry_points.txt\n'}
+[3.723256] (lh2_ros_bridge) StdoutLine: {'line': b'writing requirements to lh2_ros_bridge.egg-info/requires.txt\n'}
+[3.725599] (lh2_ros_bridge) StdoutLine: {'line': b'writing top-level names to lh2_ros_bridge.egg-info/top_level.txt\n'}
+[3.816761] (-) TimerEvent: {}
+[3.821307] (lh2_ros_bridge) StdoutLine: {'line': b"reading manifest file 'lh2_ros_bridge.egg-info/SOURCES.txt'\n"}
+[3.897555] (lh2_ros_bridge) StdoutLine: {'line': b"writing manifest file 'lh2_ros_bridge.egg-info/SOURCES.txt'\n"}
+[3.916889] (-) TimerEvent: {}
+[3.941064] (lh2_ros_bridge) StdoutLine: {'line': b'running build_ext\n'}
+[3.942096] (lh2_ros_bridge) StdoutLine: {'line': b'Creating /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/python3.12/site-packages/lh2-ros-bridge.egg-link (link to .)\n'}
+[3.959560] (lh2_ros_bridge) StdoutLine: {'line': b'Installing lh2_calibration_recorder_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge\n'}
+[3.974543] (lh2_ros_bridge) StdoutLine: {'line': b'Installing lh2_parser_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge\n'}
+[3.990290] (lh2_ros_bridge) StdoutLine: {'line': b'Installing lh2_position_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge\n'}
+[4.005512] (lh2_ros_bridge) StdoutLine: {'line': b'Installing lh2_serial_node script to /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/install/lh2_ros_bridge/lib/lh2_ros_bridge\n'}
+[4.016993] (-) TimerEvent: {}
+[4.023599] (lh2_ros_bridge) StdoutLine: {'line': b'\n'}
+[4.024423] (lh2_ros_bridge) StdoutLine: {'line': b'Installed /mnt/c/Users/elkah/lh2_positioning/positioningv10/ros2_ws/build/lh2_ros_bridge\n'}
+[4.027082] (lh2_ros_bridge) StdoutLine: {'line': b'running symlink_data\n'}
+[4.117513] (lh2_ros_bridge) CommandEnded: {'returncode': 0}
+[4.118829] (-) TimerEvent: {}
+[4.219215] (-) TimerEvent: {}
+[4.319652] (-) TimerEvent: {}
+[4.399337] (lh2_ros_bridge) JobEnded: {'identifier': 'lh2_ros_bridge', 'rc': 0}
+[4.406162] (-) EventReactorShutdown: {}

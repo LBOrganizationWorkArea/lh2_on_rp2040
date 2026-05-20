@@ -1,0 +1,300 @@
+{
+  "description": "LH2 floor calibration captures. Known drone center positions produce known sensor floor positions.",
+  "created_unix_time_s": 1778147500.7484648,
+  "input_poses": "config/floor_poses.json",
+  "basestations": [
+    4,
+    10
+  ],
+  "duration_s": 3.0,
+  "poses": [
+    {
+      "name": "P00_front_left",
+      "x_m": -0.3,
+      "y_m": 0.3,
+      "yaw_deg": 0.0,
+      "observations": [
+        {
+          "basestation": 4,
+          "sensor": 0,
+          "lfsr0": 69342.0,
+          "lfsr1": 41019.0,
+          "samples0": 30,
+          "samples1": 30
+        },
+        {
+          "basestation": 4,
+          "sensor": 1,
+          "lfsr0": 68388.0,
+          "lfsr1": 41067.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 2,
+          "lfsr0": 39670.0,
+          "lfsr1": 67334.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 3,
+          "lfsr0": 68271.5,
+          "lfsr1": 39675.0,
+          "samples0": 30,
+          "samples1": 30
+        },
+        {
+          "basestation": 10,
+          "sensor": 0,
+          "lfsr0": 42715.0,
+          "lfsr1": 70686.0,
+          "samples0": 30,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 1,
+          "lfsr0": 43574.0,
+          "lfsr1": 70604.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 2,
+          "lfsr0": 42527.0,
+          "lfsr1": 69157.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 3,
+          "lfsr0": 41684.5,
+          "lfsr1": 69295.0,
+          "samples0": 30,
+          "samples1": 30
+        }
+      ]
+    },
+    {
+      "name": "P01_front_right",
+      "x_m": 0.3,
+      "y_m": 0.3,
+      "yaw_deg": 0.0,
+      "observations": [
+        {
+          "basestation": 4,
+          "sensor": 0,
+          "lfsr0": 47667.0,
+          "lfsr1": 75330.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 1,
+          "lfsr0": 74736.0,
+          "lfsr1": 48234.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 2,
+          "lfsr0": 46796.0,
+          "lfsr1": 73351.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 3,
+          "lfsr0": 73985.0,
+          "lfsr1": 46289.0,
+          "samples0": 30,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 0,
+          "lfsr0": 76702.0,
+          "lfsr1": 46772.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 1,
+          "lfsr0": 77010.0,
+          "lfsr1": 47694.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 2,
+          "lfsr0": 46980.0,
+          "lfsr1": 75840.0,
+          "samples0": 30,
+          "samples1": 30
+        },
+        {
+          "basestation": 10,
+          "sensor": 3,
+          "lfsr0": 46041.0,
+          "lfsr1": 75561.0,
+          "samples0": 29,
+          "samples1": 29
+        }
+      ]
+    },
+    {
+      "name": "P02_back_right",
+      "x_m": 0.3,
+      "y_m": -0.3,
+      "yaw_deg": 0.0,
+      "observations": [
+        {
+          "basestation": 4,
+          "sensor": 0,
+          "lfsr0": 77061.0,
+          "lfsr1": 45559.0,
+          "samples0": 30,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 1,
+          "lfsr0": 45881.0,
+          "lfsr1": 76785.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 2,
+          "lfsr0": 44846.0,
+          "lfsr1": 75760.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 3,
+          "lfsr0": 76056.0,
+          "lfsr1": 44549.0,
+          "samples0": 30,
+          "samples1": 30
+        },
+        {
+          "basestation": 10,
+          "sensor": 0,
+          "lfsr0": 43139.0,
+          "lfsr1": 75355.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 1,
+          "lfsr0": 43750.0,
+          "lfsr1": 75576.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 2,
+          "lfsr0": 43085.0,
+          "lfsr1": 74652.5,
+          "samples0": 29,
+          "samples1": 30
+        },
+        {
+          "basestation": 10,
+          "sensor": 3,
+          "lfsr0": 42473.0,
+          "lfsr1": 74454.0,
+          "samples0": 29,
+          "samples1": 29
+        }
+      ]
+    },
+    {
+      "name": "P03_back_left",
+      "x_m": -0.3,
+      "y_m": -0.3,
+      "yaw_deg": 0.0,
+      "observations": [
+        {
+          "basestation": 4,
+          "sensor": 0,
+          "lfsr0": 72437.0,
+          "lfsr1": 40662.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 1,
+          "lfsr0": 71897.0,
+          "lfsr1": 40686.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 2,
+          "lfsr0": 39659.0,
+          "lfsr1": 71008.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 4,
+          "sensor": 3,
+          "lfsr0": 71546.0,
+          "lfsr1": 39653.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 0,
+          "lfsr0": 39586.0,
+          "lfsr1": 70740.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 1,
+          "lfsr0": 40076.0,
+          "lfsr1": 70701.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 2,
+          "lfsr0": 39224.0,
+          "lfsr1": 69642.0,
+          "samples0": 29,
+          "samples1": 29
+        },
+        {
+          "basestation": 10,
+          "sensor": 3,
+          "lfsr0": 38747.0,
+          "lfsr1": 69711.0,
+          "samples0": 29,
+          "samples1": 29
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "description": "4 TS4231 sensors mounted on the drone as a square of side 12.5 cm. Origin is drone center.",
+  "unit": "meter",
+  "sensors": [
+    {"sensor": 0, "x_m": 0.0625, "y_m": 0.0625, "z_m": 0.0},
+    {"sensor": 1, "x_m": 0.0625, "y_m": -0.0625, "z_m": 0.0},
+    {"sensor": 2, "x_m": -0.0625, "y_m": -0.0625, "z_m": 0.0},
+    {"sensor": 3, "x_m": -0.0625, "y_m": 0.0625, "z_m": 0.0}
+  ]
+}

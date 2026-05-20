@@ -1,0 +1,63 @@
+{
+  "description": "positioningv4 2D floor homographies, one map per Lighthouse base station.",
+  "input_calibration": "config/floor_calibration.json",
+  "input_layout": "config/sensors_layout.json",
+  "basestations": {
+    "4": {
+      "basestation": 4,
+      "model": "floor_homography_lh2_center_image_to_xy",
+      "sweep_swap": true,
+      "point_count": 4,
+      "H_image_to_world": [
+        [
+          -0.2473710228228261,
+          -0.0012393166947918125,
+          -0.31324247310888054
+        ],
+        [
+          -0.7062130097883927,
+          0.4952119419238615,
+          1.01399403656476
+        ],
+        [
+          0.7315283218489437,
+          0.023514966626975366,
+          1.0
+        ]
+      ],
+      "fit": {
+        "rmse_m": 7.561655240491716e-13,
+        "median_m": 5.514302678004808e-13,
+        "max_m": 1.0870411982765961e-12
+      }
+    },
+    "10": {
+      "basestation": 10,
+      "model": "floor_homography_lh2_center_image_to_xy",
+      "sweep_swap": false,
+      "point_count": 4,
+      "H_image_to_world": [
+        [
+          -1.148692091027697,
+          0.40048063705237263,
+          0.08266370101790603
+        ],
+        [
+          -0.29438630613469946,
+          -0.07790428818083718,
+          -0.6780925204017646
+        ],
+        [
+          -3.614986154992694,
+          1.4555160360267054,
+          1.0
+        ]
+      ],
+      "fit": {
+        "rmse_m": 4.0490875955723787e-14,
+        "median_m": 3.520718570416352e-14,
+        "max_m": 5.949702694789608e-14
+      }
+    }
+  }
+}

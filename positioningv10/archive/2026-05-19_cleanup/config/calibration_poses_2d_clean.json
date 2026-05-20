@@ -1,0 +1,329 @@
+{
+  "description": "Known 2D calibration poses for estimating Lighthouse geometry.",
+  "created_unix_time_s": 1779115960.9547794,
+  "basestations": [
+    4,
+    10
+  ],
+  "duration_s_per_pose": 8.0,
+  "frame": {
+    "origin": "P0_center, drone center",
+    "x_positive": "right from initial drone orientation",
+    "y_positive": "front from initial drone orientation",
+    "yaw": "kept fixed at 0 deg during calibration"
+  },
+  "poses": [
+    {
+      "name": "P0_center",
+      "x_m": 0.0,
+      "y_m": 0.0,
+      "z_m": 0.0,
+      "roll_deg": 0.0,
+      "pitch_deg": 0.0,
+      "yaw_deg": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 301724.0,
+          "sample_count": 19,
+          "raw_angle_rad": 1.909380618036485,
+          "calibrated_angle_rad": 2.174027367061326
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 301720.0,
+          "sample_count": 19,
+          "raw_angle_rad": -0.18506756300766924,
+          "calibrated_angle_rad": -0.4463537830574531
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 282340.0,
+          "sample_count": 18,
+          "raw_angle_rad": 1.7663111862446377,
+          "calibrated_angle_rad": 2.021679394273738
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 282332.0,
+          "sample_count": 18,
+          "raw_angle_rad": -0.3281933078405215,
+          "calibrated_angle_rad": -0.5797963276670248
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 169344.0,
+          "sample_count": 19,
+          "raw_angle_rad": 0.15274266457411145,
+          "calibrated_angle_rad": 0.4167234517700307
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 169340.0,
+          "sample_count": 19,
+          "raw_angle_rad": -1.9417055164700423,
+          "calibrated_angle_rad": -2.196341127335285
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 150038.0,
+          "sample_count": 18,
+          "raw_angle_rad": -0.0427812675322361,
+          "calibrated_angle_rad": 0.21019734333371898
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 150044.0,
+          "sample_count": 18,
+          "raw_angle_rad": -2.1370943261564586,
+          "calibrated_angle_rad": -2.393122963940826
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 165884.0,
+          "sample_count": 19,
+          "raw_angle_rad": 0.10682963149524904,
+          "calibrated_angle_rad": 0.370878081101609
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 165872.0,
+          "sample_count": 19,
+          "raw_angle_rad": -1.9877247068508208,
+          "calibrated_angle_rad": -2.2423189462157804
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 147062.0,
+          "sample_count": 18,
+          "raw_angle_rad": -0.0834749769428269,
+          "calibrated_angle_rad": 0.16970950661587203
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 147068.0,
+          "sample_count": 18,
+          "raw_angle_rad": -2.1777880355670494,
+          "calibrated_angle_rad": -2.4339823530804043
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 165456.0,
+          "sample_count": 19,
+          "raw_angle_rad": 0.1011502158427191,
+          "calibrated_angle_rad": 0.3650936983148767
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 165464.0,
+          "sample_count": 19,
+          "raw_angle_rad": -1.9931387292485596,
+          "calibrated_angle_rad": -2.2475934377490714
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 145648.0,
+          "sample_count": 18,
+          "raw_angle_rad": -0.10280995849745589,
+          "calibrated_angle_rad": 0.15044843001385433
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 145652.0,
+          "sample_count": 18,
+          "raw_angle_rad": -2.197150365044669,
+          "calibrated_angle_rad": -2.453423229194882
+        }
+      ],
+      "missing_channels": []
+    },
+    {
+      "name": "P1_right_40cm",
+      "x_m": 0.4,
+      "y_m": 0.0,
+      "z_m": 0.0,
+      "roll_deg": 0.0,
+      "pitch_deg": 0.0,
+      "yaw_deg": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 312024.0,
+          "sample_count": 16,
+          "raw_angle_rad": 2.046058144253907,
+          "calibrated_angle_rad": 2.3107223592927477
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 312028.0,
+          "sample_count": 16,
+          "raw_angle_rad": -0.04828387948832913,
+          "calibrated_angle_rad": -0.31001021564197573
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 292520.0,
+          "sample_count": 5,
+          "raw_angle_rad": 1.9055121142687688,
+          "calibrated_angle_rad": 2.1618244901258246
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 292516.0,
+          "sample_count": 5,
+          "raw_angle_rad": -0.18893768397040867,
+          "calibrated_angle_rad": -0.4406642198554398
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 180860.0,
+          "sample_count": 16,
+          "raw_angle_rad": 0.30555610068283445,
+          "calibrated_angle_rad": 0.5694880045772974
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 180856.0,
+          "sample_count": 16,
+          "raw_angle_rad": -1.7888920803613193,
+          "calibrated_angle_rad": -2.0436860726117025
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 292640.0,
+          "sample_count": 5,
+          "raw_angle_rad": 1.9071529896482284,
+          "calibrated_angle_rad": 2.163503729014635
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 292636.0,
+          "sample_count": 5,
+          "raw_angle_rad": -0.187296808590949,
+          "calibrated_angle_rad": -0.4390252656314424
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 177384.0,
+          "sample_count": 16,
+          "raw_angle_rad": 0.2594307530001385,
+          "calibrated_angle_rad": 0.5233582468322477
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 177388.0,
+          "sample_count": 16,
+          "raw_angle_rad": -1.8349112707420983,
+          "calibrated_angle_rad": -2.0896605237804176
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 156656.0,
+          "sample_count": 5,
+          "raw_angle_rad": 0.047713009644944515,
+          "calibrated_angle_rad": 0.3002283155586454
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 156652.0,
+          "sample_count": 5,
+          "raw_angle_rad": -2.0467367885942327,
+          "calibrated_angle_rad": -2.302403880363022
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "median_lfsr_location": 176544.0,
+          "sample_count": 16,
+          "raw_angle_rad": 0.24828423629891172,
+          "calibrated_angle_rad": 0.5122274290644275
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "median_lfsr_location": 176548.0,
+          "sample_count": 16,
+          "raw_angle_rad": -1.846057787443325,
+          "calibrated_angle_rad": -2.1007847018246553
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "median_lfsr_location": 289424.0,
+          "sample_count": 5,
+          "raw_angle_rad": 1.8631775294787187,
+          "calibrated_angle_rad": 2.119211213164519
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "median_lfsr_location": 289420.0,
+          "sample_count": 5,
+          "raw_angle_rad": -0.2312722687604587,
+          "calibrated_angle_rad": -0.4829529613592294
+        }
+      ],
+      "missing_channels": []
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "unit": "m",
+  "capture_duration_s": 90,
+  "min_sensors_per_frame": 3,
+  "min_lighthouses_per_frame": 2,
+  "frame_rounding_ms": 20,
+  "lighthouse_ids": ["4", "10"],
+  "reference_lighthouse_id": "4",
+  "notes": "LH4 is used as fixed reference frame during optimization. The result is relative to LH4. Do not move basestations after calibration."
+}

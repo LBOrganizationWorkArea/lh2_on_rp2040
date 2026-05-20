@@ -1,0 +1,5 @@
+{
+  "description": "Estimated Lighthouse base station geometry. This file is generated after calibration.",
+  "unit": "meter",
+  "base_stations": []
+}

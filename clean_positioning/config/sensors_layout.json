@@ -1,0 +1,36 @@
+{
+  "unit": "meters",
+  "frame": {
+    "x": "front",
+    "y": "left",
+    "z": "up",
+    "origin": "center_of_sensor_square"
+  },
+  "side_m": 0.125,
+  "sensors": {
+    "0": {
+      "name": "back_right",
+      "x": -0.0625,
+      "y": -0.0625,
+      "z": 0.0
+    },
+    "1": {
+      "name": "front_right",
+      "x": 0.0625,
+      "y": -0.0625,
+      "z": 0.0
+    },
+    "2": {
+      "name": "front_left",
+      "x": 0.0625,
+      "y": 0.0625,
+      "z": 0.0
+    },
+    "3": {
+      "name": "back_left",
+      "x": -0.0625,
+      "y": 0.0625,
+      "z": 0.0
+    }
+  }
+}

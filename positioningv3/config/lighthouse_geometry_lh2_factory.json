@@ -1,0 +1,184 @@
+{
+  "description": "Ultra-fast guided LH2 geometry calibration.",
+  "input_layout": "config/sensors_layout.json",
+  "input_poses": "config/calibration_poses_2d.json",
+  "lighthouse_z_m": 1.2,
+  "drone_z_m": 0.0,
+  "factory_calibs": "auto",
+  "basestations": [
+    {
+      "basestation": 4,
+      "model": "lh2_ultrafast_fixed_hypothesis_with_factory_calibration",
+      "rmse_deg": 2.3290301293941913,
+      "num_residuals": 72,
+      "lighthouse_z_m": 1.2,
+      "drone_z_m": 0.0,
+      "factory_calibration": {
+        "source_path": "config\\lighthouse_factory_calibration_bs4.json",
+        "base_station": {
+          "serial": null,
+          "channel": null,
+          "model": "LH2"
+        },
+        "axis0": {
+          "phase": 0.0,
+          "tilt": -0.04748,
+          "gibmag": -0.000799,
+          "gibphase": 1.760402,
+          "curve": 0.110528,
+          "ogeemag": -0.145667,
+          "ogeephase": 1.220282
+        },
+        "axis1": {
+          "phase": 0.000301,
+          "tilt": 0.04616,
+          "gibmag": -0.003324,
+          "gibphase": 1.278937,
+          "curve": 0.558356,
+          "ogeemag": 0.055231,
+          "ogeephase": 3.018561
+        },
+        "model": "phase_tilt_gibmag_gibphase",
+        "unused_fields_kept_in_json": [
+          "curve",
+          "ogeemag",
+          "ogeephase"
+        ]
+      },
+      "sweep_tilts": {
+        "sweep_0_deg": 29.999999999999996,
+        "sweep_1_deg": -29.999999999999996,
+        "sweep_0_rad": 0.5235987755982988,
+        "sweep_1_rad": -0.5235987755982988
+      },
+      "angle_correction": {
+        "sign_sweep_0": -1.0,
+        "sign_sweep_1": 1.0,
+        "offset_sweep_0_rad": 2.0869924547119125,
+        "offset_sweep_1_rad": 0.7515928966155222,
+        "offset_sweep_0_deg": 119.57585953064019,
+        "offset_sweep_1_deg": 43.063100888081834
+      },
+      "factory_axis_map": {
+        "sweep_0_axis": 1,
+        "sweep_1_axis": 0
+      },
+      "world_to_lighthouse": {
+        "rotation_vector": [
+          0.3022132550226098,
+          1.3515775018160927,
+          0.32039028327325786
+        ],
+        "rotation_matrix": [
+          [
+            0.18718982315286392,
+            -0.050802715154931594,
+            0.9810092019144807
+          ],
+          [
+            0.3949534396163815,
+            0.9182801764073484,
+            -0.027808238931627344
+          ],
+          [
+            -0.8994285689498576,
+            0.3926583779192494,
+            0.19195741091876373
+          ]
+        ],
+        "translation_m": [
+          -3.499999999999958,
+          4.199999999999999,
+          1.2
+        ]
+      }
+    },
+    {
+      "basestation": 10,
+      "model": "lh2_ultrafast_fixed_hypothesis_with_factory_calibration",
+      "rmse_deg": 2.2744616213366866,
+      "num_residuals": 72,
+      "lighthouse_z_m": 1.2,
+      "drone_z_m": 0.0,
+      "factory_calibration": {
+        "source_path": "config\\lighthouse_factory_calibration_bs10.json",
+        "base_station": {
+          "serial": null,
+          "channel": null,
+          "model": "LH2"
+        },
+        "axis0": {
+          "phase": 0.0,
+          "tilt": -0.046584,
+          "gibmag": 0.005253,
+          "gibphase": 0.545029,
+          "curve": -0.014479,
+          "ogeemag": -0.38275,
+          "ogeephase": 1.054146
+        },
+        "axis1": {
+          "phase": 0.001753,
+          "tilt": 0.046261,
+          "gibmag": 0.002539,
+          "gibphase": 1.923467,
+          "curve": 0.621439,
+          "ogeemag": -0.321208,
+          "ogeephase": 1.612272
+        },
+        "model": "phase_tilt_gibmag_gibphase",
+        "unused_fields_kept_in_json": [
+          "curve",
+          "ogeemag",
+          "ogeephase"
+        ]
+      },
+      "sweep_tilts": {
+        "sweep_0_deg": -29.999999999999996,
+        "sweep_1_deg": 29.999999999999996,
+        "sweep_0_rad": -0.5235987755982988,
+        "sweep_1_rad": 0.5235987755982988
+      },
+      "angle_correction": {
+        "sign_sweep_0": -1.0,
+        "sign_sweep_1": 1.0,
+        "offset_sweep_0_rad": -0.9622878326043939,
+        "offset_sweep_1_rad": 0.8644526337584012,
+        "offset_sweep_0_deg": -55.13503148502322,
+        "offset_sweep_1_deg": 49.52948750332466
+      },
+      "factory_axis_map": {
+        "sweep_0_axis": 1,
+        "sweep_1_axis": 0
+      },
+      "world_to_lighthouse": {
+        "rotation_vector": [
+          0.652527182283957,
+          -1.8783285695762397,
+          1.3853828094420828
+        ],
+        "rotation_matrix": [
+          [
+            -0.6259497601287365,
+            -0.7419698966851482,
+            -0.24014073000598513
+          ],
+          [
+            0.010295724340635581,
+            0.30003760046254824,
+            -0.9538718133842605
+          ],
+          [
+            0.7797954192319153,
+            -0.5995482555405416,
+            -0.1801693465138136
+          ]
+        ],
+        "translation_m": [
+          3.499999999993212,
+          4.1999999999999975,
+          1.2
+        ]
+      }
+    }
+  ]
+}
