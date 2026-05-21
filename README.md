@@ -1,3 +1,15 @@
-This is a simple uml for this calibration part of the development
+# File Structure
 
-<img src="images/uml.png" alt="Imagem 1" style="width: 100%; height: auto; display: block;" />
+## Current file structure
+- rp2350_firmware
+- utils/
+    - angle_lib
+    - calibration
+    - user_interface
+
+## Assets
+- rp2350_firmware: Said's code, here we should add changes to the RP firmware
+- utils: Here we keep everything we use outside of the RP
+- angle_lib: Decodes RP readings and obtains angle information (serial or via wifi)
+- calibration: Contains the pipeline for calibration
+- user_interface: Has the user interface, visual assets
