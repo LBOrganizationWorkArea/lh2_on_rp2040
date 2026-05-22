@@ -15,8 +15,10 @@ def main():
     target = here / "04_estimate_lighthouse_geometry_lh2_guided_ultrafast.py"
 
     forwarded = sys.argv[1:]
-    add_default(forwarded, "--poses", "config/wand_calibration_poses_3d.json")
-    add_default(forwarded, "--output", "config/lighthouse_geometry_wand_3d.json")
+    add_default(forwarded, "--poses", "config/wand_calibration_poses_3d_lh2a_families.json")
+    add_default(forwarded, "--output", "config/lighthouse_geometry_lh2a_families.json")
+    if "--prefer-raw-angles" not in forwarded:
+        forwarded.append("--prefer-raw-angles")
     add_default(forwarded, "--max-nfev", "600")
 
     os.execv(sys.executable, [sys.executable, str(target)] + forwarded)

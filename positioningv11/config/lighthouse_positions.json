@@ -1,0 +1,18 @@
+{
+  "description": "Measured Lighthouse positions in the room frame. Edit these values before fitting v11.",
+  "unit": "meter",
+  "basestations": [
+    {
+      "basestation": 4,
+      "x_m": -0.50,
+      "y_m": 1.20,
+      "z_m": 1.70
+    },
+    {
+      "basestation": 10,
+      "x_m": 0.50,
+      "y_m": 1.20,
+      "z_m": 1.70
+    }
+  ]
+}

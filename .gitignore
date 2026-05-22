@@ -12,11 +12,17 @@ __pycache__/
 *.elf
 *.bin
 *.map
+*.zip
+*.backup_*.json
 
 .DS_Store
+
+**/ros2_ws/build/
+**/ros2_ws/install/
+**/ros2_ws/log/
 
 clean_positioning/branch_compute_angle_v2/lh2_on_rp2040/
 clean_positioning/pr1_analysis/lh2_on_rp2040/
 firmware/lh2_on_rp2040/.git/
 stage_lbees/lh2_on_rp2040_clean2/
-positioningv10/docs/rapport_stage_handoff_lh2.md
+**/docs/rapport_stage_handoff_lh2.md

@@ -29,9 +29,9 @@
 
 #define LH2_SENSOR_COUNT 4
 #define LH2_POLY_SLOT_COUNT 2
-#define LH2_MIN_BLOCK_SENSORS 2
-#define LH2_MIN_PAIR_SENSORS 2
-#define LH2_DEBUG_PERMISSIVE_PAIRING 1
+#define LH2_MIN_BLOCK_SENSORS 4
+#define LH2_MIN_PAIR_SENSORS 4
+#define LH2_DEBUG_PERMISSIVE_PAIRING 0
 #define LH2_CANDIDATES_PER_SENSOR 8
 #define LH2_PREVIOUS_BLOCK_CANDIDATES 12
 #if LH2_DEBUG_PERMISSIVE_PAIRING
@@ -40,23 +40,25 @@
 #define LH2_PAIR_OFFSET_TOLERANCE_TICKS 60000
 #define LH2_PAIR_MAX_AGE_US 400000
 #else
-#define LH2_BLOCK_WINDOW_US 12000
-#define LH2_BLOCK_TIMESTAMP0_TOLERANCE_TICKS 12000
+#define LH2_BLOCK_WINDOW_US 500
+#define LH2_BLOCK_TIMESTAMP0_TOLERANCE_TICKS 10000
 #define LH2_PAIR_OFFSET_TOLERANCE_TICKS 60000
 #define LH2_PAIR_MAX_AGE_US 250000
 #endif
 #define LH2_TIMESTAMP_TICKS_PER_US 24
 #define LH2_OFFSET_TICKS_PER_LFSR 4
-#define LH2_PAIR_TIMESTAMP0_TOLERANCE_TICKS 30000
+#define LH2_PAIR_TIMESTAMP0_TOLERANCE_TICKS 50
 
 #define LH2_OUTPUT_LEGACY_FRAMES 0
+#define LH2_OUTPUT_ANGLE_FRAMES 1
 #define LH2_OUTPUT_EXTENDED_FRAMES 1
 #define LH2_OUTPUT_BLOCKS 0
 #define LH2_OUTPUT_PAIRS 1
+#define LH2_OUTPUT_PAIRS_V2 1
 #define LH2_OUTPUT_HEARTBEAT 1
 #define LH2_OUTPUT_BOOT_BANNER 0
 #define HEARTBEAT_INTERVAL_US 1000000u
-#define FIRMWARE_TAG "lh2p-v10-recover"
+#define FIRMWARE_TAG "lh2p-v10-strict"
 #define LH2_PAIR_OUTPUT_MIN_INTERVAL_US 25000u
 #define LH2_PAIRING_STALE_RESET_US 3000000u
 
@@ -270,6 +272,37 @@ static void serial_send_lh2_raw_line(const lh2_frame_t *frame) {
                          frame->lfsr_location);
 }
 
+static int8_t polynomial_to_axis(uint8_t polynomial) {
+    switch (polynomial) {
+        case 8:
+        case 20:
+            return 0;
+        case 9:
+        case 21:
+            return 1;
+        default:
+            return -1;
+    }
+}
+
+static void serial_send_lh2_angle_line(const lh2_frame_t *frame) {
+    int8_t axis = polynomial_to_axis(frame->polynomial);
+    if (axis < 0 || frame->bs >= LH2_BASESTATION_COUNT) {
+        return;
+    }
+
+    int32_t angle_urad = (int32_t)(db_lh2_location_to_angle_rad(frame->lfsr_location, (uint8_t)axis) * 1000000.0f);
+
+    printf("LH2A,%llu,%u,%u,%u,%u,%lu,%ld\r\n",
+           (unsigned long long)frame->time_us,
+           frame->sensor,
+           (uint8_t)axis,
+           frame->bs,
+           frame->polynomial,
+           (unsigned long)frame->lfsr_location,
+           (long)angle_urad);
+}
+
 static void serial_send_lh2_extended_line(const lh2_frame_t *frame) {
     printf("LH2R,%llu,%lu,%u,%u,%u,%u,%ld,%lu,%lu,%lu,%lu\r\n",
            (unsigned long long)frame->time_us,
@@ -309,14 +342,19 @@ static void serial_send_lh2_pair_line(const lh2_block_t *previous, const lh2_blo
     uint8_t common_mask = previous->sensor_mask & latest->sensor_mask;
     uint32_t previous_offsets[LH2_SENSOR_COUNT] = { 0 };
     uint32_t latest_offsets[LH2_SENSOR_COUNT] = { 0 };
+    uint32_t previous_lfsr[LH2_SENSOR_COUNT] = { 0 };
+    uint32_t latest_lfsr[LH2_SENSOR_COUNT] = { 0 };
 
     for (uint8_t sensor = 0; sensor < LH2_SENSOR_COUNT; sensor++) {
         if ((common_mask & (1u << sensor)) != 0u) {
             previous_offsets[sensor] = previous->offsets_24[sensor];
             latest_offsets[sensor] = latest->offsets_24[sensor];
+            previous_lfsr[sensor] = previous->lfsr_locations[sensor];
+            latest_lfsr[sensor] = latest->lfsr_locations[sensor];
         }
     }
 
+#if LH2_OUTPUT_PAIRS
     printf("LH2P;%u;%u;%u;%u;%u;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu;%lu\r\n",
            latest->bs,
            previous->sweep,
@@ -334,6 +372,28 @@ static void serial_send_lh2_pair_line(const lh2_block_t *previous, const lh2_blo
            (unsigned long)latest_offsets[2],
            (unsigned long)previous_offsets[3],
            (unsigned long)latest_offsets[3]);
+#endif
+
+#if LH2_OUTPUT_PAIRS_V2
+    printf("LH2P2;%u;%u;%u;%u;%u;%lu;%lu;%lu",
+           latest->bs,
+           previous->sweep,
+           latest->sweep,
+           previous->polynomial,
+           latest->polynomial,
+           (unsigned long)previous->id,
+           (unsigned long)latest->id,
+           (unsigned long)timestamp0_delta);
+
+    for (uint8_t sensor = 0; sensor < LH2_SENSOR_COUNT; sensor++) {
+        printf(";%lu;%lu;%lu;%lu",
+               (unsigned long)previous_offsets[sensor],
+               (unsigned long)latest_offsets[sensor],
+               (unsigned long)previous_lfsr[sensor],
+               (unsigned long)latest_lfsr[sensor]);
+    }
+    printf("\r\n");
+#endif
 }
 
 #if LH2_OUTPUT_HEARTBEAT
@@ -739,6 +799,9 @@ int main(void) {
                 telemetry_last_frame_us = frame.time_us;
 #if LH2_OUTPUT_LEGACY_FRAMES
                 serial_send_lh2_raw_line(&frame);
+#endif
+#if LH2_OUTPUT_ANGLE_FRAMES
+                serial_send_lh2_angle_line(&frame);
 #endif
 #if LH2_OUTPUT_EXTENDED_FRAMES
                 serial_send_lh2_extended_line(&frame);

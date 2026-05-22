@@ -91,27 +91,13 @@ def load_layout(path):
     return sensors
 
 
-def pose_max_family_spread_deg(pose):
-    max_spread = 0.0
-    for m in pose.get("measurements", []):
-        for family in m.get("candidate_families", []):
-            max_spread = max(max_spread, float(family.get("angle_spread_deg", 0.0)))
-    return max_spread
-
-
-def load_poses(path, degrees_per_cycle, prefer_raw_angles=False, max_pose_spread_deg=0.0):
+def load_poses(path, degrees_per_cycle, prefer_raw_angles=False):
     with open(path, "r") as f:
         data = json.load(f)
 
     obs = []
-    skipped_poses = []
 
     for pose in data["poses"]:
-        max_spread = pose_max_family_spread_deg(pose)
-        if max_pose_spread_deg and max_spread > max_pose_spread_deg:
-            skipped_poses.append((pose["name"], max_spread))
-            continue
-
         grouped = {}
 
         for m in pose["measurements"]:
@@ -152,7 +138,7 @@ def load_poses(path, degrees_per_cycle, prefer_raw_angles=False, max_pose_spread
                 "candidate_raw_angles": [float(value) for value in candidate_values] if candidate_values else None,
             })
 
-    return obs, skipped_poses
+    return obs
 
 
 def sensor_world(pose, default_drone_z, local):
@@ -386,7 +372,6 @@ def fit_bs(
     grid_y=None,
     grid_z=None,
     model_variants=None,
-    position_window=None,
 ):
     has_calibrated_measurements = any(
         int(o["basestation"]) == int(bs) and o.get("angle_is_calibrated")
@@ -431,39 +416,28 @@ def fit_bs(
             [guess_x, guess_y - 0.5, z_guesses[0]],
         ]
 
-    if position_window is not None and float(position_window) > 0:
-        x_min = guess_x - float(position_window)
-        x_max = guess_x + float(position_window)
-        y_min = guess_y - float(position_window)
-        y_max = guess_y + float(position_window)
-    else:
-        x_min = -xy_bound
-        x_max = +xy_bound
-        y_min = -xy_bound
-        y_max = +xy_bound
-
     if solve_lighthouse_z:
         lower = np.array([
             -math.pi, -math.pi, -math.pi,
-            x_min, y_min, z_min,
+            -xy_bound, -xy_bound, z_min,
             -math.pi, -math.pi,
         ], dtype=float)
 
         upper = np.array([
             +math.pi, +math.pi, +math.pi,
-            x_max, y_max, z_max,
+            +xy_bound, +xy_bound, z_max,
             +math.pi, +math.pi,
         ], dtype=float)
     else:
         lower = np.array([
             -math.pi, -math.pi, -math.pi,
-            x_min, y_min,
+            -xy_bound, -xy_bound,
             -math.pi, -math.pi,
         ], dtype=float)
 
         upper = np.array([
             +math.pi, +math.pi, +math.pi,
-            x_max, y_max,
+            +xy_bound, +xy_bound,
             +math.pi, +math.pi,
         ], dtype=float)
 
@@ -610,10 +584,8 @@ def main():
     )
     parser.add_argument("--bs4-guess", default="-0.50,1.20", help="Initial x,y guess for BS4. Default: left/front.")
     parser.add_argument("--bs10-guess", default="0.50,1.20", help="Initial x,y guess for BS10. Default: right/front.")
-    parser.add_argument("--only-bs", default="", help="Comma-separated basestation ids to fit, example: 4 or 4,10. Default: both.")
     parser.add_argument("--solve-lighthouse-z", action="store_true", help="Optimize Lighthouse z instead of using --lighthouse-z as a fixed height.")
     parser.add_argument("--xy-bound", type=float, default=4.0, help="Absolute x/y search bound in meters when fitting Lighthouse position.")
-    parser.add_argument("--position-window", type=float, default=0.0, help="If >0, constrain each Lighthouse x/y around its own guess by this many meters.")
     parser.add_argument("--z-min", type=float, default=0.60, help="Minimum Lighthouse z when --solve-lighthouse-z is enabled.")
     parser.add_argument("--z-max", type=float, default=2.50, help="Maximum Lighthouse z when --solve-lighthouse-z is enabled.")
     parser.add_argument("--broad-search", action="store_true", help="Use a room-wide grid of initial x/y/z guesses instead of only guesses near BS4/BS10 defaults.")
@@ -624,12 +596,6 @@ def main():
         "--prefer-raw-angles",
         action="store_true",
         help="Ignore calibrated_angle_rad in pose files and fit from raw_angle_rad plus factory model. Useful to diagnose factory correction direction/convention.",
-    )
-    parser.add_argument(
-        "--max-pose-spread-deg",
-        type=float,
-        default=0.0,
-        help="If >0, skip any captured pose whose LH2A candidate-family spread exceeds this threshold.",
     )
     parser.add_argument(
         "--model-variants",
@@ -670,17 +636,11 @@ def main():
     args = parser.parse_args()
 
     layout = load_layout(args.layout)
-    obs, skipped_poses = load_poses(
-        args.poses,
-        args.lfsr_degrees_per_cycle,
-        args.prefer_raw_angles,
-        args.max_pose_spread_deg,
-    )
+    obs = load_poses(args.poses, args.lfsr_degrees_per_cycle, args.prefer_raw_angles)
     factory_calibs = load_factory_calibration_map(args.factory_calibs)
 
     bs4_guess = [float(x) for x in args.bs4_guess.split(",")]
     bs10_guess = [float(x) for x in args.bs10_guess.split(",")]
-    only_bs = {int(x) for x in args.only_bs.split(",") if x.strip()} if args.only_bs else None
     grid_x = parse_float_list(args.grid_x)
     grid_y = parse_float_list(args.grid_y)
     grid_z = parse_float_list(args.grid_z)
@@ -696,8 +656,6 @@ def main():
     print(f"BS4 guess:  {bs4_guess}")
     print(f"BS10 guess: {bs10_guess}")
     print(f"Search: xy_bound=+/-{args.xy_bound:.2f} m")
-    if args.position_window and args.position_window > 0:
-        print(f"Local position window: +/-{args.position_window:.2f} m around each guess")
     if args.solve_lighthouse_z:
         print(f"Solve Lighthouse z: {args.z_min:.2f}..{args.z_max:.2f} m")
     else:
@@ -716,20 +674,11 @@ def main():
         print("Factory: disabled/not found")
     print(f"Pose angles: {'raw_angle_rad + factory model' if args.prefer_raw_angles else 'calibrated_angle_rad when present'}")
     print(f"Observations: {len(obs)}")
-    if args.max_pose_spread_deg and args.max_pose_spread_deg > 0:
-        print(f"Pose spread filter: <= {args.max_pose_spread_deg:.2f} deg")
-        if skipped_poses:
-            skipped = ", ".join(f"{name}({spread:.2f})" for name, spread in skipped_poses)
-            print(f"Skipped poses: {skipped}")
-        else:
-            print("Skipped poses: none")
     print("=" * 70)
 
     results = []
 
     for bs, guess in [(4, bs4_guess), (10, bs10_guess)]:
-        if only_bs is not None and bs not in only_bs:
-            continue
         print()
         print(f"Fitting BS{bs} around x={guess[0]:+.2f}, y={guess[1]:+.2f} ...")
 
@@ -755,7 +704,6 @@ def main():
             grid_y,
             grid_z,
             model_variants,
-            args.position_window,
         )
 
         results.append(geom)
