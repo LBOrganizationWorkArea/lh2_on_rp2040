@@ -20,7 +20,10 @@ add_executable(${PROJECT_NAME}
 
 # Add lh2 files
 add_subdirectory(src/lh2)
-target_link_libraries(${PROJECT_NAME} lh2_lib)  
+target_link_libraries(${PROJECT_NAME} lh2_lib)
+
+# Crossing-beams 3D solver (standalone, self-contained)
+add_subdirectory(src/crossing_beams)
 
 # Make a list of common dependencies
 set(COMMON_LIBS pico_stdlib hardware_pio hardware_dma pico_multicore)
