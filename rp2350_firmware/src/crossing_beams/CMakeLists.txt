@@ -51,3 +51,42 @@ target_compile_options(crossing_beams PRIVATE
     -Wno-maybe-uninitialized
     -O2
 )
+
+# ============================================================================
+# crossing_beams_test — solve3d math self-test (no hardware required)
+#
+# Feeds a synthetic virtual scene through angles_to_pixels + solve3d_run,
+# prints 3D points as CSV over USB serial.
+#
+# Only cv.c and solve3d.c are compiled — no lh2, no angle_decoder, no PIO.
+# Flash crossing_beams_test.uf2, open USB serial, capture to pico_out.csv,
+# then compare with:  python validate_solve3d.py > python_out.csv
+#                     python compare_results.py pico_out.csv python_out.csv
+# ============================================================================
+
+add_executable(crossing_beams_test
+    main_test.c
+    cv/cv.c
+    solve3d/solve3d.c
+)
+
+target_include_directories(crossing_beams_test PRIVATE
+    ${CMAKE_CURRENT_LIST_DIR}
+)
+
+target_link_libraries(crossing_beams_test
+    pico_stdlib
+)
+
+pico_add_extra_outputs(crossing_beams_test)
+
+pico_enable_stdio_usb(crossing_beams_test  1)
+pico_enable_stdio_uart(crossing_beams_test 0)
+
+target_compile_options(crossing_beams_test PRIVATE
+    -Wall
+    -Wno-format
+    -Wno-unused-function
+    -Wno-maybe-uninitialized
+    -O2
+)

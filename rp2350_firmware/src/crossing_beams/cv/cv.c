@@ -245,6 +245,17 @@ static void jacobi_svd_3x3(const float A[3][3],
             U[k][i] = At[i*3 + k] * inv_s;
     }
 
+    /* Special case: when S[2] ≈ 0 (essential matrix always has a zero singular
+     * value), U[:,2] = At[2]/S[2] = 0/0 → set to zero above.  Recover it as
+     * the cross product of the first two columns so that U is a proper rotation
+     * matrix (det = +1).  This matches OpenCV's handling of the zero singular
+     * value in decomposeEssentialMat. */
+    if (S[2] <= CV_EPS_F) {
+        U[0][2] = U[1][0]*U[2][1] - U[2][0]*U[1][1];
+        U[1][2] = U[2][0]*U[0][1] - U[0][0]*U[2][1];
+        U[2][2] = U[0][0]*U[1][1] - U[1][0]*U[0][1];
+    }
+
     /* Vt[i,:] = V[:,i] transposed  (Vt rows = V columns) */
     for (int i = 0; i < 3; i++)
         for (int j = 0; j < 3; j++)
@@ -425,9 +436,17 @@ int find_fundamental_mat(const float pts_a[][2],
     mat3_mul(T2t, F_norm, tmp);
     mat3_mul(tmp, T1, F_out);
 
-    /* Normalise so F[2][2] = 1 */
-    if (fabsf(F_out[2][2]) > CV_EPS_F) {
-        float inv = 1.0f / F_out[2][2];
+    /* Normalise by Frobenius norm (OpenCV convention).
+     * Do NOT normalise by F[2][2]: for a horizontal camera baseline the
+     * exact F has F[2][2] = 0, so dividing by it amplifies numerical noise
+     * by many orders of magnitude. */
+    float frob = 0.0f;
+    for (int i = 0; i < 3; i++)
+        for (int j = 0; j < 3; j++)
+            frob += F_out[i][j] * F_out[i][j];
+    frob = sqrtf(frob);
+    if (frob > CV_EPS_F) {
+        float inv = 1.0f / frob;
         for (int i = 0; i < 3; i++)
             for (int j = 0; j < 3; j++)
                 F_out[i][j] *= inv;
