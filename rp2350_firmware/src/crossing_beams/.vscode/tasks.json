@@ -2,12 +2,33 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "CMake Configure",
+            "type": "shell",
+            "command": "${env:HOME}/.pico-sdk/cmake/v3.31.5/bin/cmake",
+            "args": [
+                "-B", "${workspaceFolder}/build",
+                "-G", "Ninja",
+                "-DPICO_BOARD=pico2",
+                "${workspaceFolder}"
+            ],
+            "presentation": {
+                "reveal": "always",
+                "panel": "shared"
+            },
+            "problemMatcher": []
+        },
+        {
             "label": "Compile Project",
             "type": "process",
             "isBuildCommand": true,
             "command": "${userHome}/.pico-sdk/ninja/v1.12.1/ninja",
             "args": ["-C", "${workspaceFolder}/build"],
-            "group": "build",
+            "dependsOrder": "sequence",
+            "dependsOn": ["CMake Configure"],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
             "presentation": {
                 "reveal": "always",
                 "panel": "dedicated"
@@ -51,7 +72,7 @@
             ],
             "problemMatcher": [],
             "windows": {
-                "command": "${env:USERPROFILE}/.pico-sdk/openocd/0.12.0+dev/openocd.exe",
+                "command": "${env:USERPROFILE}/.pico-sdk/openocd/0.12.0+dev/openocd.exe"
             }
         },
         {
@@ -64,13 +85,13 @@
                 "-f",
                 "interface/cmsis-dap.cfg",
                 "-f",
-                "target/${command:raspberry-pi-pico.getChip}-rescue.cfg",
+                "target/${command:raspberry-pi-pico.getTarget}.cfg",
                 "-c",
                 "adapter speed 5000; reset halt; exit"
             ],
             "problemMatcher": [],
             "windows": {
-                "command": "${env:USERPROFILE}/.pico-sdk/openocd/0.12.0+dev/openocd.exe",
+                "command": "${env:USERPROFILE}/.pico-sdk/openocd/0.12.0+dev/openocd.exe"
             }
         },
         {
@@ -95,7 +116,7 @@
             ],
             "problemMatcher": [],
             "windows": {
-                "command": "${env:USERPROFILE}/.pico-sdk/openocd/0.12.0+dev/openocd.exe",
+                "command": "${env:USERPROFILE}/.pico-sdk/openocd/0.12.0+dev/openocd.exe"
             }
         }
     ]

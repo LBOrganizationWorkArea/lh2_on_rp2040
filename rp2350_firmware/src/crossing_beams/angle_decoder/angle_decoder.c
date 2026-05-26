@@ -109,8 +109,8 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
     for (int s = 0; s < NUM_SENSORS; s++) {
         for (int sweep = 0; sweep < LH2_SWEEP_COUNT; sweep++) {
             for (int slot = 0; slot < LH2_BASESTATION_COUNT; slot++) {
-                /* Only consume slots that have fresh raw data */
-                if (lh2[s].data_ready[sweep][slot] != DB_LH2_RAW_DATA_AVAILABLE) {
+                /* Only consume slots db_lh2_process_location() has decoded */
+                if (lh2[s].data_ready[sweep][slot] != DB_LH2_PROCESSED_DATA_AVAILABLE) {
                     continue;
                 }
 
