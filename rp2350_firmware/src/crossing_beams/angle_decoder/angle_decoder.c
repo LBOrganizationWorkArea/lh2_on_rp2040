@@ -63,13 +63,29 @@ static void _finalize_angles(lh2_angles_t *slot,
     float y_proj  = tanf(diff_rad) / TAN_30 / cosf(az_rad);
     float el_raw  = atanf(y_proj) * (180.0f / (float)M_PI);
 
+    /* Bitcraze (horiz, vert) reconstruction [radians] for the ray_cross solver.
+     * Uses the swap-corrected sweep angles (s0c, s1c) derived from az_raw + diff,
+     * matching LighthouseBsVector.from_lh2():
+     *   horiz = (s0 + s1) / 2
+     *   vert  = atan2( sin(s1 - s0), tan(30°) * (cos s0 + cos s1) )
+     */
+    float s0c_rad = (az_raw + diff * 0.5f) * ((float)M_PI / 180.0f);  /* sweep 0 */
+    float s1c_rad = (az_raw - diff * 0.5f) * ((float)M_PI / 180.0f);  /* sweep 1 */
+    float horiz_rad = az_rad;
+    float vert_rad  = atan2f(sinf(s1c_rad - s0c_rad),
+                             TAN_30 * (cosf(s0c_rad) + cosf(s1c_rad)));
+
     /* EMA update */
     if (!slot->valid) {
-        slot->ema_az = az_raw;
-        slot->ema_el = el_raw;
+        slot->ema_az    = az_raw;
+        slot->ema_el    = el_raw;
+        slot->ema_horiz = horiz_rad;
+        slot->ema_vert  = vert_rad;
     } else {
-        slot->ema_az = EMA_ALPHA * az_raw + (1.0f - EMA_ALPHA) * slot->ema_az;
-        slot->ema_el = EMA_ALPHA * el_raw + (1.0f - EMA_ALPHA) * slot->ema_el;
+        slot->ema_az    = EMA_ALPHA * az_raw    + (1.0f - EMA_ALPHA) * slot->ema_az;
+        slot->ema_el    = EMA_ALPHA * el_raw    + (1.0f - EMA_ALPHA) * slot->ema_el;
+        slot->ema_horiz = EMA_ALPHA * horiz_rad + (1.0f - EMA_ALPHA) * slot->ema_horiz;
+        slot->ema_vert  = EMA_ALPHA * vert_rad  + (1.0f - EMA_ALPHA) * slot->ema_vert;
     }
 
     slot->valid          = true;
@@ -95,6 +111,8 @@ void angle_decoder_init(lh2_angles_t out[NUM_SENSORS][NUM_BS],
             out[s][b].has_sweep[1] = false;
             out[s][b].ema_az       = 0.0f;
             out[s][b].ema_el       = 0.0f;
+            out[s][b].ema_horiz    = 0.0f;
+            out[s][b].ema_vert     = 0.0f;
             out[s][b].valid        = false;
             out[s][b].last_update_us = 0;
         }

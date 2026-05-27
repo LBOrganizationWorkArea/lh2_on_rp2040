@@ -36,6 +36,7 @@ add_executable(crossing_beams
     angle_decoder/angle_decoder.c
     cv/cv.c
     solve3d/solve3d.c
+    solve3d/ray_cross.c
     mavlink/mavlink.c
 )
 
@@ -64,62 +65,6 @@ target_compile_options(crossing_beams PRIVATE
 )
 
 # ============================================================================
-# crossing_beams_test — solve3d math self-test (no hardware required)
-# ============================================================================
-
-add_executable(crossing_beams_test
-    main_test.c
-    cv/cv.c
-    solve3d/solve3d.c
-)
-
-target_include_directories(crossing_beams_test PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}
-)
-
-target_link_libraries(crossing_beams_test
-    pico_stdlib
-)
-
-pico_add_extra_outputs(crossing_beams_test)
-pico_enable_stdio_usb(crossing_beams_test  1)
-pico_enable_stdio_uart(crossing_beams_test 0)
-
-target_compile_options(crossing_beams_test PRIVATE
-    -Wall -Wno-format -Wno-unused-function -Wno-maybe-uninitialized -O2
-)
-
-# ============================================================================
-# crossing_beams_mavlink_test — MAVLink VPE square-path test (no LH2 hardware)
-#
-# main.c feeds synthetic solve3d angles tracing a 1 m × 1 m square,
-# sends VISION_POSITION_ESTIMATE at 25 Hz over UART0 (GPIO 0/1) to Pixhawk 6C.
-# USB serial outputs DBG lines in parallel.
-# ============================================================================
-
-add_executable(crossing_beams_mavlink_test
-    main.c
-    mavlink/mavlink.c
-)
-
-target_include_directories(crossing_beams_mavlink_test PRIVATE
-    ${CMAKE_CURRENT_LIST_DIR}
-)
-
-target_link_libraries(crossing_beams_mavlink_test
-    pico_stdlib
-    hardware_uart
-)
-
-pico_add_extra_outputs(crossing_beams_mavlink_test)
-pico_enable_stdio_usb(crossing_beams_mavlink_test  1)
-pico_enable_stdio_uart(crossing_beams_mavlink_test 0)
-
-target_compile_options(crossing_beams_mavlink_test PRIVATE
-    -Wall -Wno-format -Wno-unused-function -Wno-maybe-uninitialized -O2
-)
-
-# ============================================================================
 # crossing_beams_synthetic — full dual-core pipeline, no sensors
 #
 # Builds main_real.c with -DSYNTHETIC_CAPTURE: core 1 fabricates the LFSR
@@ -135,6 +80,7 @@ add_executable(crossing_beams_synthetic
     angle_decoder/angle_decoder.c
     cv/cv.c
     solve3d/solve3d.c
+    solve3d/ray_cross.c
     mavlink/mavlink.c
 )
 
