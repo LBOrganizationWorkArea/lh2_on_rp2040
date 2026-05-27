@@ -14,9 +14,9 @@ before the sensors arrive.
 ## The core idea: lie at the seam, not at the edges
 
 The naive way to fake a position test is to skip the pipeline and just send a
-made-up coordinate (that's what `crossing_beams_mavlink_test` does). That proves
-the MAVLink link — but it tests *none* of the LH2 decode or solver code, and
-none of the cross-core handoff.
+made-up coordinate straight to MAVLink. That proves the MAVLink link — but it
+tests *none* of the LH2 decode or solver code, and none of the cross-core
+handoff.
 
 This build does something sharper. It injects fake data at the **one seam where
 core 1 hands off to core 0** — the shared `g_lh2[]` buffer — and lets every
@@ -33,8 +33,8 @@ downstream stage run for real:
         └────────────────────────────────────────────────────┘
 ```
 
-Everything below the seam — the angle decoder, the EMA filter, the fundamental-
-matrix solver, the triangulation, the MAVLink encoder, **and the cross-core
+Everything below the seam — the angle decoder, the EMA filter, the calibrated-
+pose triangulation, the MAVLink encoder, **and the cross-core
 data sharing itself** — is the real code, byte-for-byte identical to the
 hardware build. Only core 1's data *source* is swapped.
 
@@ -122,21 +122,24 @@ within integer-rounding error (~0.003°). It's a closed loop by construction.
 | Cross-core `g_lh2[]` sharing is sound | core 1 writes it, core 0 reads it, live, at 50 Hz |
 | `data_ready` handshake is correct | the enum-mismatch bug would show as zero output |
 | angle_decoder math + EMA filter run | `A,…` USB lines appear with sane angles |
-| solve3d executes end-to-end | `P,…`/`C,…` lines + a VPE frame come out |
+| solver executes end-to-end + is metric | `P,…`/`C,…` recover the 1×1 m square to the mm; z pinned at 2.000 |
 | MAVLink encoder + UART path work | VPE frames leave UART0 every solve |
+
+Because the synthetic injector and the calibrated-pose solver share the **same**
+`BS_POSES` and the forward/inverse mapping is exact, the recovered points match
+the known square to the millimetre — so this build validates solver *correctness*
+as well as data flow.
 
 **❌ NOT tested (still needs real hardware / calibration):**
 
 - The PIO/DMA capture and LFSR *search* (`lh2.c`) — omitted from this build.
-- Whether solve3d is *accurate*. It is fed geometrically-consistent angles, but
-  the fundamental-matrix solve is scale-ambiguous, so the `C,…`/VPE numbers will
-  **not** be metric or even necessarily stable. That's expected — this harness
-  validates **data flow**, not solver accuracy.
 - Real sensor noise, dropouts, and sweep-slot timing.
+- Whether the *real* calibrated poses + angle convention agree on hardware — in
+  synthetic mode the geometry is shared, so it is exact by construction.
 
-In short: if this build streams `A`/`P`/`C` lines and VPE frames, the
-**architecture** is sound and the day the sensors arrive you're debugging optics
-and calibration, not plumbing.
+In short: if this build streams `A`/`P`/`C` lines tracing a clean metric square
+and VPE frames, the **architecture and solver** are sound, and the day the
+sensors arrive you're debugging optics and calibration, not plumbing.
 
 ---
 

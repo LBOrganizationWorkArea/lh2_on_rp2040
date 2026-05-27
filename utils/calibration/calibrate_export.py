@@ -145,7 +145,7 @@ def write_header(poses, source, out_path):
     lines.append("#ifndef BS_POSES_CAL_H")
     lines.append("#define BS_POSES_CAL_H")
     lines.append("")
-    lines.append('#include "solve3d/ray_cross.h"   /* lh2_bs_pose_t, NUM_BS */')
+    lines.append('#include "solve3d/solve3d.h"   /* lh2_bs_pose_t, NUM_BS */')
     lines.append("")
     lines.append(f'#define BS_POSE_SOURCE "{source}"')
     lines.append("")

@@ -6,7 +6,7 @@
 #ifndef BS_POSES_CAL_H
 #define BS_POSES_CAL_H
 
-#include "solve3d/ray_cross.h"   /* lh2_bs_pose_t, NUM_BS */
+#include "solve3d/solve3d.h"   /* lh2_bs_pose_t, NUM_BS */
 
 #define BS_POSE_SOURCE "synthetic"
 

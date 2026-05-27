@@ -50,8 +50,8 @@ typedef struct {
     bool     has_sweep[2];       ///< true once the corresponding raw_sweep is valid
     float    ema_az;             ///< EMA-smoothed azimuth   [degrees] (legacy solve3d path)
     float    ema_el;             ///< EMA-smoothed elevation [degrees] (legacy solve3d path)
-    float    ema_horiz;          ///< EMA-smoothed Bitcraze horizontal angle [radians] (ray_cross)
-    float    ema_vert;           ///< EMA-smoothed Bitcraze vertical   angle [radians] (ray_cross)
+    float    ema_horiz;          ///< EMA-smoothed Bitcraze horizontal angle [radians] (solver)
+    float    ema_vert;           ///< EMA-smoothed Bitcraze vertical   angle [radians] (solver)
     bool     valid;              ///< true once at least one complete pair has been decoded
     uint64_t last_update_us;     ///< timestamp of last successful decode [µs since boot]
 } lh2_angles_t;

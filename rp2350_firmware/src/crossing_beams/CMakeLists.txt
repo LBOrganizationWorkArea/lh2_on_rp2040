@@ -36,7 +36,6 @@ add_executable(crossing_beams
     angle_decoder/angle_decoder.c
     cv/cv.c
     solve3d/solve3d.c
-    solve3d/ray_cross.c
     mavlink/mavlink.c
 )
 
@@ -80,7 +79,6 @@ add_executable(crossing_beams_synthetic
     angle_decoder/angle_decoder.c
     cv/cv.c
     solve3d/solve3d.c
-    solve3d/ray_cross.c
     mavlink/mavlink.c
 )
 

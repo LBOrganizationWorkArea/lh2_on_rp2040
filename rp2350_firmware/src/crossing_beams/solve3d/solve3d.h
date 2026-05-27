@@ -1,109 +1,82 @@
 /**
  * @file   solve3d.h
- * @brief  C port of data_processing.py :: solve_3d_scene()
+ * @brief  3D solver for the crossing-beams system — calibrated-pose variant.
  *
- * Accumulates a ring buffer of (pixel_a, pixel_b, sensor_id) samples,
- * then runs the full epipolar pipeline:
+ * This is the original epipolar-geometry pipeline from data_processing.py,
+ * *enhanced* to use KNOWN base-station poses instead of estimating them.
  *
- *   1. Project LH2 az/el angles onto the z=1 image plane → 2D pixels
- *   2. find_fundamental_mat(pts_a, pts_b)  → F
- *   3. recover_pose(F, pts_a, pts_b)       → R, t
- *   4. Build P1, P2 projection matrices
- *   5. triangulate_points(P1, P2, pts_a, pts_b) → 3D points
+ * The original solve_3d_scene() did:
+ *     angles_to_pixels → find_fundamental_mat → recover_pose → triangulate_points
+ * The pose estimation (find_fundamental_mat + recover_pose) is scale-ambiguous
+ * and ill-conditioned for a near-coplanar sensor cloud, which is what made the
+ * output unstable. Since the base stations are fixed and calibrated, we keep the
+ * validated front/back of the pipeline:
+ *     angles_to_pixels  +  triangulate_points   (the DLT — unchanged)
+ * and replace the estimated pose with projection matrices built directly from
+ * the calibrated poses. The result is metric and stable.
  *
- * Depends on: cv/cv.h
+ * Depends on: cv/cv.h (triangulate_points), angle_decoder (lh2_angles_t).
  */
 
 #ifndef SOLVE3D_H
 #define SOLVE3D_H
 
-#include <stdbool.h>
 #include <stdint.h>
 
-/** Maximum number of history samples kept in the ring buffer. */
-#define SOLVE3D_MAX_SAMPLES 32
-
-/** Minimum samples required before attempting a solve. */
-#define SOLVE3D_MIN_SAMPLES 8
+#include "angle_decoder/angle_decoder.h"   /* lh2_angles_t, NUM_SENSORS, NUM_BS */
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-/**
- * @brief  One measurement: both lighthouses observed the same sensor.
- *
- * px_a and px_b are the result of angles_to_pixels() — projection of
- * the respective (az, el) pair onto the z=1 image plane.
- */
+/** One 3D output point in the calibrated world frame [metres]. */
 typedef struct {
-    float   px_a[2];     ///< [ tan(az_a), tan(el_a)/cos(az_a) ]
-    float   px_b[2];     ///< [ tan(az_b), tan(el_b)/cos(az_b) ]
-    uint8_t sensor_id;   ///< which TS4231 sensor produced this measurement
-} lh2_sample_t;
-
-/**
- * @brief  One 3D output point.
- */
-typedef struct {
-    float   xyz[3];      ///< Cartesian coordinates [metres, scale-ambiguous until D_BS known]
-    uint8_t sensor_id;   ///< sensor that produced this point
+    float   xyz[3];
+    uint8_t sensor_id;
 } lh2_point3d_t;
 
 /**
- * @brief  Solver context — ring buffer + cached pose from last solve.
+ * @brief  A base station's pose in the calibrated world frame.
+ *
+ * R maps the base-station-local frame to the world frame (columns are the
+ * local axes expressed in world coordinates). Local +X is the boresight.
  */
 typedef struct {
-    lh2_sample_t history[SOLVE3D_MAX_SAMPLES];  ///< circular history buffer
-    int          n_samples;    ///< current fill level (0 .. MAX_SAMPLES)
-    int          head;         ///< ring-buffer write head (next free slot)
-    float        R[3][3];      ///< cached rotation from last successful solve
-    float        t[3];         ///< cached unit translation
-    bool         pose_valid;   ///< true once at least one solve succeeded
-} solve3d_ctx_t;
+    float origin[3];    ///< base-station position [m]
+    float R[3][3];      ///< base-station-local → world rotation
+} lh2_bs_pose_t;
 
 // ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 /**
- * @brief  Initialise a solver context.
- */
-void solve3d_init(solve3d_ctx_t *ctx);
-
-/**
- * @brief  Project LH2 azimuth + elevation onto the z=1 image plane.
+ * @brief  Project lighthouse azimuth/elevation onto the z=1 image plane.
  *
- * Direct port of data_processing.py :: LH2_angles_to_pixels():
- *
- *   px[0] = tan(az_rad)
- *   px[1] = tan(el_rad) / cos(az_rad)
- *
- * @param az_rad   azimuth   in radians
- * @param el_rad   elevation in radians
- * @param px_out   output: [px_x, px_y]
+ * From data_processing.py :: LH2_angles_to_pixels():
+ *   px = [ tan(az),  tan(el) / cos(az) ]
+ * i.e. the normalised pinhole projection of a +Z-looking camera. Retained
+ * unchanged from the original pipeline.
  */
 void angles_to_pixels(float az_rad, float el_rad, float px_out[2]);
 
 /**
- * @brief  Add one sample to the ring buffer; overwrites the oldest when full.
+ * @brief  Triangulate a metric 3D point for every sensor both base stations see.
+ *
+ * For each sensor with fresh angles from both base stations:
+ *   1. project the calibrated (horiz, vert) angles to pixels (angles_to_pixels),
+ *   2. build each base station's world→image projection matrix from its pose,
+ *   3. DLT-triangulate the pair (cv triangulate_points) → world point.
+ *
+ * @param bs       array of NUM_BS calibrated base-station poses
+ * @param angles   decoded angle table [NUM_SENSORS][NUM_BS]
+ * @param now_us   current time [µs] for the freshness check
+ * @param pts_out  caller buffer of at least NUM_SENSORS points
+ * @return         number of points written (0 .. NUM_SENSORS)
  */
-void solve3d_push_sample(solve3d_ctx_t *ctx, const lh2_sample_t *s);
-
-/**
- * @brief  Run solve_3d_scene on the current history buffer.
- *
- * Requires ctx->n_samples >= SOLVE3D_MIN_SAMPLES.
- *
- * On success, writes ctx->n_samples points into pts3d_out,
- * caches R and t in the context, and returns ctx->n_samples.
- *
- * Returns 0 if there are too few samples or find_fundamental_mat fails.
- *
- * @param ctx        solver context (updated in place)
- * @param pts3d_out  caller-allocated array of at least SOLVE3D_MAX_SAMPLES entries
- * @return           number of 3D points written, or 0 on failure
- */
-int solve3d_run(solve3d_ctx_t *ctx, lh2_point3d_t *pts3d_out);
+int solve3d_calib_run(const lh2_bs_pose_t bs[NUM_BS],
+                      const lh2_angles_t  angles[NUM_SENSORS][NUM_BS],
+                      uint64_t            now_us,
+                      lh2_point3d_t      *pts_out);
 
 #endif /* SOLVE3D_H */

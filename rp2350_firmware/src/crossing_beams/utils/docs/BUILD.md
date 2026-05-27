@@ -48,7 +48,7 @@ cd ~/Repositories/lh2_on_rp2040/rp2350_firmware/src/crossing_beams
 ~/.pico-sdk/ninja/v1.12.1/ninja -C build
 
 # or just one
-~/.pico-sdk/ninja/v1.12.1/ninja -C build crossing_beams_mavlink_test
+~/.pico-sdk/ninja/v1.12.1/ninja -C build crossing_beams_synthetic
 ```
 
 Output lands in `build/<target>.uf2`.
@@ -90,9 +90,8 @@ Then `Ctrl+Shift+B` again. `build/` is 100% regenerated output — safe to delet
 
 | Target | Source | Purpose |
 |---|---|---|
-| `crossing_beams` | `main_real.c` | Real dual-core firmware: 4 sensors → solve3d → MAVLink |
-| `crossing_beams_mavlink_test` | `main.c` | Synthetic square-path VPE test (no sensors) |
-| `crossing_beams_test` | `main_test.c` | solve3d math self-test (no hardware) |
+| `crossing_beams` | `main_real.c` | Real dual-core firmware: 4 sensors → calibrated-pose solver → MAVLink |
+| `crossing_beams_synthetic` | `main_real.c` `-DSYNTHETIC_CAPTURE` | Same firmware, fabricated 1×1 m square path — no hardware |
 
 ---
 

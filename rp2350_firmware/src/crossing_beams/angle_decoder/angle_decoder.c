@@ -63,7 +63,7 @@ static void _finalize_angles(lh2_angles_t *slot,
     float y_proj  = tanf(diff_rad) / TAN_30 / cosf(az_rad);
     float el_raw  = atanf(y_proj) * (180.0f / (float)M_PI);
 
-    /* Bitcraze (horiz, vert) reconstruction [radians] for the ray_cross solver.
+    /* Bitcraze (horiz, vert) reconstruction [radians] for the calibrated-pose solver.
      * Uses the swap-corrected sweep angles (s0c, s1c) derived from az_raw + diff,
      * matching LighthouseBsVector.from_lh2():
      *   horiz = (s0 + s1) / 2

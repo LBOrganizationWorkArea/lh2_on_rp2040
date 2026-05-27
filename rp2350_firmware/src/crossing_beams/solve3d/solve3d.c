@@ -1,137 +1,97 @@
 /**
  * @file   solve3d.c
- * @brief  C port of data_processing.py :: solve_3d_scene()
+ * @brief  Calibrated-pose crossing-beams solver — see solve3d.h.
  *
- * Python reference (data_processing.py):
- *
- *   pts_a    = [LH2_angles_to_pixels(az_a, el_a) for each sensor sample]
- *   pts_b    = [LH2_angles_to_pixels(az_b, el_b) for each sensor sample]
- *   F        = cv2.findFundamentalMat(pts_a, pts_b, cv2.FM_LMEDS)[0]
- *   R, t, *_ = cv2.recoverPose(F, pts_a, pts_b)
- *   P1       = np.hstack([np.eye(3), np.zeros((3,1))])
- *   P2       = np.hstack([R.T, -R.T @ t])
- *   point3d  = cv2.triangulatePoints(P1, P2, pts_b.T, pts_a.T)[:3]  ← swapped
+ * Keeps the original pipeline's projection (angles_to_pixels) and DLT
+ * triangulation (cv triangulate_points); replaces the estimated relative pose
+ * with projection matrices built from the calibrated base-station poses.
  */
 
 #include "solve3d.h"
 #include "../cv/cv.h"
 
 #include <math.h>
-#include <string.h>
 
 // ---------------------------------------------------------------------------
-// Public API
+// Projection (unchanged from data_processing.py)
 // ---------------------------------------------------------------------------
-
-void solve3d_init(solve3d_ctx_t *ctx)
-{
-    memset(ctx, 0, sizeof(*ctx));
-    ctx->n_samples  = 0;
-    ctx->head       = 0;
-    ctx->pose_valid = false;
-}
 
 void angles_to_pixels(float az_rad, float el_rad, float px_out[2])
 {
-    /* Direct port of LH2_angles_to_pixels() from data_processing.py:
-     *   px = [tan(az), tan(el) / cos(az)]
-     * This projects the lighthouse azimuth/elevation onto the z=1 image plane
-     * of a pinhole camera with identity intrinsics. */
+    /* px = [tan(az), tan(el)/cos(az)] — normalised +Z pinhole projection. */
     float cos_az = cosf(az_rad);
     px_out[0] = tanf(az_rad);
-    px_out[1] = (fabsf(cos_az) > 1e-9f)
-                    ? (tanf(el_rad) / cos_az)
-                    : 0.0f;
+    px_out[1] = (fabsf(cos_az) > 1e-9f) ? (tanf(el_rad) / cos_az) : 0.0f;
 }
 
-void solve3d_push_sample(solve3d_ctx_t *ctx, const lh2_sample_t *s)
+// ---------------------------------------------------------------------------
+// Build a base station's world→image projection matrix P (3×4)
+//
+// The calibrated pose has local +X = boresight. A standard pinhole expects the
+// optical (depth) axis to be the third image coordinate, so we map:
+//     image-u (row 0) ← local +Y axis  (R column 1)
+//     image-v (row 1) ← local +Z axis  (R column 2)
+//     depth   (row 2) ← local +X axis  (R column 0, boresight)
+// Then for a world point X:  P·[X;1] = (localY, localZ, localX) of (X−origin),
+// so the projected pixel = (localY/localX, localZ/localX) = (tan horiz, tan vert).
+// ---------------------------------------------------------------------------
+
+static void _bs_projection(const lh2_bs_pose_t *bs, float P[3][4])
 {
-    ctx->history[ctx->head] = *s;
-    ctx->head = (ctx->head + 1) % SOLVE3D_MAX_SAMPLES;
-    if (ctx->n_samples < SOLVE3D_MAX_SAMPLES)
-        ctx->n_samples++;
+    const float *o = bs->origin;
+
+    for (int r = 0; r < 3; r++) {
+        P[0][r] = bs->R[r][1];   /* u-axis  = local +Y */
+        P[1][r] = bs->R[r][2];   /* v-axis  = local +Z */
+        P[2][r] = bs->R[r][0];   /* depth   = local +X (boresight) */
+    }
+    P[0][3] = -(bs->R[0][1]*o[0] + bs->R[1][1]*o[1] + bs->R[2][1]*o[2]);
+    P[1][3] = -(bs->R[0][2]*o[0] + bs->R[1][2]*o[1] + bs->R[2][2]*o[2]);
+    P[2][3] = -(bs->R[0][0]*o[0] + bs->R[1][0]*o[1] + bs->R[2][0]*o[2]);
 }
 
-int solve3d_run(solve3d_ctx_t *ctx, lh2_point3d_t *pts3d_out)
+// ---------------------------------------------------------------------------
+// Solver
+// ---------------------------------------------------------------------------
+
+int solve3d_calib_run(const lh2_bs_pose_t bs[NUM_BS],
+                      const lh2_angles_t  angles[NUM_SENSORS][NUM_BS],
+                      uint64_t            now_us,
+                      lh2_point3d_t      *pts_out)
 {
-    int n = ctx->n_samples;
-    if (n < SOLVE3D_MIN_SAMPLES) return 0;
+    float P0[3][4], P1[3][4];
+    _bs_projection(&bs[0], P0);
+    _bs_projection(&bs[1], P1);
 
-    /* ---- Step 1: Unpack history into flat point arrays ---- */
+    int n = 0;
+    for (int s = 0; s < NUM_SENSORS; s++) {
+        if (!angle_decoder_is_fresh(angles, s, now_us)) {
+            continue;
+        }
 
-    /* History is a ring buffer; read out in order from oldest to newest. */
-    float pts_a[SOLVE3D_MAX_SAMPLES][2];
-    float pts_b[SOLVE3D_MAX_SAMPLES][2];
+        /* Project both base stations' angles to image pixels.
+         *
+         * angles_to_pixels() expects (azimuth, elevation) of a +Z-looking
+         * pinhole. The calibrated angles are Bitcraze (horiz, vert) with the
+         * boresight along +X, so the elevation fed to the pinhole is
+         *   el = atan( tan(vert) · cos(horiz) )
+         * which makes angles_to_pixels(horiz, el) = (tan horiz, tan vert) —
+         * exactly the projection the matrices in _bs_projection() invert. */
+        float h0 = angles[s][0].ema_horiz, v0 = angles[s][0].ema_vert;
+        float h1 = angles[s][1].ema_horiz, v1 = angles[s][1].ema_vert;
 
-    /* The oldest entry is at index (head) when buffer is full,
-     * or at index 0 when not yet full. */
-    int start = (n == SOLVE3D_MAX_SAMPLES) ? ctx->head : 0;
+        float pa[1][2], pb[1][2];
+        angles_to_pixels(h0, atanf(tanf(v0) * cosf(h0)), pa[0]);
+        angles_to_pixels(h1, atanf(tanf(v1) * cosf(h1)), pb[0]);
 
-    for (int i = 0; i < n; i++) {
-        int idx = (start + i) % SOLVE3D_MAX_SAMPLES;
-        pts_a[i][0] = ctx->history[idx].px_a[0];
-        pts_a[i][1] = ctx->history[idx].px_a[1];
-        pts_b[i][0] = ctx->history[idx].px_b[0];
-        pts_b[i][1] = ctx->history[idx].px_b[1];
-    }
+        float X[1][3];
+        triangulate_points(P0, P1, pa, pb, 1, X);
 
-    /* ---- Step 2: Fundamental matrix ---- */
-
-    float F[3][3];
-    if (!find_fundamental_mat(pts_a, pts_b, n, F)) return 0;
-
-    /* ---- Step 3: Recover R, t ---- */
-
-    float R[3][3], t[3];
-    recover_pose(F, pts_a, pts_b, n, R, t);
-
-    /* Cache the pose */
-    memcpy(ctx->R, R, sizeof(R));
-    memcpy(ctx->t, t, sizeof(t));
-    ctx->pose_valid = true;
-
-    /* ---- Step 4: Build projection matrices ---- */
-
-    /* P1 = [I₃ | 0]  — camera A at the origin */
-    float P1[3][4] = {
-        {1.0f, 0.0f, 0.0f, 0.0f},
-        {0.0f, 1.0f, 0.0f, 0.0f},
-        {0.0f, 0.0f, 1.0f, 0.0f}
-    };
-
-    /* P2 = [R | t]  — camera B in OpenCV convention.
-     *
-     * recover_pose returns R (world-to-cam2 rotation) and t (unit translation
-     * vector in cam2 frame), both in OpenCV's standard [R|t] convention.
-     * The cheirality check in cv.c uses P2=[Rc|tc] consistently.
-     *
-     * Using [R|t] directly here keeps triangulation consistent with the
-     * cheirality check and with how pts_b was generated.
-     *
-     * (The Python reference uses np.hstack([R.T, -R.T @ t]) which has a
-     * documented pts_a/pts_b swap — the C version uses the correct ordering
-     * with [R|t] instead.)
-     */
-    float P2[3][4];
-    for (int i = 0; i < 3; i++) {
-        for (int j = 0; j < 3; j++)
-            P2[i][j] = R[i][j];   /* direct R */
-        P2[i][3] = t[i];           /* direct t */
-    }
-
-    /* ---- Step 5: Triangulate ---- */
-
-    float pts3d[SOLVE3D_MAX_SAMPLES][3];
-    triangulate_points(P1, P2, pts_a, pts_b, n, pts3d);
-
-    /* ---- Step 6: Copy to output with sensor IDs ---- */
-
-    for (int i = 0; i < n; i++) {
-        int idx = (start + i) % SOLVE3D_MAX_SAMPLES;
-        pts3d_out[i].xyz[0]    = pts3d[i][0];
-        pts3d_out[i].xyz[1]    = pts3d[i][1];
-        pts3d_out[i].xyz[2]    = pts3d[i][2];
-        pts3d_out[i].sensor_id = ctx->history[idx].sensor_id;
+        pts_out[n].xyz[0]    = X[0][0];
+        pts_out[n].xyz[1]    = X[0][1];
+        pts_out[n].xyz[2]    = X[0][2];
+        pts_out[n].sensor_id = (uint8_t)s;
+        n++;
     }
 
     return n;
