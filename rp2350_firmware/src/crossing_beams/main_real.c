@@ -387,7 +387,7 @@ int main(void)
         if (_print_and_centroid(pts, n, &cx, &cy, &cz) > 0) {
             /* World → NED: negate Z (world z-up → MAVLink z-down).
              * Position is now metric (poses are calibrated to real metres). */
-            mavlink_send_vpe(now_us, cx, cy, -cz);
+            mavlink_send_odometry(now_us, cx, cy);
         }
     }
 

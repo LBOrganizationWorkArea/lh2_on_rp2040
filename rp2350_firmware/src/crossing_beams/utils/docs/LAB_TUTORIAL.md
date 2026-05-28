@@ -132,41 +132,19 @@ separate switch to enable it.
 
 ## Step 5 — Verify MAVLink with Mission Planner
 
-You can use Mission Planner to see the position data live without needing the
-H7 at all. You need a **USB-to-UART adapter** (e.g. FTDI, CP2102).
+The Pico sends MAVLink over UART0 (GPIO 0/1) directly to the H7. The Pico USB
+cable gives you the text diagnostics (`A`, `P`, `C` lines) — those are separate.
 
-### Wiring for this test
+To confirm the H7 is actually receiving the position frames:
 
-```
-Pico GPIO 0  (TX)  →  USB-UART adapter RX
-Pico GPIO 1  (RX)  →  USB-UART adapter TX
-Pico GND           →  USB-UART adapter GND
-```
-
-Plug the adapter into your PC. This is separate from the Pico's USB cable —
-you need both plugged in at the same time (USB for serial diagnostics, adapter
-for MAVLink).
-
-### Connecting Mission Planner
-
-1. Open Mission Planner
-2. Top-right corner: select the COM port of your USB-UART adapter and set baud
-   rate to **115200**
-3. Click **Connect**
-4. Mission Planner may show "no heartbeat" — that is expected, the Pico does
-   not send heartbeats. The data still flows.
-
-### Seeing the position data
-
-Once connected:
-
-1. Press **Ctrl + F** to open the temp menu
-2. Click **MAVLink Inspector**
-3. Look for message **`VISION_POSITION_ESTIMATE`** (ID 102) appearing at ~10 Hz
-4. Click on it to expand — you will see `x`, `y`, `z` updating live in metres
+1. Connect Mission Planner to the H7 as you normally would
+2. Press **Ctrl + F** to open the temp menu
+3. Click **MAVLink Inspector**
+4. Look for message **`VISION_POSITION_ESTIMATE`** (ID 102) appearing at ~10 Hz
+5. Click on it to expand — you will see `x`, `y`, `z` updating live in metres
 
 If the message appears and the values move when you move the sensor board,
-everything is working correctly.
+the full pipeline is working end to end.
 
 ---
 
