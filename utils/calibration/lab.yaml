@@ -1,0 +1,25 @@
+type: lighthouse_system_configuration
+version: '1'
+systemType: 2
+calibs: {}
+geos:
+  0:
+    position:
+    - 0.0
+    - 0.0
+    - 1.5
+    rotation_quat:
+    - 0.0
+    - 0.0
+    - 0.7071068
+    - 0.7071068
+  1:
+    position:
+    - 1.0
+    - 0.0
+    - 1.5
+    rotation_quat:
+    - 0.0
+    - 0.0
+    - 0.7071068
+    - 0.7071068
