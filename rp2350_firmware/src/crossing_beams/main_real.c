@@ -70,6 +70,9 @@
 /** Period between solve + VPE-send + print calls [µs] — ~10 Hz */
 #define PRINT_INTERVAL_US  100000ULL
 
+/** Warmup period before odometry is sent to the Pixhawk [µs] — 30 s */
+#define ODOMETRY_WARMUP_US  30000000ULL
+
 // ---------------------------------------------------------------------------
 // Calibration constants
 // (from utils/user_interface/tools/history_calibration.txt, most recent)
@@ -349,7 +352,8 @@ int main(void)
     printf("Capture core ready.\n");
 
     /* ④ Compute loop */
-    uint64_t last_print_us = 0;
+    uint64_t last_print_us  = 0;
+    uint64_t odometry_start = to_us_since_boot(get_absolute_time());
 
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
@@ -385,9 +389,12 @@ int main(void)
 
         float cx, cy, cz;
         if (_print_and_centroid(pts, n, &cx, &cy, &cz) > 0) {
-            /* World → NED: negate Z (world z-up → MAVLink z-down).
-             * Position is now metric (poses are calibrated to real metres). */
-            mavlink_send_odometry(now_us, cx, cy);
+            if (now_us - odometry_start >= ODOMETRY_WARMUP_US) {
+                /* World → NED: negate Z (world z-up → MAVLink z-down).
+                 * Position is now metric (poses are calibrated to real metres). */
+                mavlink_send_odometry(now_us, cx, cy, -cz);
+            }
+
         }
     }
 
