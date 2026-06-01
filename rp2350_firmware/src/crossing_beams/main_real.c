@@ -21,7 +21,7 @@
  *   lh2/             — PIO+DMA capture (TS4231 → LFSR counts)        [core 1]
  *   angle_decoder/   — LFSR counts → EMA-filtered az/el             [core 0]
  *   cv/ + solve3d/   — fundamental matrix / triangulation           [core 0]
- *   mavlink/         — VISION_POSITION_ESTIMATE over UART0          [core 0]
+ *   mavlink/         — ODOMETRY (msg #331) over UART0               [core 0]
  *
  * Serial output (USB, 115200):
  *   A,<sensor>,<bs>,<az_deg>,<el_deg>   angle update
@@ -104,6 +104,13 @@ static lh2_angles_t  g_angles[NUM_SENSORS][NUM_BS];
 
 /** Set true by core 1 once all sensors are initialised; gates core 0's loop. */
 static volatile bool g_capture_ready = false;
+
+/**
+ * Set true by core 0 when the FC first reports a healthy EKF and DO_SET_HOME
+ * has been sent.  Read by core 1 (synthetic only) to restart the square walk
+ * from corner 0 so the mission begins from a known home.
+ */
+static volatile bool g_home_set = false;
 
 // ---------------------------------------------------------------------------
 // Core 1 — all sensor capture
@@ -200,8 +207,9 @@ static void core1_entry(void)
     /* No db_lh2_init() — no hardware touched in synthetic mode. */
     g_capture_ready = true;
 
-    uint64_t start_us = to_us_since_boot(get_absolute_time());
-    uint64_t next_us  = start_us;
+    uint64_t start_us   = to_us_since_boot(get_absolute_time());
+    uint64_t next_us    = start_us;
+    bool     home_latch = false;  /* tracks rising edge of g_home_set */
 
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
@@ -210,6 +218,13 @@ static void core1_entry(void)
             continue;
         }
         next_us += SYN_TICK_US;
+
+        /* When core 0 sets g_home_set for the first time, restart the square
+         * from corner 0 so the mission begins from the known home position. */
+        if (g_home_set && !home_latch) {
+            start_us   = now_us;
+            home_latch = true;
+        }
 
         /* Interpolate body position along the current square edge. */
         uint64_t elapsed = now_us - start_us;
@@ -330,6 +345,7 @@ int main(void)
     stdio_init_all();
     mavlink_init();          /* UART0 GPIO 0/1 @ 115200 → Pixhawk TELEM2 */
     sleep_ms(2000);          /* let USB enumerate */
+    mavlink_request_ekf_stream();  /* ask FC to stream EKF_STATUS_REPORT @ 1 Hz */
     printf("=== LH2 Crossing-Beams 3D Solver (dual-core) ===\n");
 #ifdef SYNTHETIC_CAPTURE
     printf("Core 1: SYNTHETIC capture (no sensors, 1x1m square)\n");
@@ -358,6 +374,10 @@ int main(void)
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
 
+        /* Drain UART RX every iteration — EKF_STATUS_REPORT arrives at 1 Hz
+         * (34-byte frames) so calling this at full loop rate keeps the FIFO empty. */
+        mavlink_rx_update();
+
         /* Decode whatever core 1 has produced since last pass */
         angle_decoder_update(g_lh2, g_angles, CAL, now_us);
 
@@ -365,6 +385,14 @@ int main(void)
             continue;
         }
         last_print_us = now_us;
+
+        /* When EKF first reports healthy, tell the FC to use the current position
+         * as home.  For synthetic this also restarts the square walk (via g_home_set). */
+        if (!g_home_set && mavlink_is_ekf_healthy()) {
+            mavlink_send_do_set_home();
+            g_home_set = true;
+            printf("EKF healthy — home set\n");
+        }
 
         /* Diagnostic angle output (Bitcraze horiz/vert, degrees).
          * Two formats: CSV "A," lines for tools, and a readable "ANG" line. */
