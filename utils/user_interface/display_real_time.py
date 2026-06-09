@@ -179,7 +179,7 @@ def _start_mavlink(port, baud):
 # ── FastAPI ───────────────────────────────────────────────────────────────────
 
 _lighthouses = _load_lighthouses(_DEFAULT_CALIB)
-_STATIC      = Path(__file__).parent / 'static'
+_STATIC      = Path(__file__).parent.parent.parent / 'docs'
 
 
 @asynccontextmanager
