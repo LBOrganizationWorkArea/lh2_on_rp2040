@@ -123,7 +123,7 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
   <div class="lbl" id="pos-lbl" style="color:#3a3a3a">POSITION</div>
   <div id="pos-x" style="font-size:13px;color:#aaa">X  ---</div>
   <div id="pos-y" style="font-size:13px;color:#aaa">Y  ---</div>
-  <div id="pos-z" style="font-size:13px;color:#aaa">Z  ---</div>
+  <div id="pos-z" style="font-size:13px;color:#aaa">Z↓ ---</div>
 </div>
 
 <script type="importmap">
@@ -140,10 +140,10 @@ import * as THREE                      from 'three';
 import { OrbitControls }               from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject }  from 'three/addons/renderers/CSS2DRenderer.js';
 
-// ─── Lighthouse config (edit to match your lab.yaml) ─────────────────────────
+// ─── Lighthouse config (NED: z negative = above origin) ──────────────────────
 const LIGHTHOUSES = [
-  { id: '0', pos: [0.0, 0.0, 1.5], R: [[ 0,-1, 0],[ 1, 0, 0],[ 0, 0, 1]] },
-  { id: '1', pos: [1.0, 0.0, 1.5], R: [[ 0,-1, 0],[ 1, 0, 0],[ 0, 0, 1]] },
+  { id: '0', pos: [0.0, 0.0, -1.5], R: [[ 0,-1, 0],[ 1, 0, 0],[ 0, 0, 1]] },
+  { id: '1', pos: [1.0, 0.0, -1.5], R: [[ 0,-1, 0],[ 1, 0, 0],[ 0, 0, 1]] },
 ];
 
 // ─── MAVLink v2 parser ────────────────────────────────────────────────────────
@@ -210,7 +210,7 @@ function onMavMsg(msgId, dv) {
   if (msgId === 32) {  // LOCAL_POSITION_NED
     droneX = dv.getFloat32(4,  true);
     droneY = dv.getFloat32(8,  true);
-    droneZ = -dv.getFloat32(12, true);  // NED z positive-down → altitude up
+    droneZ = dv.getFloat32(12, true);  // NED z positive-down, kept as-is
     droneTrail.push({ x: droneX, y: droneY, z: droneZ, t: lastMsgTime });
     if (droneTrail.length > 2400) droneTrail.splice(0, droneTrail.length - 2400);
   } else if (msgId === 193) {  // EKF_STATUS_REPORT
@@ -273,10 +273,10 @@ window.toggleConnect = toggleConnect;
 
 // ─── Debug simulation ─────────────────────────────────────────────────────────
 const DBG_WAY = (() => {
-  const s=0.8,ox=0.1,oy=0.1,oz=0.2;
+  const s=0.8,ox=0.1,oy=0.1,oz=-0.2;  // NED: z negative = above origin
   return [
     [ox,oy,oz],[ox+s,oy,oz],[ox+s,oy+s,oz],[ox,oy+s,oz],
-    [ox,oy+s,oz+s],[ox+s,oy+s,oz+s],[ox+s,oy,oz+s],[ox,oy,oz+s],
+    [ox,oy+s,oz-s],[ox+s,oy+s,oz-s],[ox+s,oy,oz-s],[ox,oy,oz-s],
   ];
 })();
 let dbgStep = 0, dbgEdge = 0;
@@ -313,8 +313,8 @@ function toggleDebug() {
 window.toggleDebug = toggleDebug;
 
 // ─── Coordinate conversion ────────────────────────────────────────────────────
-// Data: X right, Y depth, Z up  →  Three.js: X right, Y up, Z toward viewer
-const tv = (x,y,z) => new THREE.Vector3(x, z, -y);
+// Data: NED (X north, Y east, Z down)  →  Three.js: X right, Y up, Z toward viewer
+const tv = (x,y,z) => new THREE.Vector3(x, -z, -y);
 
 // ─── Three.js scene ───────────────────────────────────────────────────────────
 const container = document.getElementById('scene-container');
@@ -451,7 +451,7 @@ function updatePanel() {
     G('pos-lbl').style.color='#bbb';
     G('pos-x').textContent=`X  ${fmt(droneX)}`;
     G('pos-y').textContent=`Y  ${fmt(droneY)}`;
-    G('pos-z').textContent=`Z  ${fmt(droneZ)}`;
+    G('pos-z').textContent=`Z↓ ${fmt(droneZ)}`;
   }
 }
 
