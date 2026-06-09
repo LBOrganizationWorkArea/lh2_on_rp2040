@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LBEES – Real-Time Tracker</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #111; color: #ccc;
+  font-family: 'Courier New', monospace;
+  display: flex; height: 100vh; overflow: hidden;
+}
+#scene-container { flex: 1; position: relative; overflow: hidden; }
+#scene-container canvas,
+#scene-container > div:not(#scale-bar-wrap):not(#webserial-warn) {
+  position: absolute !important; top:0; left:0;
+  width:100% !important; height:100% !important;
+}
+.label {
+  font-size: 13px; font-family: monospace;
+  pointer-events: none; user-select: none;
+  text-shadow: 0 0 4px #000;
+}
+/* scale bar */
+#scale-bar-wrap {
+  position: absolute; bottom: 18px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  pointer-events: none; z-index: 10;
+}
+#scale-line {
+  height: 3px; background: #aaa;
+  border-left: 2px solid #aaa; border-right: 2px solid #aaa;
+  min-width: 4px; transition: width 0.15s ease;
+}
+#scale-text { font-size: 11px; color: #aaa; letter-spacing: 0.5px; white-space: nowrap; }
+/* WebSerial warning */
+#webserial-warn {
+  position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+  background: #3a1a00; border: 1px solid #a06020; color: #ffa040;
+  padding: 6px 14px; border-radius: 4px; font-size: 12px;
+  z-index: 20; pointer-events: none; display: none;
+}
+/* panel */
+#panel {
+  width: 230px; min-width: 230px; background: #161616;
+  border-left: 1px solid #222; padding: 14px 12px;
+  display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+}
+#panel h1 { font-size: 13px; color: #555; letter-spacing: 2px; text-align: center; margin-bottom: 2px; }
+.lbl { font-size: 11px; color: #555; letter-spacing: 1px; }
+hr { border: none; border-top: 1px solid #2a2a2a; margin: 2px 0; }
+select, input[type="number"] {
+  background: #222; color: #ddd; border: 1px solid #333; border-radius: 3px;
+  padding: 4px 6px; font-size: 12px; font-family: monospace; width: 100%; outline: none;
+}
+select:focus, input:focus { border-color: #555; }
+button {
+  background: #1a3a1a; color: #3DFF7A; border: 1px solid #3DFF7A;
+  border-radius: 3px; padding: 6px; width: 100%; cursor: pointer;
+  font-size: 12px; font-family: monospace; letter-spacing: 1px;
+}
+button:hover { background: #234d23; }
+button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
+.row { display: flex; align-items: center; gap: 6px; }
+.row input[type="number"] { width: 70px; flex: none; }
+.row span { color: #666; font-size: 12px; }
+.big { font-size: 18px; font-weight: bold; }
+.dim { font-size: 11px; color: #3a3a3a; }
+.small-st { font-size: 11px; color: #555; min-height: 14px; }
+.flag { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #bbb; }
+</style>
+</head>
+<body>
+
+<div id="scene-container">
+  <div id="scale-bar-wrap">
+    <div id="scale-line" style="width:80px"></div>
+    <div id="scale-text">— m</div>
+  </div>
+  <div id="webserial-warn">WebSerial not supported — use Chrome or Edge</div>
+</div>
+
+<div id="panel">
+  <h1>LBEES</h1>
+
+  <div class="lbl">CONNECTION</div>
+  <div class="row">
+    <input type="number" id="baud-input" value="9600" min="300" max="3000000">
+    <span>baud</span>
+  </div>
+  <button id="connect-btn" onclick="toggleConnect()">CONNECT SERIAL</button>
+  <button onclick="toggleDebug()" id="debug-btn">DEBUG (simulated)</button>
+  <div class="small-st" id="conn-status"></div>
+
+  <hr>
+
+  <div class="lbl">TRAIL</div>
+  <div class="row">
+    <input type="number" id="trail-dur" value="30" min="1" max="300" style="width:60px">
+    <span>seconds</span>
+  </div>
+
+  <hr>
+
+  <div class="lbl">TELEM</div>
+  <div class="big" id="telem-st" style="color:#555">WAITING…</div>
+  <div class="dim"  id="telem-info"></div>
+
+  <hr>
+
+  <div class="lbl">EKF STATUS</div>
+  <div class="big" id="ekf-st" style="color:#555">WAITING…</div>
+  <hr>
+  <div class="flag"><span>ATTITUDE</span>      <span id="d-att"   style="color:#555">?</span></div>
+  <div class="flag"><span>VEL HORIZ</span>     <span id="d-vel"   style="color:#555">?</span></div>
+  <div class="flag"><span>POS HORIZ REL</span> <span id="d-pos"   style="color:#555">?</span></div>
+  <div class="flag"><span>CONST POS</span>     <span id="d-const" style="color:#555">?</span></div>
+  <div class="dim" id="ekf-hex"></div>
+
+  <hr>
+
+  <div class="lbl" id="pos-lbl" style="color:#3a3a3a">POSITION</div>
+  <div id="pos-x" style="font-size:13px;color:#aaa">X  ---</div>
+  <div id="pos-y" style="font-size:13px;color:#aaa">Y  ---</div>
+  <div id="pos-z" style="font-size:13px;color:#aaa">Z↓ ---</div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three":         "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE                      from 'three';
+import { OrbitControls }               from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject }  from 'three/addons/renderers/CSS2DRenderer.js';
+
+// ─── Lighthouse config (NED: z negative = above origin) ──────────────────────
+const LIGHTHOUSES = [
+  { id: '0', pos: [0.0, 0.0, -1.5], R: [[ 0,-1, 0],[ 1, 0, 0],[ 0, 0, 1]] },
+  { id: '1', pos: [1.0, 0.0, -1.5], R: [[ 0,-1, 0],[ 1, 0, 0],[ 0, 0, 1]] },
+];
+
+// ─── MAVLink v2 parser ────────────────────────────────────────────────────────
+// Only handles LOCAL_POSITION_NED (#32) and EKF_STATUS_REPORT (#193).
+const CRC_EXTRA = { 32: 185, 193: 71 };
+
+function mavCrc(bytes) {
+  let crc = 0xFFFF;
+  for (const b of bytes) {
+    let tmp = (b ^ crc) & 0xFF;
+    tmp ^= (tmp << 4) & 0xFF;
+    crc = ((crc >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF;
+  }
+  return crc;
+}
+
+class MAVParser {
+  constructor(onMsg) {
+    this._onMsg = onMsg;
+    this._buf   = [];
+    this._state = 0; // 0=wait STX, 1=header(9B), 2=payload, 3=crc(2B)
+    this._need  = 0;
+  }
+  feed(data) {
+    for (const b of data) this._byte(b);
+  }
+  _byte(b) {
+    if (this._state === 0) {
+      if (b !== 0xFD) return;
+      this._buf = [b]; this._state = 1; this._need = 9; return;
+    }
+    this._buf.push(b); this._need--;
+    if (this._state === 1 && this._need === 0) {
+      this._need = this._buf[1]; this._state = 2; // payload length
+    } else if (this._state === 2 && this._need === 0) {
+      this._need = 2; this._state = 3;
+    } else if (this._state === 3 && this._need === 0) {
+      this._dispatch(); this._state = 0;
+    }
+  }
+  _dispatch() {
+    const b   = this._buf;
+    const len = b[1];
+    const msgId = b[7] | (b[8] << 8) | (b[9] << 16);
+    if (!(msgId in CRC_EXTRA)) return;
+    const body    = b.slice(1, 10 + len);   // len byte → end of payload
+    const crcRecv = b[10+len] | (b[11+len] << 8);
+    const crcCalc = mavCrc([...body, CRC_EXTRA[msgId]]);
+    if (crcCalc !== crcRecv) return;
+    const dv = new DataView(new Uint8Array(b.slice(10, 10+len)).buffer);
+    this._onMsg(msgId, dv);
+  }
+}
+
+// ─── App state ────────────────────────────────────────────────────────────────
+let droneTrail = [];   // {x,y,z,t}
+let droneX = null, droneY = null, droneZ = null;
+let ekfFlags = null, ekfHealthy = null;
+let lastMsgTime = 0, serialOk = false;
+let debugTimer = null, serialPort = null, serialReader = null;
+
+function onMavMsg(msgId, dv) {
+  lastMsgTime = Date.now() / 1000;
+  if (msgId === 32) {  // LOCAL_POSITION_NED
+    droneX = dv.getFloat32(4,  true);
+    droneY = dv.getFloat32(8,  true);
+    droneZ = dv.getFloat32(12, true);  // NED z positive-down, kept as-is
+    droneTrail.push({ x: droneX, y: droneY, z: droneZ, t: lastMsgTime });
+    if (droneTrail.length > 2400) droneTrail.splice(0, droneTrail.length - 2400);
+  } else if (msgId === 193) {  // EKF_STATUS_REPORT
+    ekfFlags   = dv.getUint16(20, true);
+    ekfHealthy = !!(ekfFlags & 0x0001) && !!(ekfFlags & 0x0008) && !(ekfFlags & 0x0080);
+  }
+}
+
+// ─── Serial connection ────────────────────────────────────────────────────────
+const G = id => document.getElementById(id);
+
+async function toggleConnect() {
+  if (serialPort) {
+    // disconnect
+    try { await serialReader?.cancel(); } catch(_) {}
+    try { await serialPort.close();     } catch(_) {}
+    serialPort = null; serialReader = null; serialOk = false;
+    G('connect-btn').textContent = 'CONNECT SERIAL';
+    G('connect-btn').classList.remove('active');
+    G('conn-status').textContent = 'disconnected';
+    droneTrail = []; droneX = droneY = droneZ = null;
+    ekfFlags = null; ekfHealthy = null;
+    return;
+  }
+  if (!navigator.serial) {
+    G('conn-status').textContent = 'WebSerial not supported — use Chrome/Edge';
+    document.getElementById('webserial-warn').style.display = 'block';
+    return;
+  }
+  try {
+    serialPort = await navigator.serial.requestPort();
+    const baud = parseInt(G('baud-input').value) || 9600;
+    await serialPort.open({ baudRate: baud });
+    serialOk = true;
+    G('connect-btn').textContent = 'DISCONNECT';
+    G('connect-btn').classList.add('active');
+    G('conn-status').textContent = `connected @ ${baud} baud`;
+    droneTrail = []; droneX = droneY = droneZ = null;
+    // Stop debug if running
+    if (debugTimer) { clearInterval(debugTimer); debugTimer = null; G('debug-btn').classList.remove('active'); }
+    // Read loop
+    const parser = new MAVParser(onMavMsg);
+    serialReader = serialPort.readable.getReader();
+    (async () => {
+      try {
+        while (true) {
+          const { value, done } = await serialReader.read();
+          if (done) break;
+          parser.feed(value);
+        }
+      } catch(_) {}
+      serialOk = false;
+    })();
+  } catch(e) {
+    G('conn-status').textContent = 'cancelled or error';
+    serialPort = null;
+  }
+}
+window.toggleConnect = toggleConnect;
+
+// ─── Debug simulation ─────────────────────────────────────────────────────────
+const DBG_WAY = (() => {
+  const s=0.8,ox=0.1,oy=0.1,oz=-0.2;  // NED: z negative = above origin
+  return [
+    [ox,oy,oz],[ox+s,oy,oz],[ox+s,oy+s,oz],[ox,oy+s,oz],
+    [ox,oy+s,oz-s],[ox+s,oy+s,oz-s],[ox+s,oy,oz-s],[ox,oy,oz-s],
+  ];
+})();
+let dbgStep = 0, dbgEdge = 0;
+
+function toggleDebug() {
+  if (debugTimer) {
+    clearInterval(debugTimer); debugTimer = null;
+    G('debug-btn').classList.remove('active');
+    G('conn-status').textContent = '';
+    serialOk = false; droneTrail = []; droneX = droneY = droneZ = null;
+    ekfFlags = null; ekfHealthy = null;
+    return;
+  }
+  if (serialPort) return; // real connection takes priority
+  G('debug-btn').classList.add('active');
+  G('conn-status').textContent = 'debug mode active';
+  serialOk = true; dbgStep = 0; dbgEdge = 0;
+  droneTrail = [];
+  const STEPS = 60;
+  debugTimer = setInterval(() => {
+    const a = DBG_WAY[dbgEdge % 8], b = DBG_WAY[(dbgEdge+1) % 8];
+    const t = dbgStep / STEPS;
+    droneX = a[0]+(b[0]-a[0])*t;
+    droneY = a[1]+(b[1]-a[1])*t;
+    droneZ = a[2]+(b[2]-a[2])*t;
+    lastMsgTime = Date.now()/1000;
+    droneTrail.push({x:droneX,y:droneY,z:droneZ,t:lastMsgTime});
+    if (droneTrail.length > 2400) droneTrail.shift();
+    ekfFlags = 0x000B; ekfHealthy = true;
+    dbgStep++;
+    if (dbgStep >= STEPS) { dbgStep=0; dbgEdge=(dbgEdge+1)%8; }
+  }, 100);
+}
+window.toggleDebug = toggleDebug;
+
+// ─── Coordinate conversion ────────────────────────────────────────────────────
+// Data: NED (X north, Y east, Z down)  →  Three.js: X right, Y up, Z toward viewer
+const tv = (x,y,z) => new THREE.Vector3(x, -z, -y);
+
+// ─── Three.js scene ───────────────────────────────────────────────────────────
+const container = document.getElementById('scene-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x111111);
+const W = () => container.clientWidth, H = () => container.clientHeight;
+
+const camera = new THREE.PerspectiveCamera(45, W()/H(), 0.01, 200);
+camera.position.set(2.5, 2.0, 2.5);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(W(), H());
+container.appendChild(renderer.domElement);
+
+const labelRend = new CSS2DRenderer();
+labelRend.setSize(W(), H());
+labelRend.domElement.style.pointerEvents = 'none';
+container.appendChild(labelRend.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0.5, 0.75, -0.5);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.update();
+
+// helpers
+function addLine(ax,ay,az, bx,by,bz, color, w=2) {
+  const g = new THREE.BufferGeometry().setFromPoints([tv(ax,ay,az),tv(bx,by,bz)]);
+  scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({color,linewidth:w})));
+}
+function addLabel(text, x, y, z, color) {
+  const div = document.createElement('div');
+  div.className='label'; div.textContent=text; div.style.color=color;
+  const o = new CSS2DObject(div);
+  o.position.copy(tv(x,y,z)); scene.add(o);
+}
+
+// coord frame
+const AL = 0.15;
+addLine(0,0,0,AL, 0, 0,0xFF4444,3); addLabel('X',AL+0.03,0,0,'#FF4444');
+addLine(0,0,0, 0,AL, 0,0x44FF44,3); addLabel('Y',0,AL+0.03,0,'#44FF44');
+addLine(0,0,0, 0, 0,AL,0x4488FF,3); addLabel('Z',0,0,AL+0.03,'#4488FF');
+
+// floor grid
+const grid = new THREE.GridHelper(2,10,0x1e1e1e,0x1a1a1a);
+grid.position.set(0.5,0,-0.5); scene.add(grid);
+
+// lighthouses
+const LH_COLS = [0xFF66FF, 0x66FFFF];
+LIGHTHOUSES.forEach((lh, i) => {
+  const [px,py,pz] = lh.pos, R = lh.R, c = LH_COLS[i%2];
+  const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.025),
+                            new THREE.MeshBasicMaterial({color:c}));
+  m.position.copy(tv(px,py,pz)); scene.add(m);
+  addLabel(`LH${lh.id}`, px, py, pz+0.09, '#fff');
+  const beam = [-R[0][2],-R[1][2],-R[2][2]];
+  const lx   = [ R[0][0], R[1][0], R[2][0]];
+  const ly   = [ R[0][1], R[1][1], R[2][1]];
+  addLine(px,py,pz, px+beam[0]*.3,py+beam[1]*.3,pz+beam[2]*.3, c,      3);
+  addLine(px,py,pz, px+lx[0]*.1,  py+lx[1]*.1,  pz+lx[2]*.1,  0xFFA040,2);
+  addLine(px,py,pz, px+ly[0]*.1,  py+ly[1]*.1,  pz+ly[2]*.1,  0xFFFF40,2);
+});
+
+// drone dot
+const droneMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.018,16,16),
+  new THREE.MeshBasicMaterial({color:0xFF3333})
+);
+droneMesh.visible = false; scene.add(droneMesh);
+
+// trail
+const MAX_T = 2400;
+const tPos = new Float32Array(MAX_T*3), tCol = new Float32Array(MAX_T*3);
+const tGeom = new THREE.BufferGeometry();
+const tPA = new THREE.BufferAttribute(tPos,3), tCA = new THREE.BufferAttribute(tCol,3);
+tGeom.setAttribute('position',tPA); tGeom.setAttribute('color',tCA);
+tGeom.setDrawRange(0,0);
+const trailLine = new THREE.Line(tGeom, new THREE.LineBasicMaterial({vertexColors:true}));
+scene.add(trailLine);
+
+function trailColor(t) {
+  const lerp=(t,xp,fp)=>{
+    for(let i=0;i<xp.length-1;i++) if(t<=xp[i+1]) {const f=(t-xp[i])/(xp[i+1]-xp[i]);return fp[i]+f*(fp[i+1]-fp[i]);}
+    return fp[fp.length-1];
+  };
+  return [
+    lerp(t,[0,.5,1],[1.0,1.0,0.2 ]),
+    lerp(t,[0,.5,1],[.13,.65,1.0 ]),
+    lerp(t,[0,.5,1],[.13,0.0,.26 ]),
+  ];
+}
+
+function updateTrailGeom(pts) {
+  const n=Math.min(pts.length,MAX_T);
+  for(let i=0;i<n;i++){
+    const p=pts[i], v=tv(p.x,p.y,p.z), t=n>1?i/(n-1):1;
+    tPos[i*3]=v.x; tPos[i*3+1]=v.y; tPos[i*3+2]=v.z;
+    const[r,g,b]=trailColor(t);
+    tCol[i*3]=r; tCol[i*3+1]=g; tCol[i*3+2]=b;
+  }
+  tPA.needsUpdate=true; tCA.needsUpdate=true;
+  tGeom.setDrawRange(0,n);
+}
+
+// ─── Panel ────────────────────────────────────────────────────────────────────
+const GREEN='#3DFF7A', ORANGE='#FFB300', RED='#FF4444', GREY='#555';
+
+function setSt(id,text,color){const e=G(id);e.textContent=text;e.style.color=color;}
+function setFlag(id,val,inv=false){
+  if(val==null){setSt(id,'?',GREY);return;}
+  setSt(id,'●',(inv?!val:val)?GREEN:RED);
+}
+function fmt(v){return(v>=0?'+':'')+v.toFixed(3)+' m';}
+
+function updatePanel() {
+  const age = lastMsgTime ? (Date.now()/1000 - lastMsgTime) : null;
+  if (!serialOk)               setSt('telem-st','DISCONNECTED',RED);
+  else if(age==null||age>3)    setSt('telem-st','NO SIGNAL',   ORANGE);
+  else                         setSt('telem-st','CONNECTED',   GREEN);
+  G('telem-info').textContent = serialPort
+    ? `serial @ ${G('baud-input').value} baud`
+    : (debugTimer ? 'debug simulation' : '');
+
+  const f=ekfFlags;
+  if(f==null){ setSt('ekf-st','WAITING…',GREY); }
+  else { setSt('ekf-st', ekfHealthy?'HEALTHY':'DEGRADED', ekfHealthy?GREEN:RED);
+         G('ekf-hex').textContent=`flags 0x${f.toString(16).padStart(4,'0').toUpperCase()}`; }
+  setFlag('d-att',  f!=null?!!(f&0x0001):null);
+  setFlag('d-vel',  f!=null?!!(f&0x0002):null);
+  setFlag('d-pos',  f!=null?!!(f&0x0008):null);
+  setFlag('d-const',f!=null?!!(f&0x0080):null,true);
+
+  if(droneX!=null){
+    G('pos-lbl').style.color='#bbb';
+    G('pos-x').textContent=`X  ${fmt(droneX)}`;
+    G('pos-y').textContent=`Y  ${fmt(droneY)}`;
+    G('pos-z').textContent=`Z↓ ${fmt(droneZ)}`;
+  }
+}
+
+// ─── Scale bar ────────────────────────────────────────────────────────────────
+const SCALE_STEPS=[0.02,0.05,0.1,0.2,0.5,1.0,2.0,5.0];
+const _sv0=new THREE.Vector3(), _sv1=new THREE.Vector3();
+function updateScaleBar(){
+  const W2=W()/2;
+  for(const d of SCALE_STEPS){
+    _sv0.set(0,0,0).project(camera);
+    _sv1.set(d,0,0).project(camera);
+    const px=Math.abs(_sv1.x-_sv0.x)*W2;
+    if(px>=50&&px<=220){
+      G('scale-line').style.width=px.toFixed(1)+'px';
+      G('scale-text').textContent=d<1?`${Math.round(d*100)} cm`:`${d} m`;
+      return;
+    }
+  }
+}
+
+// ─── Animation loop ───────────────────────────────────────────────────────────
+let lastTrailTick=0;
+function animate(){
+  requestAnimationFrame(animate);
+  const now=Date.now();
+  if(now-lastTrailTick>50){
+    lastTrailTick=now;
+    const dur=parseFloat(G('trail-dur').value)||30;
+    const cutoff=now/1000-dur;
+    updateTrailGeom(droneTrail.filter(p=>p.t>=cutoff));
+  }
+  if(droneX!=null){ droneMesh.position.copy(tv(droneX,droneY,droneZ)); droneMesh.visible=true; }
+  updatePanel();
+  controls.update();
+  renderer.render(scene,camera);
+  labelRend.render(scene,camera);
+  updateScaleBar();
+}
+
+// ─── Resize ───────────────────────────────────────────────────────────────────
+new ResizeObserver(()=>{
+  camera.aspect=W()/H(); camera.updateProjectionMatrix();
+  renderer.setSize(W(),H()); labelRend.setSize(W(),H());
+}).observe(container);
+
+animate();
+</script>
+</body>
+</html>
