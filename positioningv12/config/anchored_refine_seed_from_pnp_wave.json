@@ -1,0 +1,32 @@
+{
+  "description": "Seed for anchored v12 refinement from LH2A wave PnP relative geometry.",
+  "input_pnp": "config/lighthouse_relative_pnp_oldwave_cluster_d14.json",
+  "input_anchor_poses": "config/vertical_pose_variants/vertical_x_up_face_plus_y.json",
+  "input_room_geometry": "config/lighthouse_geometry_lh2a_families.json",
+  "bs10_in_bs4": {
+    "rotation_vector": [
+      -0.31643541429284766,
+      -0.6529122167539488,
+      -0.2801758907720244
+    ],
+    "translation_m": [
+      -1.2284213388008585,
+      0.31763806226143243,
+      -0.021856879986048572
+    ],
+    "distance_m": 1.269011681357274
+  },
+  "room_to_bs4": {
+    "rotation_vector": [
+      -0.1711683613907691,
+      0.3635557509310941,
+      -1.5771366414629688
+    ],
+    "translation_m": [
+      0.2999999999999764,
+      1.8021453571795512,
+      0.7
+    ]
+  },
+  "suggested_command": "py .\\tools\\22_fit_relative_lighthouse_frame.py --anchor-poses config/vertical_pose_variants/vertical_x_up_face_plus_y.json --max-frames 0 --bs10-guess -0.316435,-0.652912,-0.280176,-1.228421,0.317638,-0.021857 --bs-distance-prior 1.400000 --bs-distance-sigma 0.05 --bs-distance-weight 200 --room-to-bs4-guess -0.171168,0.363556,-1.577137,0.300000,1.802145,0.700000 --starts 4 --workers 4 --max-nfev 700 --convention-search v10 --max-anchor-spread-deg 0.5 --output config\\lighthouse_relative_refined_from_pnp_anchors.json"
+}

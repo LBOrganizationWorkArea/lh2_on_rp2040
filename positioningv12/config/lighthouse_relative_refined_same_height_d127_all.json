@@ -1,0 +1,134 @@
+{
+  "description": "v12 relative Lighthouse geometry. BS4 is fixed as the reference frame.",
+  "input_wave": "config/lh2a_wave_record.json",
+  "input_anchor_poses": "config/vertical_pose_variants/vertical_x_up_face_minus_y.json",
+  "reference_basestation": 4,
+  "fit": {
+    "frames_used": 0,
+    "anchor_poses_used": 7,
+    "residuals": 352,
+    "rmse_deg": 3.4070270660466444,
+    "success": true,
+    "message": "`ftol` termination condition is satisfied.",
+    "priors": {
+      "bs_distance_m": 1.27,
+      "bs_distance_sigma_m": 0.08,
+      "bs_distance_weight": 120,
+      "same_height_enabled": true,
+      "same_height_sigma_m": 0.04,
+      "same_height_weight": 120
+    },
+    "bs10_room_frame_offset_from_bs4_m": [
+      -1.0854494876356657,
+      -0.661964148515325,
+      2.0296178384882624e-05
+    ],
+    "room_frame_orientation_xyz_deg": {
+      "bs4": [
+        66.55708641126076,
+        57.83457182980346,
+        -158.83660070320113
+      ],
+      "bs10": [
+        10.265195897401512,
+        0.04852689166725364,
+        171.70159264987942
+      ]
+    },
+    "hypothesis": {
+      "label": "bs4_tilt=0 bs4_axis=10 bs10_tilt=1 bs10_axis=10 signs=-1,1,1,1",
+      "bs4_tilts_deg": {
+        "sweep_0": 29.999999999999996,
+        "sweep_1": -29.999999999999996
+      },
+      "bs4_axis_map": {
+        "sweep_0": 1,
+        "sweep_1": 0
+      },
+      "bs10_tilts_deg": {
+        "sweep_0": -29.999999999999996,
+        "sweep_1": 29.999999999999996
+      },
+      "bs10_axis_map": {
+        "sweep_0": 1,
+        "sweep_1": 0
+      },
+      "signs": {
+        "bs4_sweep0": -1.0,
+        "bs4_sweep1": 1.0,
+        "bs10_sweep0": 1.0,
+        "bs10_sweep1": 1.0
+      }
+    }
+  },
+  "basestations": [
+    {
+      "basestation": 4,
+      "role": "reference",
+      "world_to_lighthouse": {
+        "rotation_vector": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "translation_m": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "angle_offsets_deg": {
+        "sweep_0": -6.770256770236012,
+        "sweep_1": -112.79784715579099
+      }
+    },
+    {
+      "basestation": 10,
+      "role": "solved_relative_to_bs4",
+      "world_to_lighthouse": {
+        "rotation_vector": [
+          0.6229709240526422,
+          1.0801161254236493,
+          -0.24832294858742052
+        ],
+        "translation_m": [
+          0.6660941601864259,
+          1.0614528716831262,
+          0.21455417847543262
+        ]
+      },
+      "angle_offsets_deg": {
+        "sweep_0": -115.54655710985749,
+        "sweep_1": -102.19791306398578
+      }
+    }
+  ],
+  "room_to_bs4": {
+    "rotation_vector": [
+      1.4137139093255557,
+      -1.1584287673881977,
+      -2.2361305271506886
+    ],
+    "translation_m": [
+      1.3761011760528172,
+      1.8050461146395902,
+      -1.9098039059129428
+    ]
+  },
+  "wave_summary": {
+    "total_frames_in_file": 239,
+    "frames_used": 0,
+    "cluster_deg": 2.0
+  },
+  "anchor_summary": {
+    "poses_used": [
+      "P04_bas_centre",
+      "P00_bas_avant_gauche",
+      "P02_bas_avant_droite",
+      "P06_bas_arriere_gauche",
+      "P08_bas_arriere_droite",
+      "P13_boite45_arriere_droite",
+      "P09_boite45_avant_gauche"
+    ]
+  }
+}

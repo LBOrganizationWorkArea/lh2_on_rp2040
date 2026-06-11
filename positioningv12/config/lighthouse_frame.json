@@ -1,0 +1,19 @@
+{
+  "description": "v12 relative Lighthouse frame. BS4 is the reference frame; BS10 is solved from wand waving.",
+  "unit": "meter",
+  "reference_basestation": 4,
+  "basestations": [
+    {
+      "basestation": 4,
+      "role": "reference",
+      "translation_m": [0.0, 0.0, 0.0],
+      "rotation_vector_rad": [0.0, 0.0, 0.0]
+    },
+    {
+      "basestation": 10,
+      "role": "solved_from_wave",
+      "translation_m": null,
+      "rotation_vector_rad": null
+    }
+  ]
+}

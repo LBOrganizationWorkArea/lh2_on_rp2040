@@ -1,0 +1,25 @@
+{
+  "description": "Known 3D drone-center poses for LH2 calibration using three height levels: 0.00 m, 0.45 m, 0.92 m.",
+  "unit": "meter",
+  "rotation_unit": "degree",
+  "poses": [
+    {"name": "P00_bas_avant_gauche", "x_m": -0.40, "y_m": 0.28, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P01_bas_avant_centre", "x_m": 0.00, "y_m": 0.28, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P02_bas_avant_droite", "x_m": 0.40, "y_m": 0.28, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P03_bas_centre_gauche", "x_m": -0.40, "y_m": -0.12, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P04_bas_centre", "x_m": 0.00, "y_m": -0.12, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P05_bas_centre_droite", "x_m": 0.40, "y_m": -0.12, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P06_bas_arriere_gauche", "x_m": -0.40, "y_m": -0.52, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P07_bas_arriere_centre", "x_m": 0.00, "y_m": -0.52, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P08_bas_arriere_droite", "x_m": 0.40, "y_m": -0.52, "z_m": 0.00, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P09_boite45_avant_gauche", "x_m": -0.40, "y_m": 0.28, "z_m": 0.45, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P10_boite45_avant_droite", "x_m": 0.40, "y_m": 0.28, "z_m": 0.45, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P11_boite45_centre", "x_m": 0.00, "y_m": -0.12, "z_m": 0.45, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P12_boite45_arriere_gauche", "x_m": -0.40, "y_m": -0.52, "z_m": 0.45, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P13_boite45_arriere_droite", "x_m": 0.40, "y_m": -0.52, "z_m": 0.45, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P14_boite92_avant_centre", "x_m": 0.00, "y_m": 0.28, "z_m": 0.92, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P15_boite92_centre_gauche", "x_m": -0.40, "y_m": -0.12, "z_m": 0.92, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P16_boite92_centre_droite", "x_m": 0.40, "y_m": -0.12, "z_m": 0.92, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0},
+    {"name": "P17_boite92_arriere_centre", "x_m": 0.00, "y_m": -0.52, "z_m": 0.92, "yaw_deg": 0.0, "pitch_deg": 0.0, "roll_deg": 0.0}
+  ]
+}

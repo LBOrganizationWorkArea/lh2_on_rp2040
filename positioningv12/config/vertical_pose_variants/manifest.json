@@ -1,0 +1,32 @@
+{
+  "variants": [
+    {
+      "name": "vertical_x_up_face_plus_x",
+      "path": "config\\vertical_pose_variants\\vertical_x_up_face_plus_x.json",
+      "roll_deg": 180.0,
+      "pitch_deg": -90.0,
+      "yaw_deg": 0.0
+    },
+    {
+      "name": "vertical_x_up_face_minus_x",
+      "path": "config\\vertical_pose_variants\\vertical_x_up_face_minus_x.json",
+      "roll_deg": 0.0,
+      "pitch_deg": -90.0,
+      "yaw_deg": 0.0
+    },
+    {
+      "name": "vertical_x_up_face_plus_y",
+      "path": "config\\vertical_pose_variants\\vertical_x_up_face_plus_y.json",
+      "roll_deg": -90.0,
+      "pitch_deg": -90.0,
+      "yaw_deg": 0.0
+    },
+    {
+      "name": "vertical_x_up_face_minus_y",
+      "path": "config\\vertical_pose_variants\\vertical_x_up_face_minus_y.json",
+      "roll_deg": 90.0,
+      "pitch_deg": -90.0,
+      "yaw_deg": 0.0
+    }
+  ]
+}

@@ -1,0 +1,5269 @@
+{
+  "description": "Known 3D poses captured as direct LH2A angle-family candidates.",
+  "created_unix_time_s": 1779957088.852156,
+  "source_pose_file": "config/wand_3d_points.json",
+  "basestations": [
+    4,
+    10
+  ],
+  "duration_s_per_pose": 3.0,
+  "cluster_deg": 2.0,
+  "poses": [
+    {
+      "name": "P04_bas_centre",
+      "x_m": 0.0,
+      "y_m": -0.12,
+      "z_m": 0.025,
+      "yaw_deg": 0.0,
+      "pitch_deg": 0.0,
+      "roll_deg": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 63,
+          "raw_sample_count": 126,
+          "rejected_count": 63,
+          "lfsr_location": 35198.0,
+          "median_lfsr_location": 35198.0,
+          "raw_angle_rad": -0.251432,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 63,
+              "fraction": 0.5,
+              "raw_angle_rad": -0.251432,
+              "angle_deg": -14.405992434533314,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 35198.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 63,
+              "fraction": 0.5,
+              "raw_angle_rad": 1.708345,
+              "angle_deg": 97.88095845227662,
+              "angle_spread_deg": 0.011974817918229519,
+              "lfsr_location": 72627.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 44,
+          "raw_sample_count": 88,
+          "rejected_count": 44,
+          "lfsr_location": 35198.0,
+          "median_lfsr_location": 35198.0,
+          "raw_angle_rad": -2.345827,
+          "angle_spread_deg": 0.006016056848892504,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 44,
+              "fraction": 0.5,
+              "raw_angle_rad": -2.345827,
+              "angle_deg": -134.40598656783536,
+              "angle_spread_deg": 0.006016056848892504,
+              "lfsr_location": 35198.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 44,
+              "fraction": 0.5,
+              "raw_angle_rad": -0.386049,
+              "angle_deg": -22.118978385245917,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 72627.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 57,
+          "raw_sample_count": 112,
+          "rejected_count": 55,
+          "lfsr_location": 44179.0,
+          "median_lfsr_location": 44179.0,
+          "raw_angle_rad": 0.218811,
+          "angle_spread_deg": 0.0030366763141955744,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 57,
+              "fraction": 0.5089285714285714,
+              "raw_angle_rad": 0.218811,
+              "angle_deg": 12.536946811037057,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 44179.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 55,
+              "fraction": 0.49107142857142855,
+              "raw_angle_rad": 2.073608,
+              "angle_deg": 118.80898676456361,
+              "angle_spread_deg": 0.0029793805346685076,
+              "lfsr_location": 79603.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 54,
+          "raw_sample_count": 107,
+          "rejected_count": 53,
+          "lfsr_location": 79603.0,
+          "median_lfsr_location": 79603.0,
+          "raw_angle_rad": -0.020786,
+          "angle_spread_deg": 0.005958761069365437,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 54,
+              "fraction": 0.5046728971962616,
+              "raw_angle_rad": -0.020786,
+              "angle_deg": -1.190950072958929,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 79603.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 53,
+              "fraction": 0.4953271028037383,
+              "raw_angle_rad": -1.875583,
+              "angle_deg": -107.46299002648549,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 44179.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 64,
+          "raw_sample_count": 127,
+          "rejected_count": 63,
+          "lfsr_location": 72296.0,
+          "median_lfsr_location": 72296.0,
+          "raw_angle_rad": 1.691014,
+          "angle_spread_deg": 0.01197481791825794,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 64,
+              "fraction": 0.5039370078740157,
+              "raw_angle_rad": 1.691014,
+              "angle_deg": 96.88796529753539,
+              "angle_spread_deg": 0.01197481791825794,
+              "lfsr_location": 72296.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 63,
+              "fraction": 0.49606299212598426,
+              "raw_angle_rad": -0.271119,
+              "angle_deg": -15.533974445807367,
+              "angle_spread_deg": 0.011974817918229519,
+              "lfsr_location": 34822.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 44,
+          "raw_sample_count": 86,
+          "rejected_count": 42,
+          "lfsr_location": 34821.0,
+          "median_lfsr_location": 34821.0,
+          "raw_angle_rad": -2.3655670000000004,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 44,
+              "fraction": 0.5116279069767442,
+              "raw_angle_rad": -2.3655670000000004,
+              "angle_deg": -135.53700525542362,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 34821.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 42,
+              "fraction": 0.4883720930232558,
+              "raw_angle_rad": -0.403485,
+              "angle_deg": -23.11798759683602,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 72294.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 59,
+          "raw_sample_count": 115,
+          "rejected_count": 56,
+          "lfsr_location": 43863.0,
+          "median_lfsr_location": 43863.0,
+          "raw_angle_rad": 0.202266,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 59,
+              "fraction": 0.5130434782608696,
+              "raw_angle_rad": 0.202266,
+              "angle_deg": 11.588988138993109,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 43863.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 56,
+              "fraction": 0.48695652173913045,
+              "raw_angle_rad": 2.055177,
+              "angle_deg": 117.75296825235799,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 79251.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 53,
+          "raw_sample_count": 105,
+          "rejected_count": 52,
+          "lfsr_location": 79248.0,
+          "median_lfsr_location": 79248.0,
+          "raw_angle_rad": -0.039374,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 53,
+              "fraction": 0.5047619047619047,
+              "raw_angle_rad": -0.039374,
+              "angle_deg": -2.2559640225481035,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 79248.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 52,
+              "fraction": 0.49523809523809526,
+              "raw_angle_rad": -1.892181,
+              "angle_deg": -108.41398537484362,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 43862.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 61,
+          "raw_sample_count": 102,
+          "rejected_count": 41,
+          "lfsr_location": 34995.0,
+          "median_lfsr_location": 34995.0,
+          "raw_angle_rad": -0.262061,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 61,
+              "fraction": 0.5980392156862745,
+              "raw_angle_rad": -0.262061,
+              "angle_deg": -15.014989274977866,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 34995.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 41,
+              "fraction": 0.4019607843137255,
+              "raw_angle_rad": 1.6754110000000002,
+              "angle_deg": 95.99397924979277,
+              "angle_spread_deg": 0.31501219576290396,
+              "lfsr_location": 71998.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 81,
+          "raw_sample_count": 115,
+          "rejected_count": 34,
+          "lfsr_location": 34995.0,
+          "median_lfsr_location": 34995.0,
+          "raw_angle_rad": -2.356456,
+          "angle_spread_deg": 0.4200353596104378,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 81,
+              "fraction": 0.7043478260869566,
+              "raw_angle_rad": -2.356456,
+              "angle_deg": -135.01498340827993,
+              "angle_spread_deg": 0.4200353596104378,
+              "lfsr_location": 34995.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 34,
+              "fraction": 0.2956521739130435,
+              "raw_angle_rad": -0.418983,
+              "angle_deg": -24.00595758772977,
+              "angle_spread_deg": 0.3240076331464934,
+              "lfsr_location": 71998.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 94,
+          "raw_sample_count": 141,
+          "rejected_count": 47,
+          "lfsr_location": 44046.0,
+          "median_lfsr_location": 44046.0,
+          "raw_angle_rad": 0.21184800000000004,
+          "angle_spread_deg": 0.40794595013315416,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 94,
+              "fraction": 0.6666666666666666,
+              "raw_angle_rad": 0.21184800000000004,
+              "angle_deg": 12.137996298287465,
+              "angle_spread_deg": 0.40794595013315416,
+              "lfsr_location": 44046.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 47,
+              "fraction": 0.3333333333333333,
+              "raw_angle_rad": 2.042454,
+              "angle_deg": 117.02399404961305,
+              "angle_spread_deg": 0.009052733163088078,
+              "lfsr_location": 79008.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 82,
+          "raw_sample_count": 130,
+          "rejected_count": 48,
+          "lfsr_location": 44048.0,
+          "median_lfsr_location": 44048.0,
+          "raw_angle_rad": -1.882442,
+          "angle_spread_deg": 0.4110399222268484,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 82,
+              "fraction": 0.6307692307692307,
+              "raw_angle_rad": -1.882442,
+              "angle_deg": -107.85598177816571,
+              "angle_spread_deg": 0.4110399222268484,
+              "lfsr_location": 44048.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 48,
+              "fraction": 0.36923076923076925,
+              "raw_angle_rad": -0.05194,
+              "angle_deg": -2.9759427879094957,
+              "angle_spread_deg": 0.012032113697756586,
+              "lfsr_location": 79007.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 100,
+          "raw_sample_count": 187,
+          "rejected_count": 87,
+          "lfsr_location": 35370.0,
+          "median_lfsr_location": 35370.0,
+          "raw_angle_rad": -0.242426,
+          "angle_spread_deg": 0.456017109144625,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 100,
+              "fraction": 0.5347593582887701,
+              "raw_angle_rad": -0.242426,
+              "angle_deg": -13.889986644238496,
+              "angle_spread_deg": 0.456017109144625,
+              "lfsr_location": 35370.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 87,
+              "fraction": 0.46524064171123,
+              "raw_angle_rad": 1.698083,
+              "angle_deg": 97.29298916291337,
+              "angle_spread_deg": 0.34503518422778257,
+              "lfsr_location": 72431.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 65,
+          "raw_sample_count": 127,
+          "rejected_count": 62,
+          "lfsr_location": 35369.0,
+          "median_lfsr_location": 35369.0,
+          "raw_angle_rad": -2.336873,
+          "angle_spread_deg": 0.44696437598156535,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 65,
+              "fraction": 0.5118110236220472,
+              "raw_angle_rad": -2.336873,
+              "angle_deg": -133.89296015807523,
+              "angle_spread_deg": 0.44696437598156535,
+              "lfsr_location": 35369.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 62,
+              "fraction": 0.4881889763779528,
+              "raw_angle_rad": -0.39641600000000005,
+              "angle_deg": -22.712963731458043,
+              "angle_spread_deg": 0.31203281522823545,
+              "lfsr_location": 72380.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 93,
+          "raw_sample_count": 135,
+          "rejected_count": 42,
+          "lfsr_location": 44363.0,
+          "median_lfsr_location": 44363.0,
+          "raw_angle_rad": 0.228446,
+          "angle_spread_deg": 0.3869756948313636,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 93,
+              "fraction": 0.6888888888888889,
+              "raw_angle_rad": 0.228446,
+              "angle_deg": 13.088991646645605,
+              "angle_spread_deg": 0.3869756948313636,
+              "lfsr_location": 44363.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 42,
+              "fraction": 0.3111111111111111,
+              "raw_angle_rad": 2.061303,
+              "angle_deg": 118.10396219765514,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 79368.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 88,
+          "raw_sample_count": 130,
+          "rejected_count": 42,
+          "lfsr_location": 44491.5,
+          "median_lfsr_location": 44491.5,
+          "raw_angle_rad": -1.859089,
+          "angle_spread_deg": 0.3990078085291202,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 88,
+              "fraction": 0.676923076923077,
+              "raw_angle_rad": -1.859089,
+              "angle_deg": -106.5179534391967,
+              "angle_spread_deg": 0.3990078085291202,
+              "lfsr_location": 44491.5,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 42,
+              "fraction": 0.3230769230769231,
+              "raw_angle_rad": -0.033667,
+              "angle_deg": -1.9289770088669427,
+              "angle_spread_deg": 0.24299140091497407,
+              "lfsr_location": 79357.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        }
+      ],
+      "raw_counts": {
+        "lh2a": 1933,
+        "lh2p": 0,
+        "lh2r": 1933
+      }
+    },
+    {
+      "name": "P00_bas_avant_gauche",
+      "x_m": -0.4,
+      "y_m": 0.28,
+      "z_m": 0.025,
+      "yaw_deg": 0.0,
+      "pitch_deg": 0.0,
+      "roll_deg": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 44,
+          "raw_sample_count": 121,
+          "rejected_count": 77,
+          "lfsr_location": 30449.0,
+          "median_lfsr_location": 30449.0,
+          "raw_angle_rad": -0.500089,
+          "angle_spread_deg": 0.005958761069365437,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 44,
+              "fraction": 0.36363636363636365,
+              "raw_angle_rad": -0.500089,
+              "angle_deg": -28.652989080917827,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 30449.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 43,
+              "fraction": 0.35537190082644626,
+              "raw_angle_rad": 1.421309,
+              "angle_deg": 81.43500708395952,
+              "angle_spread_deg": 0.009052733163059656,
+              "lfsr_location": 67145.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 17,
+              "fraction": 0.14049586776859505,
+              "raw_angle_rad": -0.288869,
+              "angle_deg": -16.550974532164577,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 34483.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 34,
+          "raw_sample_count": 94,
+          "rejected_count": 60,
+          "lfsr_location": 30449.0,
+          "median_lfsr_location": 30449.0,
+          "raw_angle_rad": -2.594484,
+          "angle_spread_deg": 0.006016056848892504,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 34,
+              "fraction": 0.3617021276595745,
+              "raw_angle_rad": -2.594484,
+              "angle_deg": -148.6529832142199,
+              "angle_spread_deg": 0.006016056848892504,
+              "lfsr_location": 30449.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 34,
+              "fraction": 0.3617021276595745,
+              "raw_angle_rad": -0.673086,
+              "angle_deg": -38.56498704934253,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 67145.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 13,
+              "fraction": 0.13829787234042554,
+              "raw_angle_rad": -2.383317,
+              "angle_deg": -136.55400534178082,
+              "angle_spread_deg": 0.006016056848892504,
+              "lfsr_location": 34482.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 40,
+          "raw_sample_count": 108,
+          "rejected_count": 68,
+          "lfsr_location": 42185.0,
+          "median_lfsr_location": 42185.0,
+          "raw_angle_rad": 0.114406,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 40,
+              "fraction": 0.37037037037037035,
+              "raw_angle_rad": 0.114406,
+              "angle_deg": 6.554980950973696,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 42185.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 40,
+              "fraction": 0.37037037037037035,
+              "raw_angle_rad": 1.875949,
+              "angle_deg": 107.48396028178728,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 75828.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 14,
+              "fraction": 0.12962962962962962,
+              "raw_angle_rad": 0.193836,
+              "angle_deg": 11.105984717697826,
+              "angle_spread_deg": 0.0029793805346685076,
+              "lfsr_location": 43702.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 40,
+          "raw_sample_count": 114,
+          "rejected_count": 74,
+          "lfsr_location": 42186.0,
+          "median_lfsr_location": 42186.0,
+          "raw_angle_rad": -1.979936,
+          "angle_spread_deg": 0.0029793805346685076,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 40,
+              "fraction": 0.3508771929824561,
+              "raw_angle_rad": -1.979936,
+              "angle_deg": -113.44197650601416,
+              "angle_spread_deg": 0.0029793805346685076,
+              "lfsr_location": 42186.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 40,
+              "fraction": 0.3508771929824561,
+              "raw_angle_rad": -0.21849700000000002,
+              "angle_deg": -12.518955936269949,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 75827.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 17,
+              "fraction": 0.14912280701754385,
+              "raw_angle_rad": -1.9005580000000002,
+              "angle_deg": -108.89395211982472,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 43702.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 43,
+          "raw_sample_count": 118,
+          "rejected_count": 75,
+          "lfsr_location": 30063.0,
+          "median_lfsr_location": 30063.0,
+          "raw_angle_rad": -0.5203,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 43,
+              "fraction": 0.3644067796610169,
+              "raw_angle_rad": -0.5203,
+              "angle_deg": -29.81099408065673,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 30063.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 41,
+              "fraction": 0.3474576271186441,
+              "raw_angle_rad": 1.4045010000000002,
+              "angle_deg": 80.47197962190364,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 66824.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 17,
+              "fraction": 0.1440677966101695,
+              "raw_angle_rad": -0.308452,
+              "angle_deg": -17.67299778236927,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 34109.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 35,
+          "raw_sample_count": 96,
+          "rejected_count": 61,
+          "lfsr_location": 30062.0,
+          "median_lfsr_location": 30062.0,
+          "raw_angle_rad": -2.614747,
+          "angle_spread_deg": 0.006016056848892504,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 35,
+              "fraction": 0.3645833333333333,
+              "raw_angle_rad": -2.614747,
+              "angle_deg": -149.81396759449345,
+              "angle_spread_deg": 0.006016056848892504,
+              "lfsr_location": 30062.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 35,
+              "fraction": 0.3645833333333333,
+              "raw_angle_rad": -0.6898930000000001,
+              "angle_deg": -39.527957215618905,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 66824.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 13,
+              "fraction": 0.13541666666666666,
+              "raw_angle_rad": -2.402847,
+              "angle_deg": -137.6729919156713,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 34109.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 40,
+          "raw_sample_count": 107,
+          "rejected_count": 67,
+          "lfsr_location": 41760.0,
+          "median_lfsr_location": 41760.0,
+          "raw_angle_rad": 0.092153,
+          "angle_spread_deg": 0.0030366763141955744,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 40,
+              "fraction": 0.37383177570093457,
+              "raw_angle_rad": 0.092153,
+              "angle_deg": 5.279977969469075,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 41760.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 38,
+              "fraction": 0.35514018691588783,
+              "raw_angle_rad": 1.851497,
+              "angle_deg": 106.08296388113338,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 75361.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 15,
+              "fraction": 0.14018691588785046,
+              "raw_angle_rad": 2.027793,
+              "angle_deg": 116.18398062617175,
+              "angle_spread_deg": 0.005958761069337015,
+              "lfsr_location": 78728.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 40,
+          "raw_sample_count": 113,
+          "rejected_count": 73,
+          "lfsr_location": 41760.0,
+          "median_lfsr_location": 41760.0,
+          "raw_angle_rad": -2.002241,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 40,
+              "fraction": 0.35398230088495575,
+              "raw_angle_rad": -2.002241,
+              "angle_deg": -114.71995886805347,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 41760.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 40,
+              "fraction": 0.35398230088495575,
+              "raw_angle_rad": -0.242897,
+              "angle_deg": -13.916972956389158,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 75361.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 17,
+              "fraction": 0.1504424778761062,
+              "raw_angle_rad": -1.920246,
+              "angle_deg": -110.02199142687827,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 43326.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 70,
+          "raw_sample_count": 141,
+          "rejected_count": 71,
+          "lfsr_location": 66639.0,
+          "median_lfsr_location": 66639.0,
+          "raw_angle_rad": 1.394814,
+          "angle_spread_deg": 0.3689848200642416,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 70,
+              "fraction": 0.49645390070921985,
+              "raw_angle_rad": 1.394814,
+              "angle_deg": 79.9169554057604,
+              "angle_spread_deg": 0.3689848200642416,
+              "lfsr_location": 66639.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 38,
+              "fraction": 0.2695035460992908,
+              "raw_angle_rad": -0.508833,
+              "angle_deg": -29.153983376980218,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 30282.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 17,
+              "fraction": 0.12056737588652482,
+              "raw_angle_rad": -0.316306,
+              "angle_deg": -18.122998834665015,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 33959.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 63,
+          "raw_sample_count": 118,
+          "rejected_count": 55,
+          "lfsr_location": 66637.0,
+          "median_lfsr_location": 66637.0,
+          "raw_angle_rad": -0.699685,
+          "angle_spread_deg": 0.36594814375007445,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 63,
+              "fraction": 0.5338983050847458,
+              "raw_angle_rad": -0.699685,
+              "angle_deg": -40.08899748861101,
+              "angle_spread_deg": 0.36594814375007445,
+              "lfsr_location": 66637.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 30,
+              "fraction": 0.2542372881355932,
+              "raw_angle_rad": -2.6032280000000005,
+              "angle_deg": -149.1539775102823,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 30282.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 13,
+              "fraction": 0.11016949152542373,
+              "raw_angle_rad": -2.410648,
+              "angle_deg": -138.11995629165287,
+              "angle_spread_deg": 0.006016056848892504,
+              "lfsr_location": 33960.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 39,
+          "raw_sample_count": 127,
+          "rejected_count": 88,
+          "lfsr_location": 42013.0,
+          "median_lfsr_location": 42013.0,
+          "raw_angle_rad": 0.1054,
+          "angle_spread_deg": 0.0029793805346685076,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 39,
+              "fraction": 0.30708661417322836,
+              "raw_angle_rad": 0.1054,
+              "angle_deg": 6.038975160678876,
+              "angle_spread_deg": 0.0029793805346685076,
+              "lfsr_location": 42013.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 36,
+              "fraction": 0.28346456692913385,
+              "raw_angle_rad": 1.8411300000000002,
+              "angle_deg": 105.48897853492126,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 75163.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 26,
+              "fraction": 0.2047244094488189,
+              "raw_angle_rad": 0.114825,
+              "angle_deg": 6.5789878825896775,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 42193.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 38,
+          "raw_sample_count": 142,
+          "rejected_count": 104,
+          "lfsr_location": 42194.0,
+          "median_lfsr_location": 42194.0,
+          "raw_angle_rad": -1.9795170000000002,
+          "angle_spread_deg": 0.012032113697728164,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 38,
+              "fraction": 0.2676056338028169,
+              "raw_angle_rad": -1.9795170000000002,
+              "angle_deg": -113.41796957439819,
+              "angle_spread_deg": 0.012032113697728164,
+              "lfsr_location": 42194.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 35,
+              "fraction": 0.24647887323943662,
+              "raw_angle_rad": -0.253369,
+              "angle_deg": -14.516974359450156,
+              "angle_spread_deg": 0.20099359453189436,
+              "lfsr_location": 75161.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 35,
+              "fraction": 0.24647887323943662,
+              "raw_angle_rad": -1.9890470000000002,
+              "angle_deg": -113.96399835315786,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 42012.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 68,
+          "raw_sample_count": 142,
+          "rejected_count": 74,
+          "lfsr_location": 66956.0,
+          "median_lfsr_location": 66956.0,
+          "raw_angle_rad": 1.411413,
+          "angle_spread_deg": 0.33603974684422155,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 68,
+              "fraction": 0.4788732394366197,
+              "raw_angle_rad": 1.411413,
+              "angle_deg": 80.86800804989807,
+              "angle_spread_deg": 0.33603974684422155,
+              "lfsr_location": 66956.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 40,
+              "fraction": 0.28169014084507044,
+              "raw_angle_rad": -0.488674,
+              "angle_deg": -27.99895775777599,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 30667.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 17,
+              "fraction": 0.11971830985915492,
+              "raw_angle_rad": -0.296775,
+              "angle_deg": -17.003954964995007,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 34332.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 63,
+          "raw_sample_count": 114,
+          "rejected_count": 51,
+          "lfsr_location": 66956.0,
+          "median_lfsr_location": 66956.0,
+          "raw_angle_rad": -0.682982,
+          "angle_spread_deg": 0.3359824510647229,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 63,
+              "fraction": 0.5526315789473685,
+              "raw_angle_rad": -0.682982,
+              "angle_deg": -39.13198608340399,
+              "angle_spread_deg": 0.3359824510647229,
+              "lfsr_location": 66956.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 26,
+              "fraction": 0.22807017543859648,
+              "raw_angle_rad": -2.583069,
+              "angle_deg": -147.99895189107804,
+              "angle_spread_deg": 0.006016056848892504,
+              "lfsr_location": 30667.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 13,
+              "fraction": 0.11403508771929824,
+              "raw_angle_rad": -0.449614,
+              "angle_deg": -25.760984609994996,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 71413.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 39,
+          "raw_sample_count": 116,
+          "rejected_count": 77,
+          "lfsr_location": 42434.0,
+          "median_lfsr_location": 42434.0,
+          "raw_angle_rad": 0.127443,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 39,
+              "fraction": 0.33620689655172414,
+              "raw_angle_rad": 0.127443,
+              "angle_deg": 7.301946028485751,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 42434.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 34,
+              "fraction": 0.29310344827586204,
+              "raw_angle_rad": 1.865111,
+              "angle_deg": 106.86298862342449,
+              "angle_spread_deg": 0.024006931615986105,
+              "lfsr_location": 75621.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 21,
+              "fraction": 0.1810344827586207,
+              "raw_angle_rad": 0.136816,
+              "angle_deg": 7.838979369861871,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 42613.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 38,
+          "raw_sample_count": 136,
+          "rejected_count": 98,
+          "lfsr_location": 42434.0,
+          "median_lfsr_location": 42434.0,
+          "raw_angle_rad": -1.966951,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 38,
+              "fraction": 0.27941176470588236,
+              "raw_angle_rad": -1.966951,
+              "angle_deg": -112.69799080903678,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 42434.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 36,
+              "fraction": 0.2647058823529412,
+              "raw_angle_rad": -0.229126,
+              "angle_deg": -13.1279527767145,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 75624.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 32,
+              "fraction": 0.23529411764705882,
+              "raw_angle_rad": -1.95784,
+              "angle_deg": -112.17596896189309,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 42608.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        }
+      ],
+      "raw_counts": {
+        "lh2a": 1907,
+        "lh2p": 0,
+        "lh2r": 1908
+      }
+    },
+    {
+      "name": "P02_bas_avant_droite",
+      "x_m": 0.4,
+      "y_m": 0.28,
+      "z_m": 0.025,
+      "yaw_deg": 0.0,
+      "pitch_deg": 0.0,
+      "roll_deg": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 53,
+          "raw_sample_count": 127,
+          "rejected_count": 74,
+          "lfsr_location": 75244.0,
+          "median_lfsr_location": 75244.0,
+          "raw_angle_rad": 1.845371,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 53,
+              "fraction": 0.41732283464566927,
+              "raw_angle_rad": 1.845371,
+              "angle_deg": 105.73196993583625,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 75244.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 51,
+              "fraction": 0.4015748031496063,
+              "raw_angle_rad": -0.019844,
+              "angle_deg": -1.1369774486576056,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 39621.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 12,
+              "fraction": 0.09448818897637795,
+              "raw_angle_rad": -0.500089,
+              "angle_deg": -28.652989080917827,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 30449.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 58,
+          "raw_sample_count": 141,
+          "rejected_count": 83,
+          "lfsr_location": 75245.0,
+          "median_lfsr_location": 75245.0,
+          "raw_angle_rad": -0.248971,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 58,
+              "fraction": 0.41134751773049644,
+              "raw_angle_rad": -0.248971,
+              "angle_deg": -14.26498752115162,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 75245.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 55,
+              "fraction": 0.3900709219858156,
+              "raw_angle_rad": -2.114187,
+              "angle_deg": -121.13399220142496,
+              "angle_spread_deg": 0.008995437383589433,
+              "lfsr_location": 39622.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 14,
+              "fraction": 0.09929078014184398,
+              "raw_angle_rad": -2.594379,
+              "angle_deg": -148.646967157371,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 30451.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 56,
+          "raw_sample_count": 127,
+          "rejected_count": 71,
+          "lfsr_location": 84246.0,
+          "median_lfsr_location": 84246.0,
+          "raw_angle_rad": 2.316715,
+          "angle_spread_deg": 0.0030366763141671527,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 56,
+              "fraction": 0.4409448818897638,
+              "raw_angle_rad": 2.316715,
+              "angle_deg": 132.7379918346505,
+              "angle_spread_deg": 0.0030366763141671527,
+              "lfsr_location": 84246.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 47,
+              "fraction": 0.3700787401574803,
+              "raw_angle_rad": 0.486685,
+              "angle_deg": 27.88499645232447,
+              "angle_spread_deg": 0.009052733163059656,
+              "lfsr_location": 49295.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 12,
+              "fraction": 0.09448818897637795,
+              "raw_angle_rad": 0.114406,
+              "angle_deg": 6.554980950973696,
+              "angle_spread_deg": 0.0029793805346685076,
+              "lfsr_location": 42185.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 46,
+          "raw_sample_count": 115,
+          "rejected_count": 69,
+          "lfsr_location": 84246.0,
+          "median_lfsr_location": 84246.0,
+          "raw_angle_rad": 0.22232,
+          "angle_spread_deg": 0.008938141604033945,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 46,
+              "fraction": 0.4,
+              "raw_angle_rad": 0.22232,
+              "angle_deg": 12.737997701348462,
+              "angle_spread_deg": 0.008938141604033945,
+              "lfsr_location": 84246.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 40,
+              "fraction": 0.34782608695652173,
+              "raw_angle_rad": -1.60771,
+              "angle_deg": -92.11499768097758,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 49295.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 15,
+              "fraction": 0.13043478260869565,
+              "raw_angle_rad": -1.979936,
+              "angle_deg": -113.44197650601416,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 42186.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 51,
+          "raw_sample_count": 127,
+          "rejected_count": 76,
+          "lfsr_location": 74803.0,
+          "median_lfsr_location": 74803.0,
+          "raw_angle_rad": 1.82228,
+          "angle_spread_deg": 0.014954198452898027,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 51,
+              "fraction": 0.4015748031496063,
+              "raw_angle_rad": 1.82228,
+              "angle_deg": 104.40895309109965,
+              "angle_spread_deg": 0.014954198452898027,
+              "lfsr_location": 74803.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 51,
+              "fraction": 0.4015748031496063,
+              "raw_angle_rad": -0.0455,
+              "angle_deg": -2.6069579678452457,
+              "angle_spread_deg": 0.012032113697756586,
+              "lfsr_location": 39131.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 13,
+              "fraction": 0.10236220472440945,
+              "raw_angle_rad": 1.4045010000000002,
+              "angle_deg": 80.47197962190364,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 66824.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 49,
+          "raw_sample_count": 123,
+          "rejected_count": 74,
+          "lfsr_location": 39130.0,
+          "median_lfsr_location": 39130.0,
+          "raw_angle_rad": -2.139948,
+          "angle_spread_deg": 0.00899543738353259,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 49,
+              "fraction": 0.3983739837398374,
+              "raw_angle_rad": -2.139948,
+              "angle_deg": -122.60998877746148,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 39130.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 48,
+              "fraction": 0.3902439024390244,
+              "raw_angle_rad": -0.272114,
+              "angle_deg": -15.590983746422884,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 74803.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 13,
+              "fraction": 0.10569105691056911,
+              "raw_angle_rad": -2.6146950000000007,
+              "angle_deg": -149.8109882139588,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 30063.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 57,
+          "raw_sample_count": 137,
+          "rejected_count": 80,
+          "lfsr_location": 83888.0,
+          "median_lfsr_location": 83888.0,
+          "raw_angle_rad": 2.29797,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 57,
+              "fraction": 0.41605839416058393,
+              "raw_angle_rad": 2.29797,
+              "angle_deg": 131.66398244767777,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 83888.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 56,
+              "fraction": 0.40875912408759124,
+              "raw_angle_rad": 0.471029,
+              "angle_deg": 26.98797372826765,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 48996.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 12,
+              "fraction": 0.08759124087591241,
+              "raw_angle_rad": 0.092153,
+              "angle_deg": 5.279977969469075,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 41760.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 47,
+          "raw_sample_count": 123,
+          "rejected_count": 76,
+          "lfsr_location": 48997.0,
+          "median_lfsr_location": 48997.0,
+          "raw_angle_rad": -1.6233130000000002,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 47,
+              "fraction": 0.3821138211382114,
+              "raw_angle_rad": -1.6233130000000002,
+              "angle_deg": -93.00898372872021,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 48997.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 47,
+              "fraction": 0.3821138211382114,
+              "raw_angle_rad": 0.20362700000000003,
+              "angle_deg": 11.666967694910415,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 83889.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 15,
+              "fraction": 0.12195121951219512,
+              "raw_angle_rad": -2.002294,
+              "angle_deg": -114.72299554436766,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 41759.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 90,
+          "raw_sample_count": 169,
+          "rejected_count": 79,
+          "lfsr_location": 74544.0,
+          "median_lfsr_location": 74544.0,
+          "raw_angle_rad": 1.808719,
+          "angle_spread_deg": 0.333003070530026,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 90,
+              "fraction": 0.5325443786982249,
+              "raw_angle_rad": 1.808719,
+              "angle_deg": 103.63196502512274,
+              "angle_spread_deg": 0.333003070530026,
+              "lfsr_location": 74544.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 49,
+              "fraction": 0.28994082840236685,
+              "raw_angle_rad": -0.03497600000000001,
+              "angle_deg": -2.0039771842495675,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 39332.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 18,
+              "fraction": 0.10650887573964497,
+              "raw_angle_rad": 1.388531,
+              "angle_deg": 79.55696602307971,
+              "angle_spread_deg": 0.36904211584376867,
+              "lfsr_location": 66579.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 84,
+          "raw_sample_count": 167,
+          "rejected_count": 83,
+          "lfsr_location": 74442.0,
+          "median_lfsr_location": 74442.0,
+          "raw_angle_rad": -0.291225,
+          "angle_spread_deg": 0.3359824510647229,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 84,
+              "fraction": 0.5029940119760479,
+              "raw_angle_rad": -0.291225,
+              "angle_deg": -16.6859633886974,
+              "angle_spread_deg": 0.3359824510647229,
+              "lfsr_location": 74442.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 50,
+              "fraction": 0.2994011976047904,
+              "raw_angle_rad": -2.129371,
+              "angle_deg": -122.00397131755162,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 39332.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 23,
+              "fraction": 0.1377245508982036,
+              "raw_angle_rad": -0.699685,
+              "angle_deg": -40.08899748861101,
+              "angle_spread_deg": 0.36594814375007445,
+              "lfsr_location": 66637.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 94,
+          "raw_sample_count": 182,
+          "rejected_count": 88,
+          "lfsr_location": 49186.0,
+          "median_lfsr_location": 49186.0,
+          "raw_angle_rad": 0.48097700000000004,
+          "angle_spread_deg": 0.4320101775286389,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 94,
+              "fraction": 0.5164835164835165,
+              "raw_angle_rad": 0.48097700000000004,
+              "angle_deg": 27.557952142863797,
+              "angle_spread_deg": 0.4320101775286389,
+              "lfsr_location": 49186.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 56,
+              "fraction": 0.3076923076923077,
+              "raw_angle_rad": 2.287655,
+              "angle_deg": 131.07297648200034,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 83691.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 12,
+              "fraction": 0.06593406593406594,
+              "raw_angle_rad": 0.1054,
+              "angle_deg": 6.038975160678876,
+              "angle_spread_deg": 0.0029793805346685076,
+              "lfsr_location": 42013.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 77,
+          "raw_sample_count": 164,
+          "rejected_count": 87,
+          "lfsr_location": 49185.0,
+          "median_lfsr_location": 49185.0,
+          "raw_angle_rad": -1.613469,
+          "angle_spread_deg": 0.4259941206797748,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 77,
+              "fraction": 0.4695121951219512,
+              "raw_angle_rad": -1.613469,
+              "angle_deg": -92.44496407519343,
+              "angle_spread_deg": 0.4259941206797748,
+              "lfsr_location": 49185.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 46,
+              "fraction": 0.2804878048780488,
+              "raw_angle_rad": 0.19326,
+              "angle_deg": 11.07298234869829,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 83691.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 15,
+              "fraction": 0.09146341463414634,
+              "raw_angle_rad": -1.979569,
+              "angle_deg": -113.42094895493285,
+              "angle_spread_deg": 0.009052733163059656,
+              "lfsr_location": 42193.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 49,
+          "raw_sample_count": 127,
+          "rejected_count": 78,
+          "lfsr_location": 39817.0,
+          "median_lfsr_location": 39817.0,
+          "raw_angle_rad": -0.009581,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 49,
+              "fraction": 0.3858267716535433,
+              "raw_angle_rad": -0.009581,
+              "angle_deg": -0.5489508635148417,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 39817.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 49,
+              "fraction": 0.3858267716535433,
+              "raw_angle_rad": 1.8317580000000002,
+              "angle_deg": 104.95200248932466,
+              "angle_spread_deg": 0.015011494232453515,
+              "lfsr_location": 74984.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 18,
+              "fraction": 0.14173228346456693,
+              "raw_angle_rad": 1.411517,
+              "angle_deg": 80.87396681096742,
+              "angle_spread_deg": 0.3359824510646945,
+              "lfsr_location": 66957.5,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 45,
+          "raw_sample_count": 124,
+          "rejected_count": 79,
+          "lfsr_location": 74984.0,
+          "median_lfsr_location": 74984.0,
+          "raw_angle_rad": -0.262637,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 45,
+              "fraction": 0.3629032258064516,
+              "raw_angle_rad": -0.262637,
+              "angle_deg": -15.047991643977403,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 74984.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 44,
+              "fraction": 0.3548387096774194,
+              "raw_angle_rad": -2.103819,
+              "angle_deg": -120.53994955943334,
+              "angle_spread_deg": 0.012032113697756586,
+              "lfsr_location": 39820.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 23,
+              "fraction": 0.18548387096774194,
+              "raw_angle_rad": -0.68293,
+              "angle_deg": -39.12900670286931,
+              "angle_spread_deg": 0.3389618315993914,
+              "lfsr_location": 66957.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 95,
+          "raw_sample_count": 166,
+          "rejected_count": 71,
+          "lfsr_location": 49479.0,
+          "median_lfsr_location": 49479.0,
+          "raw_angle_rad": 0.49631900000000007,
+          "angle_spread_deg": 0.4259941206797748,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 95,
+              "fraction": 0.572289156626506,
+              "raw_angle_rad": 0.49631900000000007,
+              "angle_deg": 28.436983992153507,
+              "angle_spread_deg": 0.4259941206797748,
+              "lfsr_location": 49479.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 41,
+              "fraction": 0.2469879518072289,
+              "raw_angle_rad": 2.306295,
+              "angle_deg": 132.14096981212418,
+              "angle_spread_deg": 0.21600508876429103,
+              "lfsr_location": 84047.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 11,
+              "fraction": 0.06626506024096386,
+              "raw_angle_rad": 0.127339,
+              "angle_deg": 7.295987267416391,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 42432.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 81,
+          "raw_sample_count": 149,
+          "rejected_count": 68,
+          "lfsr_location": 49479.0,
+          "median_lfsr_location": 49479.0,
+          "raw_angle_rad": -1.598075,
+          "angle_spread_deg": 0.42295744436557925,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 81,
+              "fraction": 0.5436241610738255,
+              "raw_angle_rad": -1.598075,
+              "angle_deg": -91.56295284536903,
+              "angle_spread_deg": 0.42295744436557925,
+              "lfsr_location": 49479.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 35,
+              "fraction": 0.2348993288590604,
+              "raw_angle_rad": 0.2119,
+              "angle_deg": 12.140975678822144,
+              "angle_spread_deg": 0.23101658299674455,
+              "lfsr_location": 84047.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 12,
+              "fraction": 0.08053691275167785,
+              "raw_angle_rad": -1.9670030000000003,
+              "angle_deg": -112.70097018957148,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 42433.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        }
+      ],
+      "raw_counts": {
+        "lh2a": 2268,
+        "lh2p": 0,
+        "lh2r": 2268
+      }
+    },
+    {
+      "name": "P06_bas_arriere_gauche",
+      "x_m": -0.4,
+      "y_m": -0.52,
+      "z_m": 0.025,
+      "yaw_deg": 0.0,
+      "pitch_deg": 0.0,
+      "roll_deg": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 45,
+          "raw_sample_count": 159,
+          "rejected_count": 114,
+          "lfsr_location": 70949.0,
+          "median_lfsr_location": 70949.0,
+          "raw_angle_rad": 1.620485,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 45,
+              "fraction": 0.2830188679245283,
+              "raw_angle_rad": 1.620485,
+              "angle_deg": 92.8469512642572,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 70949.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 44,
+              "fraction": 0.27672955974842767,
+              "raw_angle_rad": -0.400814,
+              "angle_deg": -22.964950569756578,
+              "angle_spread_deg": 0.009052733163059656,
+              "lfsr_location": 32345.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 36,
+              "fraction": 0.22641509433962265,
+              "raw_angle_rad": 1.845371,
+              "angle_deg": 105.73196993583625,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 75244.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 32,
+          "raw_sample_count": 110,
+          "rejected_count": 78,
+          "lfsr_location": 32346.0,
+          "median_lfsr_location": 32346.0,
+          "raw_angle_rad": -2.4951570000000003,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 32,
+              "fraction": 0.2909090909090909,
+              "raw_angle_rad": -2.4951570000000003,
+              "angle_deg": -142.96196532252395,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 32346.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 32,
+              "fraction": 0.2909090909090909,
+              "raw_angle_rad": -0.473856,
+              "angle_deg": -27.149948896951138,
+              "angle_spread_deg": 0.012032113697756586,
+              "lfsr_location": 70949.5,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 25,
+              "fraction": 0.22727272727272727,
+              "raw_angle_rad": -0.248971,
+              "angle_deg": -14.26498752115162,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 75245.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 50,
+          "raw_sample_count": 156,
+          "rejected_count": 106,
+          "lfsr_location": 40008.0,
+          "median_lfsr_location": 40008.0,
+          "raw_angle_rad": 0.000418,
+          "angle_spread_deg": 0.005958761069365437,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 50,
+              "fraction": 0.32051282051282054,
+              "raw_angle_rad": 0.000418,
+              "angle_deg": 0.023949635836468412,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 40008.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 49,
+              "fraction": 0.3141025641025641,
+              "raw_angle_rad": 1.881971,
+              "angle_deg": 107.82899546601506,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 75943.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 29,
+              "fraction": 0.1858974358974359,
+              "raw_angle_rad": 0.486685,
+              "angle_deg": 27.88499645232447,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 49295.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 30,
+          "raw_sample_count": 107,
+          "rejected_count": 77,
+          "lfsr_location": 40009.0,
+          "median_lfsr_location": 40009.0,
+          "raw_angle_rad": -2.093923,
+          "angle_spread_deg": 0.00899543738353259,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 30,
+              "fraction": 0.2803738317757009,
+              "raw_angle_rad": -2.093923,
+              "angle_deg": -119.97295052537189,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 40009.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 30,
+              "fraction": 0.2803738317757009,
+              "raw_angle_rad": -0.21242300000000003,
+              "angle_deg": -12.170941371507487,
+              "angle_spread_deg": 0.009052733163059656,
+              "lfsr_location": 75943.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 24,
+              "fraction": 0.22429906542056074,
+              "raw_angle_rad": 0.222372,
+              "angle_deg": 12.740977081883141,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 84247.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 45,
+          "raw_sample_count": 149,
+          "rejected_count": 104,
+          "lfsr_location": 32056.0,
+          "median_lfsr_location": 32056.0,
+          "raw_angle_rad": -0.415946,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 45,
+              "fraction": 0.30201342281879195,
+              "raw_angle_rad": -0.415946,
+              "angle_deg": -23.83195030534854,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 32056.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 44,
+              "fraction": 0.2953020134228188,
+              "raw_angle_rad": 1.606663,
+              "angle_deg": 92.05500899982738,
+              "angle_spread_deg": 0.009052733163059656,
+              "lfsr_location": 70685.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 31,
+              "fraction": 0.2080536912751678,
+              "raw_angle_rad": 1.82228,
+              "angle_deg": 104.40895309109965,
+              "angle_spread_deg": 0.011974817918229519,
+              "lfsr_location": 74803.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 32,
+          "raw_sample_count": 109,
+          "rejected_count": 77,
+          "lfsr_location": 32056.0,
+          "median_lfsr_location": 32056.0,
+          "raw_angle_rad": -2.5103420000000005,
+          "angle_spread_deg": 0.00899543738353259,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 32,
+              "fraction": 0.29357798165137616,
+              "raw_angle_rad": -2.5103420000000005,
+              "angle_deg": -143.83200173443012,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 32056.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 32,
+              "fraction": 0.29357798165137616,
+              "raw_angle_rad": -0.487679,
+              "angle_deg": -27.94194845716047,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 70686.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 23,
+              "fraction": 0.21100917431192662,
+              "raw_angle_rad": -2.139948,
+              "angle_deg": -122.60998877746148,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 39130.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 50,
+          "raw_sample_count": 161,
+          "rejected_count": 111,
+          "lfsr_location": 75625.0,
+          "median_lfsr_location": 75625.0,
+          "raw_angle_rad": 1.8653200000000003,
+          "angle_spread_deg": 0.01197481791825794,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 50,
+              "fraction": 0.3105590062111801,
+              "raw_angle_rad": 1.8653200000000003,
+              "angle_deg": 106.87496344134273,
+              "angle_spread_deg": 0.01197481791825794,
+              "lfsr_location": 75625.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 49,
+              "fraction": 0.30434782608695654,
+              "raw_angle_rad": -0.01466,
+              "angle_deg": -0.8399561276617868,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 39720.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 31,
+              "fraction": 0.19254658385093168,
+              "raw_angle_rad": 0.471081,
+              "angle_deg": 26.990953108802334,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 48997.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 30,
+          "raw_sample_count": 108,
+          "rejected_count": 78,
+          "lfsr_location": 39720.0,
+          "median_lfsr_location": 39720.0,
+          "raw_angle_rad": -2.109056,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 30,
+              "fraction": 0.2777777777777778,
+              "raw_angle_rad": -2.109056,
+              "angle_deg": -120.84000755674334,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 39720.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 30,
+              "fraction": 0.2777777777777778,
+              "raw_angle_rad": -0.229074,
+              "angle_deg": -13.12497339617982,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 75625.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 24,
+              "fraction": 0.2222222222222222,
+              "raw_angle_rad": -1.6233130000000002,
+              "angle_deg": -93.00898372872021,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 48997.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 75,
+          "raw_sample_count": 202,
+          "rejected_count": 127,
+          "lfsr_location": 32331.0,
+          "median_lfsr_location": 32331.0,
+          "raw_angle_rad": -0.40154700000000004,
+          "angle_spread_deg": 0.3660054395295731,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 75,
+              "fraction": 0.3712871287128713,
+              "raw_angle_rad": -0.40154700000000004,
+              "angle_deg": -23.00694837613967,
+              "angle_spread_deg": 0.3660054395295731,
+              "lfsr_location": 32331.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 54,
+              "fraction": 0.26732673267326734,
+              "raw_angle_rad": 1.808719,
+              "angle_deg": 103.63196502512274,
+              "angle_spread_deg": 0.3299663942158304,
+              "lfsr_location": 74544.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 42,
+              "fraction": 0.2079207920792079,
+              "raw_angle_rad": 1.5941480000000001,
+              "angle_deg": 91.33795231922116,
+              "angle_spread_deg": 0.009052733163059656,
+              "lfsr_location": 70446.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 43,
+          "raw_sample_count": 133,
+          "rejected_count": 90,
+          "lfsr_location": 32331.0,
+          "median_lfsr_location": 32331.0,
+          "raw_angle_rad": -2.495943,
+          "angle_spread_deg": 0.3629687632153775,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 43,
+              "fraction": 0.3233082706766917,
+              "raw_angle_rad": -2.495943,
+              "angle_deg": -143.00699980522123,
+              "angle_spread_deg": 0.3629687632153775,
+              "lfsr_location": 32331.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 36,
+              "fraction": 0.2706766917293233,
+              "raw_angle_rad": -0.285623,
+              "angle_deg": -16.36499243186511,
+              "angle_spread_deg": 0.3359824510647229,
+              "lfsr_location": 74545.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 32,
+              "fraction": 0.24060150375939848,
+              "raw_angle_rad": -0.500194,
+              "angle_deg": -28.6590051377667,
+              "angle_spread_deg": 0.0179908747670936,
+              "lfsr_location": 70447.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 90,
+          "raw_sample_count": 215,
+          "rejected_count": 125,
+          "lfsr_location": 39961.5,
+          "median_lfsr_location": 39961.5,
+          "raw_angle_rad": 0.001152,
+          "angle_spread_deg": 0.3689848200642416,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 90,
+              "fraction": 0.4186046511627907,
+              "raw_angle_rad": 0.001152,
+              "angle_deg": 0.06600473799907083,
+              "angle_spread_deg": 0.3689848200642416,
+              "lfsr_location": 39961.5,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 51,
+              "fraction": 0.2372093023255814,
+              "raw_angle_rad": 0.48097700000000004,
+              "angle_deg": 27.557952142863797,
+              "angle_spread_deg": 0.4320101775286389,
+              "lfsr_location": 49186.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 43,
+              "fraction": 0.2,
+              "raw_angle_rad": 1.855058,
+              "angle_deg": 106.28699415197947,
+              "angle_spread_deg": 0.0029793805346685076,
+              "lfsr_location": 75429.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 51,
+          "raw_sample_count": 135,
+          "rejected_count": 84,
+          "lfsr_location": 40022.0,
+          "median_lfsr_location": 40022.0,
+          "raw_angle_rad": -2.093243,
+          "angle_spread_deg": 0.3720214963784372,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 51,
+              "fraction": 0.37777777777777777,
+              "raw_angle_rad": -2.093243,
+              "angle_deg": -119.93398939530299,
+              "angle_spread_deg": 0.3720214963784372,
+              "lfsr_location": 40022.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 36,
+              "fraction": 0.26666666666666666,
+              "raw_angle_rad": -1.613417,
+              "angle_deg": -92.44198469465874,
+              "angle_spread_deg": 0.4230147401451063,
+              "lfsr_location": 49185.5,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 29,
+              "fraction": 0.21481481481481482,
+              "raw_angle_rad": -0.239284,
+              "angle_deg": -13.70996330500839,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 75430.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 74,
+          "raw_sample_count": 169,
+          "rejected_count": 95,
+          "lfsr_location": 32500.0,
+          "median_lfsr_location": 32500.0,
+          "raw_angle_rad": -0.392699,
+          "angle_spread_deg": 0.3810169337619982,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 74,
+              "fraction": 0.4378698224852071,
+              "raw_angle_rad": -0.392699,
+              "angle_deg": -22.499995319007915,
+              "angle_spread_deg": 0.3810169337619982,
+              "lfsr_location": 32500.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 37,
+              "fraction": 0.21893491124260356,
+              "raw_angle_rad": 1.607605,
+              "angle_deg": 92.1089816241287,
+              "angle_spread_deg": 0.30601675837937137,
+              "lfsr_location": 70703.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 30,
+              "fraction": 0.17751479289940827,
+              "raw_angle_rad": 1.8317580000000002,
+              "angle_deg": 104.95200248932466,
+              "angle_spread_deg": 0.015011494232453515,
+              "lfsr_location": 74984.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 61,
+          "raw_sample_count": 129,
+          "rejected_count": 68,
+          "lfsr_location": 32501.0,
+          "median_lfsr_location": 32501.0,
+          "raw_angle_rad": -2.487042,
+          "angle_spread_deg": 0.3750008769131341,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 61,
+              "fraction": 0.4728682170542636,
+              "raw_angle_rad": -2.487042,
+              "angle_deg": -142.4970100717753,
+              "angle_spread_deg": 0.3750008769131341,
+              "lfsr_location": 32501.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 29,
+              "fraction": 0.2248062015503876,
+              "raw_angle_rad": -0.48658,
+              "angle_deg": -27.878980395475597,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 70707.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 20,
+              "fraction": 0.15503875968992248,
+              "raw_angle_rad": -0.262689,
+              "angle_deg": -15.050971024512082,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 74983.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 81,
+          "raw_sample_count": 201,
+          "rejected_count": 120,
+          "lfsr_location": 40187.0,
+          "median_lfsr_location": 40187.0,
+          "raw_angle_rad": 0.009791,
+          "angle_spread_deg": 0.3839963142966667,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 81,
+              "fraction": 0.40298507462686567,
+              "raw_angle_rad": 0.009791,
+              "angle_deg": 0.5609829772125889,
+              "angle_spread_deg": 0.3839963142966667,
+              "lfsr_location": 40187.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 48,
+              "fraction": 0.23880597014925373,
+              "raw_angle_rad": 0.49631900000000007,
+              "angle_deg": 28.436983992153507,
+              "angle_spread_deg": 0.42897350121444333,
+              "lfsr_location": 49479.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 45,
+              "fraction": 0.22388059701492538,
+              "raw_angle_rad": 1.871499,
+              "angle_deg": 107.22899406295406,
+              "angle_spread_deg": 0.011974817918229519,
+              "lfsr_location": 75743.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 52,
+          "raw_sample_count": 130,
+          "rejected_count": 78,
+          "lfsr_location": 40186.0,
+          "median_lfsr_location": 40186.0,
+          "raw_angle_rad": -2.084656,
+          "angle_spread_deg": 0.39602842799439486,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 52,
+              "fraction": 0.4,
+              "raw_angle_rad": -2.084656,
+              "angle_deg": -119.44199053662413,
+              "angle_spread_deg": 0.39602842799439486,
+              "lfsr_location": 40186.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 35,
+              "fraction": 0.2692307692307692,
+              "raw_angle_rad": -1.598075,
+              "angle_deg": -91.56295284536903,
+              "angle_spread_deg": 0.42295744436557925,
+              "lfsr_location": 49479.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 22,
+              "fraction": 0.16923076923076924,
+              "raw_angle_rad": 0.2119,
+              "angle_deg": 12.140975678822144,
+              "angle_spread_deg": 0.23101658299674455,
+              "lfsr_location": 84047.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        }
+      ],
+      "raw_counts": {
+        "lh2a": 2373,
+        "lh2p": 0,
+        "lh2r": 2376
+      }
+    },
+    {
+      "name": "P08_bas_arriere_droite",
+      "x_m": 0.4,
+      "y_m": -0.52,
+      "z_m": 0.025,
+      "yaw_deg": 0.0,
+      "pitch_deg": 0.0,
+      "roll_deg": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 46,
+          "raw_sample_count": 148,
+          "rejected_count": 102,
+          "lfsr_location": 38686.0,
+          "median_lfsr_location": 38686.0,
+          "raw_angle_rad": -0.0688,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 46,
+              "fraction": 0.3108108108108108,
+              "raw_angle_rad": -0.0688,
+              "angle_deg": -3.941949630500064,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 38686.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 46,
+              "fraction": 0.3108108108108108,
+              "raw_angle_rad": 1.9233350000000002,
+              "angle_deg": 110.1989780897942,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 76733.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 28,
+              "fraction": 0.1891891891891892,
+              "raw_angle_rad": -0.400762,
+              "angle_deg": -22.9619711892219,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 32345.5,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 34,
+          "raw_sample_count": 113,
+          "rejected_count": 79,
+          "lfsr_location": 38685.0,
+          "median_lfsr_location": 38685.0,
+          "raw_angle_rad": -2.163248,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 34,
+              "fraction": 0.3008849557522124,
+              "raw_angle_rad": -2.163248,
+              "angle_deg": -123.9449804401163,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 38685.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 32,
+              "fraction": 0.2831858407079646,
+              "raw_angle_rad": -0.170954,
+              "angle_deg": -9.794942690879475,
+              "angle_spread_deg": 0.006073352628391149,
+              "lfsr_location": 76735.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 24,
+              "fraction": 0.21238938053097345,
+              "raw_angle_rad": -2.4951570000000003,
+              "angle_deg": -142.96196532252395,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 32346.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 40,
+          "raw_sample_count": 128,
+          "rejected_count": 88,
+          "lfsr_location": 45373.0,
+          "median_lfsr_location": 45373.0,
+          "raw_angle_rad": 0.281329,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 40,
+              "fraction": 0.3125,
+              "raw_angle_rad": 0.281329,
+              "angle_deg": 16.118964354635935,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 45373.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 39,
+              "fraction": 0.3046875,
+              "raw_angle_rad": 2.193407,
+              "angle_deg": 125.67296385445137,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 81891.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 25,
+              "fraction": 0.1953125,
+              "raw_angle_rad": 1.881971,
+              "angle_deg": 107.82899546601506,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 75943.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 42,
+          "raw_sample_count": 139,
+          "rejected_count": 97,
+          "lfsr_location": 45374.0,
+          "median_lfsr_location": 45374.0,
+          "raw_angle_rad": -1.813013,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 42,
+              "fraction": 0.302158273381295,
+              "raw_angle_rad": -1.813013,
+              "angle_deg": -103.87799310235192,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 45374.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 41,
+              "fraction": 0.2949640287769784,
+              "raw_angle_rad": 0.09896,
+              "angle_deg": 5.669990340614627,
+              "angle_spread_deg": 0.011974817918229519,
+              "lfsr_location": 81890.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 28,
+              "fraction": 0.2014388489208633,
+              "raw_angle_rad": -2.093976,
+              "angle_deg": -119.97598720168607,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 40008.5,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 46,
+          "raw_sample_count": 149,
+          "rejected_count": 103,
+          "lfsr_location": 38360.5,
+          "median_lfsr_location": 38360.5,
+          "raw_angle_rad": -0.08587,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 46,
+              "fraction": 0.3087248322147651,
+              "raw_angle_rad": -0.08587,
+              "angle_deg": -4.919988586788379,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 38360.5,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 46,
+              "fraction": 0.3087248322147651,
+              "raw_angle_rad": 1.90726,
+              "angle_deg": 109.27794843412138,
+              "angle_spread_deg": 0.009052733163059656,
+              "lfsr_location": 76426.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 29,
+              "fraction": 0.19463087248322147,
+              "raw_angle_rad": 1.606663,
+              "angle_deg": 92.05500899982738,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 70685.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 34,
+          "raw_sample_count": 113,
+          "rejected_count": 79,
+          "lfsr_location": 76427.0,
+          "median_lfsr_location": 76427.0,
+          "raw_angle_rad": -0.18708100000000003,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 34,
+              "fraction": 0.3008849557522124,
+              "raw_angle_rad": -0.18708100000000003,
+              "angle_deg": -10.718951727086955,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 76427.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 33,
+              "fraction": 0.2920353982300885,
+              "raw_angle_rad": -2.180213,
+              "angle_deg": -124.91700333955576,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 38361.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 23,
+              "fraction": 0.20353982300884957,
+              "raw_angle_rad": -2.5103420000000005,
+              "angle_deg": -143.83200173443012,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 32056.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 40,
+          "raw_sample_count": 129,
+          "rejected_count": 89,
+          "lfsr_location": 45131.0,
+          "median_lfsr_location": 45131.0,
+          "raw_angle_rad": 0.268658,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 40,
+              "fraction": 0.31007751937984496,
+              "raw_angle_rad": 0.268658,
+              "angle_deg": 15.39296953242567,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 45131.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 40,
+              "fraction": 0.31007751937984496,
+              "raw_angle_rad": 2.178799,
+              "angle_deg": 124.83598710732426,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 81612.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 25,
+              "fraction": 0.1937984496124031,
+              "raw_angle_rad": -0.01466,
+              "angle_deg": -0.8399561276617868,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 39720.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 42,
+          "raw_sample_count": 139,
+          "rejected_count": 97,
+          "lfsr_location": 45131.0,
+          "median_lfsr_location": 45131.0,
+          "raw_angle_rad": -1.825736,
+          "angle_spread_deg": 0.005958761069365437,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 42,
+              "fraction": 0.302158273381295,
+              "raw_angle_rad": -1.825736,
+              "angle_deg": -104.60696730509687,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 45131.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 41,
+              "fraction": 0.2949640287769784,
+              "raw_angle_rad": 0.084456,
+              "angle_deg": 4.838972354556881,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 81613.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 28,
+              "fraction": 0.2014388489208633,
+              "raw_angle_rad": -2.109056,
+              "angle_deg": -120.84000755674334,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 39720.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 54,
+          "raw_sample_count": 131,
+          "rejected_count": 77,
+          "lfsr_location": 32331.0,
+          "median_lfsr_location": 32331.0,
+          "raw_angle_rad": -0.40154700000000004,
+          "angle_spread_deg": 0.36302605899487617,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 54,
+              "fraction": 0.4122137404580153,
+              "raw_angle_rad": -0.40154700000000004,
+              "angle_deg": -23.00694837613967,
+              "angle_spread_deg": 0.36302605899487617,
+              "lfsr_location": 32331.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 50,
+              "fraction": 0.3816793893129771,
+              "raw_angle_rad": -0.077859,
+              "angle_deg": -4.460992097109076,
+              "angle_spread_deg": 0.3780375532273297,
+              "lfsr_location": 38513.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 20,
+              "fraction": 0.15267175572519084,
+              "raw_angle_rad": 1.594253,
+              "angle_deg": 91.34396837607002,
+              "angle_spread_deg": 0.015011494232425093,
+              "lfsr_location": 70448.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 42,
+          "raw_sample_count": 119,
+          "rejected_count": 77,
+          "lfsr_location": 38515.0,
+          "median_lfsr_location": 38515.0,
+          "raw_angle_rad": -2.172149,
+          "angle_spread_deg": 0.37196420059893853,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 42,
+              "fraction": 0.35294117647058826,
+              "raw_angle_rad": -2.172149,
+              "angle_deg": -124.45497017356226,
+              "angle_spread_deg": 0.37196420059893853,
+              "lfsr_location": 38515.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 33,
+              "fraction": 0.2773109243697479,
+              "raw_angle_rad": -2.5021740000000006,
+              "angle_deg": -143.36400980736727,
+              "angle_spread_deg": 0.3780375532273581,
+              "lfsr_location": 32212.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 25,
+              "fraction": 0.21008403361344538,
+              "raw_angle_rad": -0.195511,
+              "angle_deg": -11.201955148382238,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 76266.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 74,
+          "raw_sample_count": 160,
+          "rejected_count": 86,
+          "lfsr_location": 45290.0,
+          "median_lfsr_location": 45290.0,
+          "raw_angle_rad": 0.276983,
+          "angle_spread_deg": 0.359989382680709,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 74,
+              "fraction": 0.4625,
+              "raw_angle_rad": 0.276983,
+              "angle_deg": 15.869956896872079,
+              "angle_spread_deg": 0.359989382680709,
+              "lfsr_location": 45290.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 34,
+              "fraction": 0.2125,
+              "raw_angle_rad": -0.005183,
+              "angle_deg": -0.29696402521630566,
+              "angle_spread_deg": 0.37792296166830397,
+              "lfsr_location": 39901.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 28,
+              "fraction": 0.175,
+              "raw_angle_rad": 2.16817,
+              "angle_deg": 124.2269902668797,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 81409.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 72,
+          "raw_sample_count": 185,
+          "rejected_count": 113,
+          "lfsr_location": 45290.0,
+          "median_lfsr_location": 45290.0,
+          "raw_angle_rad": -1.817411,
+          "angle_spread_deg": 0.3660054395295731,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 72,
+              "fraction": 0.3891891891891892,
+              "raw_angle_rad": -1.817411,
+              "angle_deg": -104.12997994065046,
+              "angle_spread_deg": 0.3660054395295731,
+              "lfsr_location": 45290.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 43,
+              "fraction": 0.23243243243243245,
+              "raw_angle_rad": -2.093243,
+              "angle_deg": -119.93398939530299,
+              "angle_spread_deg": 0.3720214963784372,
+              "lfsr_location": 40022.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 37,
+              "fraction": 0.2,
+              "raw_angle_rad": 0.073984,
+              "angle_deg": 4.238970951495882,
+              "angle_spread_deg": 0.017990874767122023,
+              "lfsr_location": 81413.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 84,
+          "raw_sample_count": 193,
+          "rejected_count": 109,
+          "lfsr_location": 38837.0,
+          "median_lfsr_location": 38837.0,
+          "raw_angle_rad": -0.060894,
+          "angle_spread_deg": 0.3810169337619982,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 84,
+              "fraction": 0.43523316062176165,
+              "raw_angle_rad": -0.060894,
+              "angle_deg": -3.488969197669635,
+              "angle_spread_deg": 0.3810169337619982,
+              "lfsr_location": 38837.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 48,
+              "fraction": 0.24870466321243523,
+              "raw_angle_rad": -0.392699,
+              "angle_deg": -22.499995319007915,
+              "angle_spread_deg": 0.3960284279944233,
+              "lfsr_location": 32500.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 38,
+              "fraction": 0.19689119170984457,
+              "raw_angle_rad": 1.9148,
+              "angle_deg": 109.70995861165004,
+              "angle_spread_deg": 0.009052733163059656,
+              "lfsr_location": 76570.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 42,
+          "raw_sample_count": 134,
+          "rejected_count": 92,
+          "lfsr_location": 32501.0,
+          "median_lfsr_location": 32501.0,
+          "raw_angle_rad": -2.487042,
+          "angle_spread_deg": 0.3750008769131341,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 42,
+              "fraction": 0.31343283582089554,
+              "raw_angle_rad": -2.487042,
+              "angle_deg": -142.4970100717753,
+              "angle_spread_deg": 0.3750008769131341,
+              "lfsr_location": 32501.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 42,
+              "fraction": 0.31343283582089554,
+              "raw_angle_rad": -2.155289,
+              "angle_deg": -123.48896333097167,
+              "angle_spread_deg": 0.3900123711455308,
+              "lfsr_location": 38837.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 31,
+              "fraction": 0.23134328358208955,
+              "raw_angle_rad": -0.179542,
+              "angle_deg": -10.286998845337827,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 76571.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 70,
+          "raw_sample_count": 160,
+          "rejected_count": 90,
+          "lfsr_location": 45528.0,
+          "median_lfsr_location": 45528.0,
+          "raw_angle_rad": 0.289445,
+          "angle_spread_deg": 0.3779802574478026,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 70,
+              "fraction": 0.4375,
+              "raw_angle_rad": 0.289445,
+              "angle_deg": 16.583976901164114,
+              "angle_spread_deg": 0.3779802574478026,
+              "lfsr_location": 45528.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 45,
+              "fraction": 0.28125,
+              "raw_angle_rad": 0.009791,
+              "angle_deg": 0.5609829772125889,
+              "angle_spread_deg": 0.3839963142966667,
+              "lfsr_location": 40187.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 23,
+              "fraction": 0.14375,
+              "raw_angle_rad": 2.182674,
+              "angle_deg": 125.05800825293744,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 81686.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 81,
+          "raw_sample_count": 186,
+          "rejected_count": 105,
+          "lfsr_location": 45528.0,
+          "median_lfsr_location": 45528.0,
+          "raw_angle_rad": -1.804949,
+          "angle_spread_deg": 0.3779802574478026,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 81,
+              "fraction": 0.43548387096774194,
+              "raw_angle_rad": -1.804949,
+              "angle_deg": -103.41595993635842,
+              "angle_spread_deg": 0.3779802574478026,
+              "lfsr_location": 45528.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 47,
+              "fraction": 0.25268817204301075,
+              "raw_angle_rad": -2.084656,
+              "angle_deg": -119.44199053662413,
+              "angle_spread_deg": 0.39602842799439486,
+              "lfsr_location": 40186.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 39,
+              "fraction": 0.20967741935483872,
+              "raw_angle_rad": 0.088069,
+              "angle_deg": 5.045982005937646,
+              "angle_spread_deg": 0.0029793805346685076,
+              "lfsr_location": 81682.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        }
+      ],
+      "raw_counts": {
+        "lh2a": 2326,
+        "lh2p": 0,
+        "lh2r": 2327
+      }
+    },
+    {
+      "name": "P13_boite45_arriere_droite",
+      "x_m": 0.4,
+      "y_m": -0.52,
+      "z_m": 0.45,
+      "yaw_deg": 0.0,
+      "pitch_deg": 0.0,
+      "roll_deg": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 61,
+          "raw_sample_count": 121,
+          "rejected_count": 60,
+          "lfsr_location": 78681.0,
+          "median_lfsr_location": 78681.0,
+          "raw_angle_rad": 2.025332,
+          "angle_spread_deg": 0.31495489998343373,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 61,
+              "fraction": 0.5041322314049587,
+              "raw_angle_rad": 2.025332,
+              "angle_deg": 116.04297571279005,
+              "angle_spread_deg": 0.31495489998343373,
+              "lfsr_location": 78681.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 60,
+              "fraction": 0.49586776859504134,
+              "raw_angle_rad": -0.14697400000000002,
+              "angle_deg": -8.420989898155762,
+              "angle_spread_deg": 0.25800289514739916,
+              "lfsr_location": 37193.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 46,
+          "raw_sample_count": 90,
+          "rejected_count": 44,
+          "lfsr_location": 78681.0,
+          "median_lfsr_location": 78681.0,
+          "raw_angle_rad": -0.069062,
+          "angle_spread_deg": 0.3150121957629324,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 46,
+              "fraction": 0.5111111111111111,
+              "raw_angle_rad": -0.069062,
+              "angle_deg": -3.956961124732491,
+              "angle_spread_deg": 0.3150121957629324,
+              "lfsr_location": 78681.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 44,
+              "fraction": 0.4888888888888889,
+              "raw_angle_rad": -2.2413690000000006,
+              "angle_deg": -128.42098403145783,
+              "angle_spread_deg": 0.25502351461273065,
+              "lfsr_location": 37193.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 49,
+          "raw_sample_count": 98,
+          "rejected_count": 49,
+          "lfsr_location": 43805.0,
+          "median_lfsr_location": 43805.0,
+          "raw_angle_rad": 0.19922900000000002,
+          "angle_spread_deg": 0.10800254438217394,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 49,
+              "fraction": 0.5,
+              "raw_angle_rad": 0.19922900000000002,
+              "angle_deg": 11.414980856611878,
+              "angle_spread_deg": 0.10800254438217394,
+              "lfsr_location": 43805.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 49,
+              "fraction": 0.5,
+              "raw_angle_rad": 2.270743,
+              "angle_deg": 130.1039902588751,
+              "angle_spread_deg": 0.18002333923010383,
+              "lfsr_location": 83368.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 62,
+          "raw_sample_count": 123,
+          "rejected_count": 61,
+          "lfsr_location": 83369.0,
+          "median_lfsr_location": 83369.0,
+          "raw_angle_rad": 0.1764,
+          "angle_spread_deg": 0.18300271976477234,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 62,
+              "fraction": 0.5040650406504065,
+              "raw_angle_rad": 0.1764,
+              "angle_deg": 10.106975506107721,
+              "angle_spread_deg": 0.18300271976477234,
+              "lfsr_location": 83369.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 61,
+              "fraction": 0.4959349593495935,
+              "raw_angle_rad": -1.895218,
+              "angle_deg": -108.58799265722486,
+              "angle_spread_deg": 0.10800254438214552,
+              "lfsr_location": 43804.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 61,
+          "raw_sample_count": 122,
+          "rejected_count": 61,
+          "lfsr_location": 36855.0,
+          "median_lfsr_location": 36855.0,
+          "raw_angle_rad": -0.164671,
+          "angle_spread_deg": 0.1860393960789679,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 61,
+              "fraction": 0.5,
+              "raw_angle_rad": -0.164671,
+              "angle_deg": -9.43495330819878,
+              "angle_spread_deg": 0.1860393960789679,
+              "lfsr_location": 36855.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 61,
+              "fraction": 0.5,
+              "raw_angle_rad": 2.008996,
+              "angle_deg": 115.10699185866432,
+              "angle_spread_deg": 0.3929917516802277,
+              "lfsr_location": 78369.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 46,
+          "raw_sample_count": 90,
+          "rejected_count": 44,
+          "lfsr_location": 78370.0,
+          "median_lfsr_location": 78370.0,
+          "raw_angle_rad": -0.085346,
+          "angle_spread_deg": 0.4019871890637887,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 46,
+              "fraction": 0.5111111111111111,
+              "raw_angle_rad": -0.085346,
+              "angle_deg": -4.889965598323524,
+              "angle_spread_deg": 0.4019871890637887,
+              "lfsr_location": 78370.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 44,
+              "fraction": 0.4888888888888889,
+              "raw_angle_rad": -2.259067,
+              "angle_deg": -129.43500473728034,
+              "angle_spread_deg": 0.18300271976480076,
+              "lfsr_location": 36855.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 49,
+          "raw_sample_count": 97,
+          "rejected_count": 48,
+          "lfsr_location": 83094.0,
+          "median_lfsr_location": 83094.0,
+          "raw_angle_rad": 2.2563960000000005,
+          "angle_spread_deg": 0.2429914009150025,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 49,
+              "fraction": 0.5051546391752577,
+              "raw_angle_rad": 2.2563960000000005,
+              "angle_deg": 129.28196771020092,
+              "angle_spread_deg": 0.2429914009150025,
+              "lfsr_location": 83094.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 48,
+              "fraction": 0.4948453608247423,
+              "raw_angle_rad": 0.185511,
+              "angle_deg": 10.628997353251416,
+              "angle_spread_deg": 0.04503448269727528,
+              "lfsr_location": 43543.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 62,
+          "raw_sample_count": 123,
+          "rejected_count": 61,
+          "lfsr_location": 83094.0,
+          "median_lfsr_location": 83094.0,
+          "raw_angle_rad": 0.162001,
+          "angle_spread_deg": 0.24299140091497407,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 62,
+              "fraction": 0.5040650406504065,
+              "raw_angle_rad": 0.162001,
+              "angle_deg": 9.28197357689885,
+              "angle_spread_deg": 0.24299140091497407,
+              "lfsr_location": 83094.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 61,
+              "fraction": 0.4959349593495935,
+              "raw_angle_rad": -1.908884,
+              "angle_deg": -109.37099678005063,
+              "angle_spread_deg": 0.04199780638310813,
+              "lfsr_location": 43543.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 57,
+          "raw_sample_count": 110,
+          "rejected_count": 53,
+          "lfsr_location": 37007.0,
+          "median_lfsr_location": 37007.0,
+          "raw_angle_rad": -0.156713,
+          "angle_spread_deg": 0.18896148083413777,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 57,
+              "fraction": 0.5181818181818182,
+              "raw_angle_rad": -0.156713,
+              "angle_deg": -8.97899349483367,
+              "angle_spread_deg": 0.18896148083413777,
+              "lfsr_location": 37007.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 53,
+              "fraction": 0.4818181818181818,
+              "raw_angle_rad": 1.994021,
+              "angle_deg": 114.24898756045593,
+              "angle_spread_deg": 0.06296806168487024,
+              "lfsr_location": 78083.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 46,
+          "raw_sample_count": 92,
+          "rejected_count": 46,
+          "lfsr_location": 37006.0,
+          "median_lfsr_location": 37006.0,
+          "raw_angle_rad": -2.25116,
+          "angle_spread_deg": 0.19199815714833335,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 46,
+              "fraction": 0.5,
+              "raw_angle_rad": -2.25116,
+              "angle_deg": -128.9819670086704,
+              "angle_spread_deg": 0.19199815714833335,
+              "lfsr_location": 37006.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 46,
+              "fraction": 0.5,
+              "raw_angle_rad": -0.10037300000000002,
+              "angle_deg": -5.750949277066613,
+              "angle_spread_deg": 0.056952004836006154,
+              "lfsr_location": 78083.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 48,
+          "raw_sample_count": 87,
+          "rejected_count": 39,
+          "lfsr_location": 43695.0,
+          "median_lfsr_location": 43695.0,
+          "raw_angle_rad": 0.193469,
+          "angle_spread_deg": 0.17102790184654282,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 48,
+              "fraction": 0.5517241379310345,
+              "raw_angle_rad": 0.193469,
+              "angle_deg": 11.084957166616524,
+              "angle_spread_deg": 0.17102790184654282,
+              "lfsr_location": 43695.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 39,
+              "fraction": 0.4482758620689655,
+              "raw_angle_rad": 2.246867,
+              "angle_deg": 128.73599622722074,
+              "angle_spread_deg": 0.23095928721721748,
+              "lfsr_location": 82912.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 61,
+          "raw_sample_count": 119,
+          "rejected_count": 58,
+          "lfsr_location": 43697.0,
+          "median_lfsr_location": 43697.0,
+          "raw_angle_rad": -1.9008200000000002,
+          "angle_spread_deg": 0.16799122553237567,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 61,
+              "fraction": 0.5126050420168067,
+              "raw_angle_rad": -1.9008200000000002,
+              "angle_deg": -108.90896361405714,
+              "angle_spread_deg": 0.16799122553237567,
+              "lfsr_location": 43697.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 58,
+              "fraction": 0.48739495798319327,
+              "raw_angle_rad": 0.152524,
+              "angle_deg": 8.738981474453368,
+              "angle_spread_deg": 0.23101658299674455,
+              "lfsr_location": 82913.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 56,
+          "raw_sample_count": 106,
+          "rejected_count": 50,
+          "lfsr_location": 78395.0,
+          "median_lfsr_location": 78395.0,
+          "raw_angle_rad": 2.010357,
+          "angle_spread_deg": 0.15000035076525364,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 56,
+              "fraction": 0.5283018867924528,
+              "raw_angle_rad": 2.010357,
+              "angle_deg": 115.18497141458164,
+              "angle_spread_deg": 0.15000035076525364,
+              "lfsr_location": 78395.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 50,
+              "fraction": 0.4716981132075472,
+              "raw_angle_rad": -0.139225,
+              "angle_deg": -7.977004902708885,
+              "angle_spread_deg": 0.245970781449671,
+              "lfsr_location": 37341.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 40,
+          "raw_sample_count": 76,
+          "rejected_count": 36,
+          "lfsr_location": 78395.0,
+          "median_lfsr_location": 78395.0,
+          "raw_angle_rad": -0.084037,
+          "angle_spread_deg": 0.14398429391638956,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 40,
+              "fraction": 0.5263157894736842,
+              "raw_angle_rad": -0.084037,
+              "angle_deg": -4.814965422940899,
+              "angle_spread_deg": 0.14398429391638956,
+              "lfsr_location": 78395.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 36,
+              "fraction": 0.47368421052631576,
+              "raw_angle_rad": -2.233567,
+              "angle_deg": -127.97396235969674,
+              "angle_spread_deg": 0.24602807722919806,
+              "lfsr_location": 37342.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 37,
+          "raw_sample_count": 74,
+          "rejected_count": 37,
+          "lfsr_location": 43956.0,
+          "median_lfsr_location": 43956.0,
+          "raw_angle_rad": 0.207135,
+          "angle_spread_deg": 0.10502316384747701,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 37,
+              "fraction": 0.5,
+              "raw_angle_rad": 0.207135,
+              "angle_deg": 11.867961289442308,
+              "angle_spread_deg": 0.10502316384747701,
+              "lfsr_location": 43956.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 37,
+              "fraction": 0.5,
+              "raw_angle_rad": 2.2597470000000004,
+              "angle_deg": 129.47396586734925,
+              "angle_spread_deg": 0.38703299061086227,
+              "lfsr_location": 83158.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 49,
+          "raw_sample_count": 97,
+          "rejected_count": 48,
+          "lfsr_location": 83159.0,
+          "median_lfsr_location": 83159.0,
+          "raw_angle_rad": 0.16540400000000002,
+          "angle_spread_deg": 0.38703299061086227,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 49,
+              "fraction": 0.5051546391752577,
+              "raw_angle_rad": 0.16540400000000002,
+              "angle_deg": 9.476951114581869,
+              "angle_spread_deg": 0.38703299061086227,
+              "lfsr_location": 83159.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 48,
+              "fraction": 0.4948453608247423,
+              "raw_angle_rad": -1.887259,
+              "angle_deg": -108.13197554808023,
+              "angle_spread_deg": 0.11098192491684244,
+              "lfsr_location": 43956.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        }
+      ],
+      "raw_counts": {
+        "lh2a": 1625,
+        "lh2p": 0,
+        "lh2r": 1625
+      }
+    },
+    {
+      "name": "P09_boite45_avant_gauche",
+      "x_m": -0.4,
+      "y_m": 0.28,
+      "z_m": 0.45,
+      "yaw_deg": 0.0,
+      "pitch_deg": 0.0,
+      "roll_deg": 0.0,
+      "measurements": [
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 33,
+          "raw_sample_count": 90,
+          "rejected_count": 57,
+          "lfsr_location": 28091.0,
+          "median_lfsr_location": 28091.0,
+          "raw_angle_rad": -0.623553,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 33,
+              "fraction": 0.36666666666666664,
+              "raw_angle_rad": -0.623553,
+              "angle_deg": -35.72695520272102,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 28091.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 33,
+              "fraction": 0.36666666666666664,
+              "raw_angle_rad": 1.53561,
+              "angle_deg": 87.98397197808434,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 69328.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 12,
+              "fraction": 0.13333333333333333,
+              "raw_angle_rad": -0.633397,
+              "angle_deg": -36.2909748562478,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 27903.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 24,
+          "raw_sample_count": 51,
+          "rejected_count": 27,
+          "lfsr_location": 69327.0,
+          "median_lfsr_location": 69327.0,
+          "raw_angle_rad": -0.558836,
+          "angle_spread_deg": 0.009052733163059656,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 24,
+              "fraction": 0.47058823529411764,
+              "raw_angle_rad": -0.558836,
+              "angle_deg": -32.018944239972875,
+              "angle_spread_deg": 0.009052733163059656,
+              "lfsr_location": 69327.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 23,
+              "fraction": 0.45098039215686275,
+              "raw_angle_rad": -2.717896,
+              "angle_deg": -155.7239699554884,
+              "angle_spread_deg": 0.012032113697756586,
+              "lfsr_location": 28092.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 42,
+          "raw_sample_count": 95,
+          "rejected_count": 53,
+          "lfsr_location": 39504.0,
+          "median_lfsr_location": 39504.0,
+          "raw_angle_rad": -0.02597,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 42,
+              "fraction": 0.4421052631578947,
+              "raw_angle_rad": -0.02597,
+              "angle_deg": -1.4879713939547479,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 39504.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 41,
+              "fraction": 0.43157894736842106,
+              "raw_angle_rad": 1.9933930000000002,
+              "angle_deg": 114.21300581092171,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 78071.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 6,
+              "fraction": 0.06315789473684211,
+              "raw_angle_rad": -0.034034,
+              "angle_deg": -1.9500045599482438,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 39350.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 0,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 17,
+          "raw_sample_count": 48,
+          "rejected_count": 31,
+          "lfsr_location": 39503.0,
+          "median_lfsr_location": 39503.0,
+          "raw_angle_rad": -2.120418,
+          "angle_spread_deg": 0.0030366763141955744,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 17,
+              "fraction": 0.3541666666666667,
+              "raw_angle_rad": -2.120418,
+              "angle_deg": -121.49100220357099,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 39503.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 17,
+              "fraction": 0.3541666666666667,
+              "raw_angle_rad": -0.101054,
+              "angle_deg": -5.789967702915021,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 78070.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 7,
+              "fraction": 0.14583333333333334,
+              "raw_angle_rad": -0.108541,
+              "angle_deg": -6.218941204129468,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 77927.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 33,
+          "raw_sample_count": 89,
+          "rejected_count": 56,
+          "lfsr_location": 27714.0,
+          "median_lfsr_location": 27714.0,
+          "raw_angle_rad": -0.643293,
+          "angle_spread_deg": 0.006016056848864082,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 33,
+              "fraction": 0.3707865168539326,
+              "raw_angle_rad": -0.643293,
+              "angle_deg": -36.85797389030927,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 27714.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 33,
+              "fraction": 0.3707865168539326,
+              "raw_angle_rad": 1.516394,
+              "angle_deg": 86.88297627896095,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 68961.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 12,
+              "fraction": 0.1348314606741573,
+              "raw_angle_rad": 1.506184,
+              "angle_deg": 86.29798637013238,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 68766.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 24,
+          "raw_sample_count": 52,
+          "rejected_count": 28,
+          "lfsr_location": 27715.0,
+          "median_lfsr_location": 27715.0,
+          "raw_angle_rad": -2.737636,
+          "angle_spread_deg": 0.008995437383561011,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 24,
+              "fraction": 0.46153846153846156,
+              "raw_angle_rad": -2.737636,
+              "angle_deg": -156.85498864307664,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 27715.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 24,
+              "fraction": 0.46153846153846156,
+              "raw_angle_rad": -0.578053,
+              "angle_deg": -33.119997234875775,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 68960.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 47,
+          "raw_sample_count": 84,
+          "rejected_count": 37,
+          "lfsr_location": 39054.0,
+          "median_lfsr_location": 39054.0,
+          "raw_angle_rad": -0.04953200000000001,
+          "angle_spread_deg": 0.2939846446816148,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 47,
+              "fraction": 0.5595238095238095,
+              "raw_angle_rad": -0.04953200000000001,
+              "angle_deg": -2.837974550841994,
+              "angle_spread_deg": 0.2939846446816148,
+              "lfsr_location": 39054.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 32,
+              "fraction": 0.38095238095238093,
+              "raw_angle_rad": 1.967579,
+              "angle_deg": 112.733972558571,
+              "angle_spread_deg": 0.035981749534244045,
+              "lfsr_location": 77578.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 5,
+              "fraction": 0.05952380952380952,
+              "raw_angle_rad": 1.9588350000000003,
+              "angle_deg": 112.23297826250862,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 77411.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 1,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 25,
+          "raw_sample_count": 44,
+          "rejected_count": 19,
+          "lfsr_location": 39052.0,
+          "median_lfsr_location": 39052.0,
+          "raw_angle_rad": -2.144032,
+          "angle_spread_deg": 0.2910052641469463,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 25,
+              "fraction": 0.5681818181818182,
+              "raw_angle_rad": -2.144032,
+              "angle_deg": -122.84398474099292,
+              "angle_spread_deg": 0.2910052641469463,
+              "lfsr_location": 39052.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 11,
+              "fraction": 0.25,
+              "raw_angle_rad": -0.126867,
+              "angle_deg": -7.268943659486215,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 77577.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 8,
+              "fraction": 0.18181818181818182,
+              "raw_angle_rad": -0.135664,
+              "angle_deg": -7.772974631862801,
+              "angle_spread_deg": 0.0029793805346685076,
+              "lfsr_location": 77409.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 44,
+          "raw_sample_count": 110,
+          "rejected_count": 66,
+          "lfsr_location": 68619.0,
+          "median_lfsr_location": 68619.0,
+          "raw_angle_rad": 1.4984870000000001,
+          "angle_spread_deg": 0.3480145647624795,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 44,
+              "fraction": 0.4,
+              "raw_angle_rad": 1.4984870000000001,
+              "angle_deg": 85.85698075522019,
+              "angle_spread_deg": 0.3480145647624795,
+              "lfsr_location": 68619.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 43,
+              "fraction": 0.39090909090909093,
+              "raw_angle_rad": -0.630727,
+              "angle_deg": -36.13799512494788,
+              "angle_spread_deg": 0.23399596353141305,
+              "lfsr_location": 27954.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 12,
+              "fraction": 0.10909090909090909,
+              "raw_angle_rad": 1.485973,
+              "angle_deg": 85.13998137039347,
+              "angle_spread_deg": 0.00899543738353259,
+              "lfsr_location": 68380.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 25,
+          "raw_sample_count": 53,
+          "rejected_count": 28,
+          "lfsr_location": 27954.0,
+          "median_lfsr_location": 27954.0,
+          "raw_angle_rad": -2.725122,
+          "angle_spread_deg": 0.23101658299674455,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 25,
+              "fraction": 0.4716981132075472,
+              "raw_angle_rad": -2.725122,
+              "angle_deg": -156.13798925824992,
+              "angle_spread_deg": 0.23101658299674455,
+              "lfsr_location": 27954.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 25,
+              "fraction": 0.4716981132075472,
+              "raw_angle_rad": -0.595803,
+              "angle_deg": -34.13699732123298,
+              "angle_spread_deg": 0.350993945297148,
+              "lfsr_location": 68621.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 48,
+          "raw_sample_count": 89,
+          "rejected_count": 41,
+          "lfsr_location": 39316.0,
+          "median_lfsr_location": 39316.0,
+          "raw_angle_rad": -0.035814,
+          "angle_spread_deg": 0.07500017538262682,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 48,
+              "fraction": 0.5393258426966292,
+              "raw_angle_rad": -0.035814,
+              "angle_deg": -2.0519910474815304,
+              "angle_spread_deg": 0.07500017538262682,
+              "lfsr_location": 39316.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 38,
+              "fraction": 0.42696629213483145,
+              "raw_angle_rad": 1.948887,
+              "angle_deg": 111.66299984791247,
+              "angle_spread_deg": 0.02704360793018168,
+              "lfsr_location": 77221.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 2,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 24,
+          "raw_sample_count": 48,
+          "rejected_count": 24,
+          "lfsr_location": 39318.0,
+          "median_lfsr_location": 39318.0,
+          "raw_angle_rad": -2.130104,
+          "angle_spread_deg": 0.0810162322314909,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 24,
+              "fraction": 0.5,
+              "raw_angle_rad": -2.130104,
+              "angle_deg": -122.04596912393473,
+              "angle_spread_deg": 0.0810162322314909,
+              "lfsr_location": 39318.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 16,
+              "fraction": 0.3333333333333333,
+              "raw_angle_rad": -0.145717,
+              "angle_deg": -8.348969103307818,
+              "angle_spread_deg": 0.0390184258484112,
+              "lfsr_location": 77217.5,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 8,
+              "fraction": 0.16666666666666666,
+              "raw_angle_rad": -2.120418,
+              "angle_deg": -121.49100220357099,
+              "angle_spread_deg": 0.0030366763141955744,
+              "lfsr_location": 39503.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 0,
+          "sample_count": 38,
+          "raw_sample_count": 71,
+          "rejected_count": 33,
+          "lfsr_location": 68978.0,
+          "median_lfsr_location": 68978.0,
+          "raw_angle_rad": 1.517284,
+          "angle_spread_deg": 0.245970781449671,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 38,
+              "fraction": 0.5352112676056338,
+              "raw_angle_rad": 1.517284,
+              "angle_deg": 86.93396952272761,
+              "angle_spread_deg": 0.245970781449671,
+              "lfsr_location": 68978.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 26,
+              "fraction": 0.36619718309859156,
+              "raw_angle_rad": -0.610987,
+              "angle_deg": -35.006976437359626,
+              "angle_spread_deg": 0.006016056848864082,
+              "lfsr_location": 28331.0,
+              "polynomials": [
+                8
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 7,
+              "fraction": 0.09859154929577464,
+              "raw_angle_rad": -0.625962,
+              "angle_deg": -35.86498073556804,
+              "angle_spread_deg": 0.0029793805346685076,
+              "lfsr_location": 28045.0,
+              "polynomials": [
+                8
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 4,
+          "sweep": 1,
+          "sample_count": 23,
+          "raw_sample_count": 47,
+          "rejected_count": 24,
+          "lfsr_location": 68979.0,
+          "median_lfsr_location": 68979.0,
+          "raw_angle_rad": -0.577058,
+          "angle_spread_deg": 0.23697534406610998,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 23,
+              "fraction": 0.48936170212765956,
+              "raw_angle_rad": -0.577058,
+              "angle_deg": -33.062987934260256,
+              "angle_spread_deg": 0.23697534406610998,
+              "lfsr_location": 68979.0,
+              "polynomials": [
+                9
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 22,
+              "fraction": 0.46808510638297873,
+              "raw_angle_rad": -2.705382,
+              "angle_deg": -155.00697057066168,
+              "angle_spread_deg": 0.008995437383561011,
+              "lfsr_location": 28331.0,
+              "polynomials": [
+                9
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 0,
+          "sample_count": 46,
+          "raw_sample_count": 79,
+          "rejected_count": 33,
+          "lfsr_location": 39763.0,
+          "median_lfsr_location": 39763.0,
+          "raw_angle_rad": -0.012409000000000002,
+          "angle_spread_deg": 0.21898446929898796,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 46,
+              "fraction": 0.5822784810126582,
+              "raw_angle_rad": -0.012409000000000002,
+              "angle_deg": -0.7109833279778386,
+              "angle_spread_deg": 0.21898446929898796,
+              "lfsr_location": 39763.0,
+              "polynomials": [
+                20
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 30,
+              "fraction": 0.379746835443038,
+              "raw_angle_rad": 1.974438,
+              "angle_deg": 113.12696431025122,
+              "angle_spread_deg": 0.011974817918229519,
+              "lfsr_location": 77709.0,
+              "polynomials": [
+                20
+              ]
+            }
+          ]
+        },
+        {
+          "sensor": 3,
+          "basestation": 10,
+          "sweep": 1,
+          "sample_count": 22,
+          "raw_sample_count": 43,
+          "rejected_count": 21,
+          "lfsr_location": 39765.5,
+          "median_lfsr_location": 39765.5,
+          "raw_angle_rad": -2.106699,
+          "angle_spread_deg": 0.22500052614788046,
+          "candidate_families": [
+            {
+              "rank": 1,
+              "sample_count": 22,
+              "fraction": 0.5116279069767442,
+              "raw_angle_rad": -2.106699,
+              "angle_deg": -120.704961404431,
+              "angle_spread_deg": 0.22500052614788046,
+              "lfsr_location": 39765.5,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 2,
+              "sample_count": 14,
+              "fraction": 0.32558139534883723,
+              "raw_angle_rad": -0.12006,
+              "angle_deg": -6.878931288340664,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 77707.0,
+              "polynomials": [
+                21
+              ]
+            },
+            {
+              "rank": 3,
+              "sample_count": 7,
+              "fraction": 0.16279069767441862,
+              "raw_angle_rad": -0.113045,
+              "angle_deg": -6.477001395056392,
+              "angle_spread_deg": 0.005958761069365437,
+              "lfsr_location": 77841.0,
+              "polynomials": [
+                21
+              ]
+            }
+          ]
+        }
+      ],
+      "raw_counts": {
+        "lh2a": 1093,
+        "lh2p": 0,
+        "lh2r": 1091
+      }
+    }
+  ]
+}
