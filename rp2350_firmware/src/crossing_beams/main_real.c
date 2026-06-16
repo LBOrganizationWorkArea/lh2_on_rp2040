@@ -67,11 +67,11 @@
 // Timing
 // ---------------------------------------------------------------------------
 
-/** Period between solve + VPE-send + print calls [µs] — ~10 Hz */
-#define PRINT_INTERVAL_US  100000ULL
+/** Odometry send interval [µs] — 40 Hz */
+#define ODOM_INTERVAL_US   25000ULL
 
-/** Warmup period before odometry is sent to the Pixhawk [µs] — 30 s */
-#define ODOMETRY_WARMUP_US  30000000ULL
+/** Diagnostic print interval [µs] — 10 Hz */
+#define PRINT_INTERVAL_US  100000ULL
 
 // ---------------------------------------------------------------------------
 // Calibration constants
@@ -368,8 +368,12 @@ int main(void)
     printf("Capture core ready.\n");
 
     /* ④ Compute loop */
-    uint64_t last_print_us  = 0;
-    uint64_t odometry_start = to_us_since_boot(get_absolute_time());
+    uint64_t last_odom_us  = 0;
+    uint64_t last_print_us = 0;
+
+    /* Last centroid — reused by the 40 Hz odometry gate when no new solve is ready. */
+    float    last_cx = 0.0f, last_cy = 0.0f, last_cz = 0.0f;
+    bool     have_centroid = false;
 
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
@@ -381,6 +385,50 @@ int main(void)
         /* Decode whatever core 1 has produced since last pass */
         angle_decoder_update(g_lh2, g_angles, CAL, now_us);
 
+        /* ── 40 Hz: solve + odometry send ─────────────────────────────────── */
+        if (now_us - last_odom_us >= ODOM_INTERVAL_US) {
+            last_odom_us = now_us;
+
+            lh2_point3d_t pts[NUM_SENSORS];
+            int n = solve3d_calib_run(BS_POSES, g_angles, now_us, pts);
+
+            /* Recompute centroid without printing */
+            if (n > 0) {
+                float sx = 0.0f, sy = 0.0f, sz = 0.0f;
+                int   na = 0;
+                float acc_x[NUM_SENSORS]={0}, acc_y[NUM_SENSORS]={0}, acc_z[NUM_SENSORS]={0};
+                int   cnt[NUM_SENSORS]={0};
+                for (int i = 0; i < n; i++) {
+                    int s = pts[i].sensor_id;
+                    if (s >= 0 && s < NUM_SENSORS) {
+                        acc_x[s] += pts[i].xyz[0];
+                        acc_y[s] += pts[i].xyz[1];
+                        acc_z[s] += pts[i].xyz[2];
+                        cnt[s]++;
+                    }
+                }
+                for (int s = 0; s < NUM_SENSORS; s++) {
+                    if (!cnt[s]) continue;
+                    sx += acc_x[s] / cnt[s];
+                    sy += acc_y[s] / cnt[s];
+                    sz += acc_z[s] / cnt[s];
+                    na++;
+                }
+                if (na > 0) {
+                    last_cx = sx / na;
+                    last_cy = sy / na;
+                    last_cz = sz / na;
+                    have_centroid = true;
+                }
+            }
+
+            if (have_centroid) {
+                /* World → NED: negate Z (world z-up → MAVLink z-down). */
+                mavlink_send_odometry(now_us, last_cx, last_cy, -last_cz);
+            }
+        }
+
+        /* ── 10 Hz: EKF home-set + diagnostic prints ──────────────────────── */
         if (now_us - last_print_us < PRINT_INTERVAL_US) {
             continue;
         }
@@ -394,8 +442,7 @@ int main(void)
             printf("EKF healthy — home set\n");
         }
 
-        /* Diagnostic angle output (Bitcraze horiz/vert, degrees).
-         * Two formats: CSV "A," lines for tools, and a readable "ANG" line. */
+        /* Diagnostic angle output (Bitcraze horiz/vert, degrees). */
         for (int s = 0; s < NUM_SENSORS; s++) {
             if (!angle_decoder_is_fresh(g_angles, s, now_us)) continue;
 
@@ -406,23 +453,13 @@ int main(void)
 
             printf("A,%d,0,%.2f,%.2f\n", s, (double)h0, (double)v0);
             printf("A,%d,1,%.2f,%.2f\n", s, (double)h1, (double)v1);
-
             printf("ANG S%d | BS0 h=%+7.2f v=%+7.2f deg | BS1 h=%+7.2f v=%+7.2f deg\n",
                    s, (double)h0, (double)v0, (double)h1, (double)v1);
         }
 
-        /* Calibrated-pose triangulation — metric position from known BS poses */
-        lh2_point3d_t pts[NUM_SENSORS];
-        int n = solve3d_calib_run(BS_POSES, g_angles, now_us, pts);
-
-        float cx, cy, cz;
-        if (_print_and_centroid(pts, n, &cx, &cy, &cz) > 0) {
-            if (now_us - odometry_start >= ODOMETRY_WARMUP_US) {
-                /* World → NED: negate Z (world z-up → MAVLink z-down).
-                 * Position is now metric (poses are calibrated to real metres). */
-                mavlink_send_odometry(now_us, cx, cy, -cz);
-            }
-
+        if (have_centroid) {
+            printf("C,%.4f,%.4f,%.4f\n",
+                   (double)last_cx, (double)last_cy, (double)last_cz);
         }
     }
 
