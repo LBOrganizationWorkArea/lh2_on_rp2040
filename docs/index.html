@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>LBEES – Real-Time Tracker</title>
+<title>LBEES GCS</title>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -10,9 +10,63 @@ body {
   font-family: 'Courier New', monospace;
   display: flex; height: 100vh; overflow: hidden;
 }
+
+/* ── Left panel ──────────────────────────────────────────────── */
+#panel {
+  width: 336px; min-width: 336px; background: #161616;
+  border-right: 1px solid #222; padding: 8px;
+  display: flex; flex-direction: column; gap: 5px; overflow: hidden;
+}
+#panel h1 { font-size: 10px; color: #3a3a3a; letter-spacing: 3px; text-align: center; padding-bottom: 2px; }
+.lbl   { font-size: 10px; color: #555; letter-spacing: 1px; }
+hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
+.flag  { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #999; }
+.dim   { font-size: 10px; color: #3d3d3d; }
+#horizon-canvas { display: block; border-radius: 3px; flex: none; }
+#att-angles { font-size: 10px; color: #555; text-align: center; min-height: 12px; }
+.pos-val { font-size: 12px; color: #aaa; }
+/* Mode floating widget (mirrors conn-widget style) */
+#mode-widget {
+  position: absolute; top: 12px; left: 12px; z-index: 20;
+  background: rgba(16,16,16,0.93); border: 1px solid #282828; border-radius: 5px;
+  padding: 10px 14px; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  backdrop-filter: blur(6px); min-width: 110px;
+}
+#mode-widget .lbl { font-size: 10px; color: #555; letter-spacing: 1px; }
+#fc-mode { font-size: 16px; font-weight: bold; color: #3DFF7A; text-align: center; }
+/* Status badges */
+#fc-armed {
+  text-align: center; padding: 7px 4px; border-radius: 3px;
+  font-size: 15px; font-weight: bold; border: 1px solid #2a2a2a;
+  background: #111; letter-spacing: 1px; color: #555;
+}
+#status-row-2 { display: flex; gap: 4px; }
+.sbadge-sm {
+  flex: 1; text-align: center; padding: 6px 2px; border-radius: 3px;
+  font-size: 10px; font-weight: bold; border: 1px solid #2a2a2a;
+  background: #111; letter-spacing: 0.5px; color: #555;
+}
+
+/* MAVLink monitor */
+#mavlog-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#mavlog {
+  flex: 1; overflow-y: auto; min-height: 0;
+  background: #0e0e0e; border: 1px solid #1e1e1e; border-radius: 3px; padding: 3px;
+}
+.ml     { font-size: 10px; line-height: 1.65; white-space: nowrap; overflow: hidden; }
+.ml-ts  { color: #2e2e2e; margin-right: 5px; }
+.ml-hb  { color: #8a7abc; }
+.ml-ekf { color: #c4c44a; }
+.ml-wp  { color: #7acc7a; }
+.ml-ack { color: #9a9acc; }
+.ml-info { color: #888; }
+.ml-warn { color: #c49a50; }
+.ml-err  { color: #cc5050; }
+
+/* ── 3-D scene ───────────────────────────────────────────────── */
 #scene-container { flex: 1; position: relative; overflow: hidden; }
 #scene-container canvas,
-#scene-container > div:not(#scale-bar-wrap):not(#webserial-warn) {
+#scene-container > div:not(#scale-bar-wrap):not(#webserial-warn):not(#conn-widget):not(#mode-widget) {
   position: absolute !important; top:0; left:0;
   width:100% !important; height:100% !important;
 }
@@ -21,109 +75,105 @@ body {
   pointer-events: none; user-select: none;
   text-shadow: 0 0 4px #000;
 }
-/* scale bar */
 #scale-bar-wrap {
-  position: absolute; bottom: 18px; left: 50%;
-  transform: translateX(-50%);
+  position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   pointer-events: none; z-index: 10;
 }
-#scale-line {
-  height: 3px; background: #aaa;
-  border-left: 2px solid #aaa; border-right: 2px solid #aaa;
-  min-width: 4px; transition: width 0.15s ease;
-}
+#scale-line { height: 3px; background: #aaa; border-left: 2px solid #aaa; border-right: 2px solid #aaa; min-width: 4px; }
 #scale-text { font-size: 11px; color: #aaa; letter-spacing: 0.5px; white-space: nowrap; }
-/* WebSerial warning */
 #webserial-warn {
   position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
   background: #3a1a00; border: 1px solid #a06020; color: #ffa040;
   padding: 6px 14px; border-radius: 4px; font-size: 12px;
   z-index: 20; pointer-events: none; display: none;
 }
-/* panel */
-#panel {
-  width: 230px; min-width: 230px; background: #161616;
-  border-left: 1px solid #222; padding: 14px 12px;
-  display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+
+/* Connection widget */
+#conn-widget {
+  position: absolute; top: 12px; right: 12px; z-index: 20;
+  background: rgba(16,16,16,0.93); border: 1px solid #282828; border-radius: 5px;
+  padding: 10px 10px 8px; display: flex; flex-direction: column; gap: 6px; width: 186px;
+  backdrop-filter: blur(6px);
 }
-#panel h1 { font-size: 13px; color: #555; letter-spacing: 2px; text-align: center; margin-bottom: 2px; }
-.lbl { font-size: 11px; color: #555; letter-spacing: 1px; }
-hr { border: none; border-top: 1px solid #2a2a2a; margin: 2px 0; }
-select, input[type="number"] {
-  background: #222; color: #ddd; border: 1px solid #333; border-radius: 3px;
-  padding: 4px 6px; font-size: 12px; font-family: monospace; width: 100%; outline: none;
+#conn-widget .lbl { font-size: 10px; color: #555; letter-spacing: 1px; }
+.row { display: flex; align-items: center; gap: 6px; }
+.row span { color: #555; font-size: 11px; }
+select {
+  background: #1e1e1e; color: #ddd; border: 1px solid #2e2e2e; border-radius: 3px;
+  padding: 3px 6px; font-size: 12px; font-family: monospace; width: 110px; outline: none; cursor: pointer;
 }
-select:focus, input:focus { border-color: #555; }
+select:focus { border-color: #444; }
 button {
   background: #1a3a1a; color: #3DFF7A; border: 1px solid #3DFF7A;
-  border-radius: 3px; padding: 6px; width: 100%; cursor: pointer;
-  font-size: 12px; font-family: monospace; letter-spacing: 1px;
+  border-radius: 3px; padding: 5px; width: 100%; cursor: pointer;
+  font-size: 11px; font-family: monospace; letter-spacing: 1px;
 }
 button:hover { background: #234d23; }
 button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
-.row { display: flex; align-items: center; gap: 6px; }
-.row input[type="number"] { width: 70px; flex: none; }
-.row span { color: #666; font-size: 12px; }
-.big { font-size: 18px; font-weight: bold; }
-.dim { font-size: 11px; color: #3a3a3a; }
-.small-st { font-size: 11px; color: #555; min-height: 14px; }
-.flag { display: flex; justify-content: space-between; align-items: center; font-size: 13px; color: #bbb; }
+.small-st { font-size: 10px; color: #555; min-height: 12px; }
+#telem-st { font-size: 13px; font-weight: bold; }
 </style>
 </head>
 <body>
 
+<div id="panel">
+  <h1>LBEES GCS</h1>
+
+  <canvas id="horizon-canvas" width="640" height="480" style="width:100%"></canvas>
+  <div id="fc-armed">DISARMED</div>
+  <div id="status-row-2">
+    <div id="fc-ready" class="sbadge-sm">NOT READY</div>
+    <div id="fc-ekf"   class="sbadge-sm">EKF ?</div>
+  </div>
+  <div id="att-angles"></div>
+
+  <hr>
+  <div class="lbl">LOCAL POSITION NED</div>
+  <div class="pos-val" id="pos-x">X  ---</div>
+  <div class="pos-val" id="pos-y">Y  ---</div>
+  <div class="pos-val" id="pos-z">Z↓ ---</div>
+
+  <hr>
+  <div id="mavlog-wrap">
+    <div class="lbl" style="margin-bottom:3px">MAVLINK</div>
+    <div id="mavlog"></div>
+  </div>
+</div>
+
 <div id="scene-container">
+  <div id="conn-widget">
+    <div class="lbl">CONNECTION</div>
+    <div class="row">
+      <select id="baud-input">
+        <option value="4800">4800</option>
+        <option value="9600">9600</option>
+        <option value="19200">19200</option>
+        <option value="38400">38400</option>
+        <option value="57600" selected>57600</option>
+        <option value="115200">115200</option>
+        <option value="230400">230400</option>
+        <option value="460800">460800</option>
+        <option value="921600">921600</option>
+      </select>
+      <span>baud</span>
+    </div>
+    <button id="connect-btn" onclick="toggleConnect()">CONNECT SERIAL</button>
+    <div class="small-st" id="conn-status"></div>
+    <div id="telem-st" style="color:#555">WAITING…</div>
+  </div>
+
+  <!-- Flight mode widget – floating top-left of scene -->
+  <div id="mode-widget">
+    <div class="lbl">FLIGHT MODE</div>
+    <div id="fc-mode">?</div>
+  </div>
+
   <div id="scale-bar-wrap">
     <div id="scale-line" style="width:80px"></div>
     <div id="scale-text">— m</div>
   </div>
   <div id="webserial-warn">WebSerial not supported — use Chrome or Edge</div>
-</div>
-
-<div id="panel">
-  <h1>LBEES</h1>
-
-  <div class="lbl">CONNECTION</div>
-  <div class="row">
-    <input type="number" id="baud-input" value="9600" min="300" max="3000000">
-    <span>baud</span>
-  </div>
-  <button id="connect-btn" onclick="toggleConnect()">CONNECT SERIAL</button>
-  <button onclick="toggleDebug()" id="debug-btn">DEBUG (simulated)</button>
-  <div class="small-st" id="conn-status"></div>
-
-  <hr>
-
-  <div class="lbl">TRAIL</div>
-  <div class="row">
-    <input type="number" id="trail-dur" value="30" min="1" max="300" style="width:60px">
-    <span>seconds</span>
-  </div>
-
-  <hr>
-
-  <div class="lbl">TELEM</div>
-  <div class="big" id="telem-st" style="color:#555">WAITING…</div>
-  <div class="dim"  id="telem-info"></div>
-
-  <hr>
-
-  <div class="lbl">EKF STATUS</div>
-  <div class="big" id="ekf-st" style="color:#555">WAITING…</div>
-  <hr>
-  <div class="flag"><span>ATTITUDE</span>      <span id="d-att"   style="color:#555">?</span></div>
-  <div class="flag"><span>VEL HORIZ</span>     <span id="d-vel"   style="color:#555">?</span></div>
-  <div class="flag"><span>POS HORIZ REL</span> <span id="d-pos"   style="color:#555">?</span></div>
-  <div class="flag"><span>CONST POS</span>     <span id="d-const" style="color:#555">?</span></div>
-  <div class="dim" id="ekf-hex"></div>
-
-  <hr>
-
-  <div class="lbl" id="pos-lbl" style="color:#3a3a3a">POSITION</div>
-  <div id="pos-x" style="font-size:13px;color:#aaa">X  ---</div>
-  <div id="pos-y" style="font-size:13px;color:#aaa">Y  ---</div>
-  <div id="pos-z" style="font-size:13px;color:#aaa">Z↓ ---</div>
 </div>
 
 <script type="importmap">
@@ -136,19 +186,57 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
 </script>
 
 <script type="module">
-import * as THREE                      from 'three';
-import { OrbitControls }               from 'three/addons/controls/OrbitControls.js';
-import { CSS2DRenderer, CSS2DObject }  from 'three/addons/renderers/CSS2DRenderer.js';
+import * as THREE                     from 'three';
+import { OrbitControls }              from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 
-// ─── Lighthouse config (NED: z negative = above origin) ──────────────────────
+// ─── Lighthouse config ────────────────────────────────────────────────────────
 const LIGHTHOUSES = [
-  { id: '0', pos: [0.0, 0.0, -1.5], R: [[ 0,-1, 0],[ 1, 0, 0],[ 0, 0, 1]] },
-  { id: '1', pos: [1.0, 0.0, -1.5], R: [[ 0,-1, 0],[ 1, 0, 0],[ 0, 0, 1]] },
+  { id:'0', pos:[0.0,0.0,-1.5], R:[[ 0,-1,0],[ 1,0,0],[ 0,0,1]] },
+  { id:'1', pos:[1.0,0.0,-1.5], R:[[ 0,-1,0],[ 1,0,0],[ 0,0,1]] },
 ];
 
 // ─── MAVLink v2 parser ────────────────────────────────────────────────────────
-// Only handles LOCAL_POSITION_NED (#32) and EKF_STATUS_REPORT (#193).
-const CRC_EXTRA = { 32: 185, 193: 71 };
+//   Parsed silently (feed widgets, never logged):
+//     1  SYS_STATUS, 24 GPS_RAW_INT, 74 VFR_HUD  – telemetry, shown in widgets
+//    30  ATTITUDE         – roll/pitch/yaw → ADI
+//    32  LOCAL_POSITION_NED – x/y/z       → 3-D view
+//
+//   Logged on state change only:
+//     0  HEARTBEAT        – armed state or flight mode changed
+//   193  EKF_STATUS_REPORT – healthy ↔ degraded transition
+//    42  MISSION_CURRENT  – active waypoint index changed
+//
+//   Always logged (true events):
+//    46  MISSION_ITEM_REACHED – waypoint reached
+//    77  COMMAND_ACK      – FC response to a sent command
+//   253  STATUSTEXT       – free-text from FC (the main GCS message channel)
+const CRC_EXTRA = {
+    0: 50,
+    1: 124,
+   24: 24,
+   30: 39,
+   32: 185,
+   42: 28,
+   46: 11,
+   74: 20,
+   77: 143,
+  193: 71,
+  253: 83,
+};
+const MSG_FULL_LEN = {
+    0: 9,
+    1: 31,
+   24: 30,
+   30: 28,
+   32: 28,
+   42: 6,
+   46: 2,
+   74: 20,
+   77: 10,
+  193: 22,
+  253: 54,
+};
 
 function mavCrc(bytes) {
   let crc = 0xFFFF;
@@ -161,309 +249,418 @@ function mavCrc(bytes) {
 }
 
 class MAVParser {
-  constructor(onMsg) {
-    this._onMsg = onMsg;
-    this._buf   = [];
-    this._state = 0; // 0=wait STX, 1=header(9B), 2=payload, 3=crc(2B)
-    this._need  = 0;
-  }
-  feed(data) {
-    for (const b of data) this._byte(b);
-  }
+  constructor(cb) { this._cb=cb; this._buf=[]; this._state=0; this._need=0; }
+  feed(data) { for (const b of data) this._byte(b); }
   _byte(b) {
-    if (this._state === 0) {
-      if (b !== 0xFD) return;
-      this._buf = [b]; this._state = 1; this._need = 9; return;
+    if (this._state===0) {
+      if (b!==0xFD) return;
+      this._buf=[b]; this._state=1; this._need=9; return;
     }
     this._buf.push(b); this._need--;
-    if (this._state === 1 && this._need === 0) {
-      this._need = this._buf[1]; this._state = 2; // payload length
-    } else if (this._state === 2 && this._need === 0) {
-      this._need = 2; this._state = 3;
-    } else if (this._state === 3 && this._need === 0) {
-      this._dispatch(); this._state = 0;
-    }
+    if      (this._state===1&&this._need===0){ this._need=this._buf[1]; this._state=2; }
+    else if (this._state===2&&this._need===0){ this._need=2;            this._state=3; }
+    else if (this._state===3&&this._need===0){ this._dispatch();        this._state=0; }
   }
   _dispatch() {
-    const b   = this._buf;
-    const len = b[1];
-    const msgId = b[7] | (b[8] << 8) | (b[9] << 16);
-    if (!(msgId in CRC_EXTRA)) return;
-    const body    = b.slice(1, 10 + len);   // len byte → end of payload
-    const crcRecv = b[10+len] | (b[11+len] << 8);
-    const crcCalc = mavCrc([...body, CRC_EXTRA[msgId]]);
-    if (crcCalc !== crcRecv) return;
-    const dv = new DataView(new Uint8Array(b.slice(10, 10+len)).buffer);
-    this._onMsg(msgId, dv);
+    const b=this._buf, len=b[1];
+    const mid=b[7]|(b[8]<<8)|(b[9]<<16);
+    if (!(mid in CRC_EXTRA)) return;
+    const body=b.slice(1,10+len);
+    const crcR=b[10+len]|(b[11+len]<<8);
+    if (mavCrc([...body,CRC_EXTRA[mid]])!==crcR) return;
+    const fl=MSG_FULL_LEN[mid]||len;
+    const pad=new Uint8Array(fl);
+    pad.set(new Uint8Array(b.slice(10,10+len)));
+    this._cb(mid, new DataView(pad.buffer));
   }
 }
 
 // ─── App state ────────────────────────────────────────────────────────────────
-let droneTrail = [];   // {x,y,z,t}
-let droneX = null, droneY = null, droneZ = null;
-let ekfFlags = null, ekfHealthy = null;
-let lastMsgTime = 0, serialOk = false;
-let debugTimer = null, serialPort = null, serialReader = null;
+let droneTrail=[];
+let droneX=null,droneY=null,droneZ=null;
+let droneRoll=null,dronePitch=null,droneYaw=null;
+let ekfFlags=null,ekfHealthy=null;
+let lastMsgTime=0,serialOk=false;
+let serialPort=null,serialReader=null;
 
-function onMavMsg(msgId, dv) {
-  lastMsgTime = Date.now() / 1000;
-  if (msgId === 32) {  // LOCAL_POSITION_NED
-    droneX = dv.getFloat32(4,  true);
-    droneY = dv.getFloat32(8,  true);
-    droneZ = dv.getFloat32(12, true);  // NED z positive-down, kept as-is
-    droneTrail.push({ x: droneX, y: droneY, z: droneZ, t: lastMsgTime });
-    if (droneTrail.length > 2400) droneTrail.splice(0, droneTrail.length - 2400);
-  } else if (msgId === 193) {  // EKF_STATUS_REPORT
-    ekfFlags   = dv.getUint16(20, true);
-    ekfHealthy = !!(ekfFlags & 0x0001) && !!(ekfFlags & 0x0008) && !(ekfFlags & 0x0080);
+// FC state shown in status badges + mode panel
+let fcArmed=false, fcModeName='?', fcSysStatus=0;
+
+// change-detection state for log filtering
+let _prevArmed=null,_prevCmode=null,_prevEkfOk=null,_prevWP=null;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function fmt(v)    { return (v>=0?'+':'')+v.toFixed(3)+' m'; }
+function fmtDeg(r) { return (r>=0?'+':'')+(r*180/Math.PI).toFixed(1)+'°'; }
+
+// ─── MAVLink event log ────────────────────────────────────────────────────────
+// No throttle here — callers decide when to call (change-detection or always).
+const LOG_MAX=120;
+
+function mavLog(cls, text) {
+  const d=new Date();
+  const ts=`${d.getHours().toString().padStart(2,'0')}:`+
+           `${d.getMinutes().toString().padStart(2,'0')}:`+
+           `${d.getSeconds().toString().padStart(2,'0')}`;
+  const box=G('mavlog');
+  const row=document.createElement('div');
+  row.className=`ml ${cls}`;
+  row.innerHTML=`<span class="ml-ts">${ts}</span>${text}`;
+  box.appendChild(row);
+  while (box.children.length>LOG_MAX) box.removeChild(box.firstChild);
+  box.scrollTop=box.scrollHeight;
+}
+
+// ─── Message handler ──────────────────────────────────────────────────────────
+const ARDU_MODES=['STABILIZE','ACRO','ALT_HOLD','AUTO','GUIDED','LOITER','RTL',
+                  'CIRCLE','','LAND','','DRIFT','','SPORT','FLIP','AUTOTUNE','POSHOLD',
+                  'BRAKE','THROW','AVOID','GUIDED_NOGPS','SMART_RTL'];
+const ACK_RES=['ACCEPTED','TMP REJECT','DENIED','UNSUPPORTED','FAILED','IN PROGRESS','CANCELLED'];
+
+function onMavMsg(mid, dv) {
+  lastMsgTime=Date.now()/1000;
+
+  if (mid===0) {                            // HEARTBEAT – log only on state change
+    const cmode=dv.getUint32(0,true), base=dv.getUint8(6);
+    const armed=!!(base&0x80);
+    fcArmed=armed; fcSysStatus=dv.getUint8(7);
+    fcModeName=ARDU_MODES[cmode]??`MODE${cmode}`;
+    if (armed!==_prevArmed) {
+      mavLog('ml-hb', armed ? '>>> ARMED <<<' : '>>> DISARMED <<<');
+      _prevArmed=armed;
+    }
+    if (cmode!==_prevCmode) {
+      mavLog('ml-hb', `Mode: ${fcModeName}`);
+      _prevCmode=cmode;
+    }
+
+  } else if (mid===1) {                     // SYS_STATUS – telemetry only, no log
+
+  } else if (mid===24) {                    // GPS_RAW_INT – telemetry only, no log
+
+  } else if (mid===30) {                    // ATTITUDE → ADI, no log
+    droneRoll =dv.getFloat32(4,true);
+    dronePitch=dv.getFloat32(8,true);
+    droneYaw  =dv.getFloat32(12,true);
+
+  } else if (mid===32) {                    // LOCAL_POSITION_NED → 3-D, no log
+    droneX=dv.getFloat32(4,true);
+    droneY=dv.getFloat32(8,true);
+    droneZ=dv.getFloat32(12,true);
+    droneTrail.push({x:droneX,y:droneY,z:droneZ,t:lastMsgTime});
+    if (droneTrail.length>2400) droneTrail.splice(0,droneTrail.length-2400);
+
+  } else if (mid===42) {                    // MISSION_CURRENT – log only on change
+    const seq=dv.getUint16(0,true);
+    if (seq!==_prevWP) { mavLog('ml-wp',`Waypoint: #${seq}`); _prevWP=seq; }
+
+  } else if (mid===46) {                    // MISSION_ITEM_REACHED – always log
+    const seq=dv.getUint16(0,true);
+    mavLog('ml-wp',`Reached waypoint #${seq}`);
+
+  } else if (mid===74) {                    // VFR_HUD – telemetry only, no log
+
+  } else if (mid===77) {                    // COMMAND_ACK – always log
+    const cmd=dv.getUint16(0,true), res=dv.getUint8(2);
+    const ok=res===0;
+    mavLog(ok?'ml-ack':'ml-warn', `ACK cmd:${cmd} → ${ACK_RES[res]??'RES'+res}`);
+
+  } else if (mid===193) {                   // EKF_STATUS_REPORT – log on health change
+    ekfFlags  =dv.getUint16(20,true);
+    ekfHealthy=!!(ekfFlags&0x0001)&&!!(ekfFlags&0x0008)&&!(ekfFlags&0x0080);
+    if (ekfHealthy!==_prevEkfOk) {
+      mavLog(ekfHealthy?'ml-ekf':'ml-warn',
+        ekfHealthy ? `EKF healthy  (0x${ekfFlags.toString(16).padStart(4,'0').toUpperCase()})`
+                   : `EKF DEGRADED (0x${ekfFlags.toString(16).padStart(4,'0').toUpperCase()})`);
+      _prevEkfOk=ekfHealthy;
+    }
+
+  } else if (mid===253) {                   // STATUSTEXT – always log, main GCS channel
+    const sev=dv.getUint8(0);
+    const bytes=[];
+    for (let i=1;i<Math.min(51,dv.byteLength);i++){const c=dv.getUint8(i);if(c===0)break;bytes.push(c);}
+    const txt=String.fromCharCode(...bytes);
+    const cls= sev<=3 ? 'ml-err' : sev===4 ? 'ml-warn' : 'ml-info';
+    mavLog(cls, txt);
   }
 }
 
-// ─── Serial connection ────────────────────────────────────────────────────────
-const G = id => document.getElementById(id);
+// ─── Serial ───────────────────────────────────────────────────────────────────
+const G=id=>document.getElementById(id);
 
 async function toggleConnect() {
   if (serialPort) {
-    // disconnect
-    try { await serialReader?.cancel(); } catch(_) {}
-    try { await serialPort.close();     } catch(_) {}
-    serialPort = null; serialReader = null; serialOk = false;
-    G('connect-btn').textContent = 'CONNECT SERIAL';
+    try{await serialReader?.cancel();}catch(_){}
+    try{await serialPort.close();}catch(_){}
+    serialPort=null; serialReader=null; serialOk=false;
+    G('connect-btn').textContent='CONNECT SERIAL';
     G('connect-btn').classList.remove('active');
-    G('conn-status').textContent = 'disconnected';
-    droneTrail = []; droneX = droneY = droneZ = null;
-    ekfFlags = null; ekfHealthy = null;
+    G('conn-status').textContent='disconnected';
+    droneTrail=[]; droneX=droneY=droneZ=null;
+    droneRoll=dronePitch=droneYaw=null;
+    ekfFlags=null; ekfHealthy=null;
+    fcArmed=false; fcModeName='?'; fcSysStatus=0;
+    _prevArmed=null; _prevCmode=null; _prevEkfOk=null; _prevWP=null;
     return;
   }
-  if (!navigator.serial) {
-    G('conn-status').textContent = 'WebSerial not supported — use Chrome/Edge';
-    document.getElementById('webserial-warn').style.display = 'block';
-    return;
+  if (!navigator.serial){
+    G('conn-status').textContent='WebSerial not supported — use Chrome/Edge';
+    G('webserial-warn').style.display='block'; return;
   }
   try {
-    serialPort = await navigator.serial.requestPort();
-    const baud = parseInt(G('baud-input').value) || 9600;
-    await serialPort.open({ baudRate: baud });
-    serialOk = true;
-    G('connect-btn').textContent = 'DISCONNECT';
+    serialPort=await navigator.serial.requestPort();
+    const baud=parseInt(G('baud-input').value)||57600;
+    await serialPort.open({baudRate:baud});
+    serialOk=true;
+    G('connect-btn').textContent='DISCONNECT';
     G('connect-btn').classList.add('active');
-    G('conn-status').textContent = `connected @ ${baud} baud`;
-    droneTrail = []; droneX = droneY = droneZ = null;
-    // Stop debug if running
-    if (debugTimer) { clearInterval(debugTimer); debugTimer = null; G('debug-btn').classList.remove('active'); }
-    // Read loop
-    const parser = new MAVParser(onMavMsg);
-    serialReader = serialPort.readable.getReader();
-    (async () => {
+    G('conn-status').textContent=`connected @ ${baud} baud`;
+    droneTrail=[]; droneX=droneY=droneZ=null;
+    droneRoll=dronePitch=droneYaw=null;
+    const parser=new MAVParser(onMavMsg);
+    serialReader=serialPort.readable.getReader();
+    (async()=>{
       try {
-        while (true) {
-          const { value, done } = await serialReader.read();
-          if (done) break;
-          parser.feed(value);
+        while(true){
+          const{value,done}=await serialReader.read();
+          if(done)break;
+          try{parser.feed(value);}catch(pe){console.warn('MAVParser:',pe);}
         }
-      } catch(_) {}
-      serialOk = false;
+        G('conn-status').textContent='port closed by device';
+      }catch(e){G('conn-status').textContent=`read error: ${e.message}`;}
+      serialOk=false;
     })();
-  } catch(e) {
-    G('conn-status').textContent = 'cancelled or error';
-    serialPort = null;
+  } catch(e){G('conn-status').textContent='cancelled or error';serialPort=null;}
+}
+window.toggleConnect=toggleConnect;
+
+// ─── Coordinate conversion (NED → Three.js) ──────────────────────────────────
+const tv=(x,y,z)=>new THREE.Vector3(x,-z,-y);
+
+// ─── ADI – artificial horizon ─────────────────────────────────────────────────
+function drawHorizon(roll, pitch) {
+  const cv=G('horizon-canvas'); if(!cv)return;
+  const ctx=cv.getContext('2d');
+  const cw=cv.width,ch=cv.height,cx=cw/2,cy=ch/2;
+  const s=ch/240; // scale factor — all magic numbers were tuned for 240px height
+
+  ctx.clearRect(0,0,cw,ch);
+  ctx.save();
+  ctx.beginPath(); ctx.roundRect(0,0,cw,ch,4*s); ctx.clip();
+
+  if (roll===null||pitch===null) {
+    ctx.fillStyle='#141414'; ctx.fillRect(0,0,cw,ch);
+    ctx.fillStyle='#383838'; ctx.font=`${11*s}px monospace`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('NO ATTITUDE DATA',cx,cy);
+    ctx.restore(); return;
   }
-}
-window.toggleConnect = toggleConnect;
 
-// ─── Debug simulation ─────────────────────────────────────────────────────────
-const DBG_WAY = (() => {
-  const s=0.8,ox=0.1,oy=0.1,oz=-0.2;  // NED: z negative = above origin
-  return [
-    [ox,oy,oz],[ox+s,oy,oz],[ox+s,oy+s,oz],[ox,oy+s,oz],
-    [ox,oy+s,oz-s],[ox+s,oy+s,oz-s],[ox+s,oy,oz-s],[ox,oy,oz-s],
-  ];
-})();
-let dbgStep = 0, dbgEdge = 0;
+  // ── Rotating sky / ground ────────────────────────────────────────────────────
+  ctx.translate(cx,cy);
+  ctx.rotate(roll);
+  const pxPerRad=95*s;
+  const po=pitch*pxPerRad;  // positive pitch → horizon drops → more sky
 
-function toggleDebug() {
-  if (debugTimer) {
-    clearInterval(debugTimer); debugTimer = null;
-    G('debug-btn').classList.remove('active');
-    G('conn-status').textContent = '';
-    serialOk = false; droneTrail = []; droneX = droneY = droneZ = null;
-    ekfFlags = null; ekfHealthy = null;
-    return;
+  ctx.fillStyle='#1a508a'; ctx.fillRect(-cw,-ch*2,cw*2,ch*2+po); // sky
+  ctx.fillStyle='#5aaa20'; ctx.fillRect(-cw,po,cw*2,ch*2);        // ground
+
+  // Horizon line
+  ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.lineWidth=1.5*s;
+  ctx.beginPath(); ctx.moveTo(-cw,po); ctx.lineTo(cw,po); ctx.stroke();
+
+  // Pitch ladder (every 5°, labels every 10°)
+  const degPx=pxPerRad*(Math.PI/180);
+  ctx.font=`${8*s}px monospace`; ctx.textAlign='right'; ctx.textBaseline='middle';
+  for (let deg=-30;deg<=30;deg+=5) {
+    if (deg===0) continue;
+    const py=po-deg*degPx;
+    if (Math.abs(py)>ch*0.88) continue;
+    const major=deg%10===0;
+    const lw=(major?28:14)*s;
+    ctx.strokeStyle=`rgba(255,255,255,${major?.72:.38})`; ctx.lineWidth=(major?1.5:1)*s;
+    ctx.beginPath(); ctx.moveTo(-lw,py); ctx.lineTo(lw,py); ctx.stroke();
+    if (major) {
+      ctx.fillStyle='rgba(255,255,255,0.72)';
+      ctx.fillText(`${Math.abs(deg)}`,-lw-3*s,py);
+    }
   }
-  if (serialPort) return; // real connection takes priority
-  G('debug-btn').classList.add('active');
-  G('conn-status').textContent = 'debug mode active';
-  serialOk = true; dbgStep = 0; dbgEdge = 0;
-  droneTrail = [];
-  const STEPS = 60;
-  debugTimer = setInterval(() => {
-    const a = DBG_WAY[dbgEdge % 8], b = DBG_WAY[(dbgEdge+1) % 8];
-    const t = dbgStep / STEPS;
-    droneX = a[0]+(b[0]-a[0])*t;
-    droneY = a[1]+(b[1]-a[1])*t;
-    droneZ = a[2]+(b[2]-a[2])*t;
-    lastMsgTime = Date.now()/1000;
-    droneTrail.push({x:droneX,y:droneY,z:droneZ,t:lastMsgTime});
-    if (droneTrail.length > 2400) droneTrail.shift();
-    ekfFlags = 0x000B; ekfHealthy = true;
-    dbgStep++;
-    if (dbgStep >= STEPS) { dbgStep=0; dbgEdge=(dbgEdge+1)%8; }
-  }, 100);
-}
-window.toggleDebug = toggleDebug;
 
-// ─── Coordinate conversion ────────────────────────────────────────────────────
-// Data: NED (X north, Y east, Z down)  →  Three.js: X right, Y up, Z toward viewer
-const tv = (x,y,z) => new THREE.Vector3(x, -z, -y);
+  ctx.restore(); // end rotating section
 
-// ─── Three.js scene ───────────────────────────────────────────────────────────
-const container = document.getElementById('scene-container');
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x111111);
-const W = () => container.clientWidth, H = () => container.clientHeight;
+  // ── Aircraft symbol (fixed) ───────────────────────────────────────────────────
+  ctx.strokeStyle='#FFD700'; ctx.lineWidth=2.5*s; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(cx-42*s,cy); ctx.lineTo(cx-12*s,cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx-12*s,cy); ctx.lineTo(cx-12*s,cy+7*s); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+12*s,cy); ctx.lineTo(cx+42*s,cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+12*s,cy); ctx.lineTo(cx+12*s,cy+7*s); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,3.5*s,0,Math.PI*2);
+  ctx.fillStyle='#FFD700'; ctx.fill();
 
-const camera = new THREE.PerspectiveCamera(45, W()/H(), 0.01, 200);
-camera.position.set(2.5, 2.0, 2.5);
-
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(window.devicePixelRatio);
-renderer.setSize(W(), H());
-container.appendChild(renderer.domElement);
-
-const labelRend = new CSS2DRenderer();
-labelRend.setSize(W(), H());
-labelRend.domElement.style.pointerEvents = 'none';
-container.appendChild(labelRend.domElement);
-
-const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0.5, 0.75, -0.5);
-controls.enableDamping = true; controls.dampingFactor = 0.08;
-controls.update();
-
-// helpers
-function addLine(ax,ay,az, bx,by,bz, color, w=2) {
-  const g = new THREE.BufferGeometry().setFromPoints([tv(ax,ay,az),tv(bx,by,bz)]);
-  scene.add(new THREE.Line(g, new THREE.LineBasicMaterial({color,linewidth:w})));
-}
-function addLabel(text, x, y, z, color) {
-  const div = document.createElement('div');
-  div.className='label'; div.textContent=text; div.style.color=color;
-  const o = new CSS2DObject(div);
-  o.position.copy(tv(x,y,z)); scene.add(o);
-}
-
-// coord frame
-const AL = 0.15;
-addLine(0,0,0,AL, 0, 0,0xFF4444,3); addLabel('X',AL+0.03,0,0,'#FF4444');
-addLine(0,0,0, 0,AL, 0,0x44FF44,3); addLabel('Y',0,AL+0.03,0,'#44FF44');
-addLine(0,0,0, 0, 0,AL,0x4488FF,3); addLabel('Z',0,0,AL+0.03,'#4488FF');
-
-// floor grid
-const grid = new THREE.GridHelper(2,10,0x1e1e1e,0x1a1a1a);
-grid.position.set(0.5,0,-0.5); scene.add(grid);
-
-// lighthouses
-const LH_COLS = [0xFF66FF, 0x66FFFF];
-LIGHTHOUSES.forEach((lh, i) => {
-  const [px,py,pz] = lh.pos, R = lh.R, c = LH_COLS[i%2];
-  const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.025),
-                            new THREE.MeshBasicMaterial({color:c}));
-  m.position.copy(tv(px,py,pz)); scene.add(m);
-  addLabel(`LH${lh.id}`, px, py, pz+0.09, '#fff');
-  const beam = [-R[0][2],-R[1][2],-R[2][2]];
-  const lx   = [ R[0][0], R[1][0], R[2][0]];
-  const ly   = [ R[0][1], R[1][1], R[2][1]];
-  addLine(px,py,pz, px+beam[0]*.3,py+beam[1]*.3,pz+beam[2]*.3, c,      3);
-  addLine(px,py,pz, px+lx[0]*.1,  py+lx[1]*.1,  pz+lx[2]*.1,  0xFFA040,2);
-  addLine(px,py,pz, px+ly[0]*.1,  py+ly[1]*.1,  pz+ly[2]*.1,  0xFFFF40,2);
-});
-
-// drone dot
-const droneMesh = new THREE.Mesh(
-  new THREE.SphereGeometry(0.018,16,16),
-  new THREE.MeshBasicMaterial({color:0xFF3333})
-);
-droneMesh.visible = false; scene.add(droneMesh);
-
-// trail
-const MAX_T = 2400;
-const tPos = new Float32Array(MAX_T*3), tCol = new Float32Array(MAX_T*3);
-const tGeom = new THREE.BufferGeometry();
-const tPA = new THREE.BufferAttribute(tPos,3), tCA = new THREE.BufferAttribute(tCol,3);
-tGeom.setAttribute('position',tPA); tGeom.setAttribute('color',tCA);
-tGeom.setDrawRange(0,0);
-const trailLine = new THREE.Line(tGeom, new THREE.LineBasicMaterial({vertexColors:true}));
-scene.add(trailLine);
-
-function trailColor(t) {
-  const lerp=(t,xp,fp)=>{
-    for(let i=0;i<xp.length-1;i++) if(t<=xp[i+1]) {const f=(t-xp[i])/(xp[i+1]-xp[i]);return fp[i]+f*(fp[i+1]-fp[i]);}
-    return fp[fp.length-1];
-  };
-  return [
-    lerp(t,[0,.5,1],[1.0,1.0,0.2 ]),
-    lerp(t,[0,.5,1],[.13,.65,1.0 ]),
-    lerp(t,[0,.5,1],[.13,0.0,.26 ]),
-  ];
-}
-
-function updateTrailGeom(pts) {
-  const n=Math.min(pts.length,MAX_T);
-  for(let i=0;i<n;i++){
-    const p=pts[i], v=tv(p.x,p.y,p.z), t=n>1?i/(n-1):1;
-    tPos[i*3]=v.x; tPos[i*3+1]=v.y; tPos[i*3+2]=v.z;
-    const[r,g,b]=trailColor(t);
-    tCol[i*3]=r; tCol[i*3+1]=g; tCol[i*3+2]=b;
+  // ── Roll arc + pointer ────────────────────────────────────────────────────────
+  ctx.save();
+  ctx.translate(cx,cy);
+  const arcR=Math.min(cx,cy)-4*s;
+  ctx.strokeStyle='rgba(255,255,255,0.20)'; ctx.lineWidth=1*s;
+  ctx.beginPath(); ctx.arc(0,0,arcR,-5*Math.PI/6,-Math.PI/6); ctx.stroke();
+  for (const deg of [-60,-45,-30,-20,-10,0,10,20,30,45,60]) {
+    const a=-Math.PI/2+deg*(Math.PI/180);
+    const major=deg%30===0;
+    const tk=(major?8:4)*s;
+    ctx.strokeStyle=`rgba(255,255,255,${major?.55:.28})`; ctx.lineWidth=(major?1.5:1)*s;
+    ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*arcR,      Math.sin(a)*arcR);
+    ctx.lineTo(Math.cos(a)*(arcR-tk), Math.sin(a)*(arcR-tk));
+    ctx.stroke();
   }
-  tPA.needsUpdate=true; tCA.needsUpdate=true;
-  tGeom.setDrawRange(0,n);
+  ctx.rotate(roll);
+  ctx.fillStyle='#FFD700';
+  ctx.beginPath();
+  ctx.moveTo(0,-(arcR-1*s)); ctx.lineTo(-5*s,-(arcR-11*s)); ctx.lineTo(5*s,-(arcR-11*s));
+  ctx.closePath(); ctx.fill();
+  ctx.restore();
+
+  // Border
+  ctx.strokeStyle='#2a2a2a'; ctx.lineWidth=1*s;
+  ctx.beginPath(); ctx.roundRect(0,0,cw,ch,4*s); ctx.stroke();
 }
 
-// ─── Panel ────────────────────────────────────────────────────────────────────
-const GREEN='#3DFF7A', ORANGE='#FFB300', RED='#FF4444', GREY='#555';
-
-function setSt(id,text,color){const e=G(id);e.textContent=text;e.style.color=color;}
+// ─── Panel update ─────────────────────────────────────────────────────────────
+const GREEN='#3DFF7A',ORANGE='#FFB300',RED='#FF4444',GREY='#555';
+function setSt(id,t,c){const e=G(id);e.textContent=t;e.style.color=c;}
 function setFlag(id,val,inv=false){
   if(val==null){setSt(id,'?',GREY);return;}
   setSt(id,'●',(inv?!val:val)?GREEN:RED);
 }
-function fmt(v){return(v>=0?'+':'')+v.toFixed(3)+' m';}
 
 function updatePanel() {
-  const age = lastMsgTime ? (Date.now()/1000 - lastMsgTime) : null;
-  if (!serialOk)               setSt('telem-st','DISCONNECTED',RED);
-  else if(age==null||age>3)    setSt('telem-st','NO SIGNAL',   ORANGE);
-  else                         setSt('telem-st','CONNECTED',   GREEN);
-  G('telem-info').textContent = serialPort
-    ? `serial @ ${G('baud-input').value} baud`
-    : (debugTimer ? 'debug simulation' : '');
+  const age=lastMsgTime?(Date.now()/1000-lastMsgTime):null;
+  const stale=!serialOk||age==null||age>2;
 
-  const f=ekfFlags;
-  if(f==null){ setSt('ekf-st','WAITING…',GREY); }
-  else { setSt('ekf-st', ekfHealthy?'HEALTHY':'DEGRADED', ekfHealthy?GREEN:RED);
-         G('ekf-hex').textContent=`flags 0x${f.toString(16).padStart(4,'0').toUpperCase()}`; }
-  setFlag('d-att',  f!=null?!!(f&0x0001):null);
-  setFlag('d-vel',  f!=null?!!(f&0x0002):null);
-  setFlag('d-pos',  f!=null?!!(f&0x0008):null);
-  setFlag('d-const',f!=null?!!(f&0x0080):null,true);
+  if (!serialOk)             setSt('telem-st','DISCONNECTED',RED);
+  else if(age==null||age>3)  setSt('telem-st','NO SIGNAL',  ORANGE);
+  else                       setSt('telem-st','CONNECTED',  GREEN);
 
-  if(droneX!=null){
-    G('pos-lbl').style.color='#bbb';
+  drawHorizon(stale?null:droneRoll, stale?null:dronePitch);
+
+  if (droneRoll!==null&&!stale){
+    G('att-angles').textContent=`R ${fmtDeg(droneRoll)}  P ${fmtDeg(dronePitch)}  Y ${fmtDeg(droneYaw)}`;
+    G('att-angles').style.color='#666';
+  } else if (droneRoll!==null){
+    G('att-angles').textContent='STALE'; G('att-angles').style.color='#444';
+  } else {
+    G('att-angles').textContent='';
+  }
+
+  // Status badges
+  if (fcArmed) {
+    G('fc-armed').textContent='ARMED';
+    G('fc-armed').style.color=RED; G('fc-armed').style.borderColor='#662222';
+  } else {
+    G('fc-armed').textContent='DISARMED';
+    G('fc-armed').style.color='#555'; G('fc-armed').style.borderColor='#2a2a2a';
+  }
+  const ready=serialOk&&fcSysStatus>=3&&ekfHealthy!==false;
+  G('fc-ready').textContent=ready?'READY':'NOT READY';
+  G('fc-ready').style.color=ready?GREEN:ORANGE;
+  G('fc-ready').style.borderColor=ready?'#1a4a1a':'#4a3000';
+  const ekfOk=ekfHealthy===true;
+  G('fc-ekf').textContent=ekfHealthy===null?'EKF ?':ekfOk?'EKF OK':'EKF ERR';
+  G('fc-ekf').style.color=ekfHealthy===null?GREY:ekfOk?GREEN:RED;
+  G('fc-ekf').style.borderColor=ekfHealthy===null?'#2a2a2a':ekfOk?'#1a4a1a':'#4a1a1a';
+  G('fc-mode').textContent=serialOk?fcModeName:'?';
+  G('fc-mode').style.color=serialOk?GREEN:GREY;
+
+  if (droneX!=null){
     G('pos-x').textContent=`X  ${fmt(droneX)}`;
     G('pos-y').textContent=`Y  ${fmt(droneY)}`;
     G('pos-z').textContent=`Z↓ ${fmt(droneZ)}`;
   }
 }
 
+// ─── Three.js scene ───────────────────────────────────────────────────────────
+const container=document.getElementById('scene-container');
+const scene=new THREE.Scene(); scene.background=new THREE.Color(0x111111);
+const W=()=>container.clientWidth, H=()=>container.clientHeight;
+
+const camera=new THREE.PerspectiveCamera(45,W()/H(),0.01,200);
+camera.position.set(2.5,2.0,2.5);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(window.devicePixelRatio); renderer.setSize(W(),H());
+container.appendChild(renderer.domElement);
+
+const labelRend=new CSS2DRenderer();
+labelRend.setSize(W(),H()); labelRend.domElement.style.pointerEvents='none';
+container.appendChild(labelRend.domElement);
+
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.target.set(0.5,0.75,-0.5); controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.update();
+
+function addLine(ax,ay,az,bx,by,bz,col,w=2){
+  scene.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([tv(ax,ay,az),tv(bx,by,bz)]),
+    new THREE.LineBasicMaterial({color:col,linewidth:w})));
+}
+function addLabel(txt,x,y,z,col){
+  const d=document.createElement('div');
+  d.className='label'; d.textContent=txt; d.style.color=col;
+  const o=new CSS2DObject(d); o.position.copy(tv(x,y,z)); scene.add(o);
+}
+
+const AL=0.15;
+addLine(0,0,0,AL,0,0,0xFF4444,3); addLabel('X',AL+.03,0,0,'#FF4444');
+addLine(0,0,0,0,AL,0,0x44FF44,3); addLabel('Y',0,AL+.03,0,'#44FF44');
+addLine(0,0,0,0,0,AL,0x4488FF,3); addLabel('Z',0,0,AL+.03,'#4488FF');
+
+const grid=new THREE.GridHelper(2,10,0x1e1e1e,0x1a1a1a);
+grid.position.set(0.5,0,-0.5); scene.add(grid);
+
+const LH_COLS=[0xFF66FF,0x66FFFF];
+LIGHTHOUSES.forEach((lh,i)=>{
+  const[px,py,pz]=lh.pos,R=lh.R,c=LH_COLS[i%2];
+  const m=new THREE.Mesh(new THREE.OctahedronGeometry(0.025),new THREE.MeshBasicMaterial({color:c}));
+  m.position.copy(tv(px,py,pz)); scene.add(m);
+  addLabel(`LH${lh.id}`,px,py,pz+.09,'#fff');
+  const bm=[-R[0][2],-R[1][2],-R[2][2]];
+  const lx=[R[0][0],R[1][0],R[2][0]],ly=[R[0][1],R[1][1],R[2][1]];
+  addLine(px,py,pz,px+bm[0]*.3,py+bm[1]*.3,pz+bm[2]*.3,c,3);
+  addLine(px,py,pz,px+lx[0]*.1,py+lx[1]*.1,pz+lx[2]*.1,0xFFA040,2);
+  addLine(px,py,pz,px+ly[0]*.1,py+ly[1]*.1,pz+ly[2]*.1,0xFFFF40,2);
+});
+
+const droneMesh=new THREE.Mesh(
+  new THREE.SphereGeometry(0.018,16,16),new THREE.MeshBasicMaterial({color:0xFF3333}));
+droneMesh.visible=false; scene.add(droneMesh);
+
+const MAX_T=2400;
+const tPos=new Float32Array(MAX_T*3),tCol=new Float32Array(MAX_T*3);
+const tGeom=new THREE.BufferGeometry();
+const tPA=new THREE.BufferAttribute(tPos,3),tCA=new THREE.BufferAttribute(tCol,3);
+tGeom.setAttribute('position',tPA); tGeom.setAttribute('color',tCA); tGeom.setDrawRange(0,0);
+scene.add(new THREE.Line(tGeom,new THREE.LineBasicMaterial({vertexColors:true})));
+
+function trailColor(t){
+  const lp=(t,xp,fp)=>{for(let i=0;i<xp.length-1;i++)if(t<=xp[i+1]){const f=(t-xp[i])/(xp[i+1]-xp[i]);return fp[i]+f*(fp[i+1]-fp[i]);}return fp[fp.length-1];};
+  return[lp(t,[0,.5,1],[1,1,.2]),lp(t,[0,.5,1],[.13,.65,1]),lp(t,[0,.5,1],[.13,0,.26])];
+}
+function updateTrail(pts){
+  const n=Math.min(pts.length,MAX_T);
+  for(let i=0;i<n;i++){const p=pts[i],v=tv(p.x,p.y,p.z),t=n>1?i/(n-1):1;
+    tPos[i*3]=v.x;tPos[i*3+1]=v.y;tPos[i*3+2]=v.z;
+    const[r,g,b]=trailColor(t);tCol[i*3]=r;tCol[i*3+1]=g;tCol[i*3+2]=b;}
+  tPA.needsUpdate=true;tCA.needsUpdate=true;tGeom.setDrawRange(0,n);
+}
+
 // ─── Scale bar ────────────────────────────────────────────────────────────────
-const SCALE_STEPS=[0.02,0.05,0.1,0.2,0.5,1.0,2.0,5.0];
-const _sv0=new THREE.Vector3(), _sv1=new THREE.Vector3();
+const SSTEPS=[.02,.05,.1,.2,.5,1,2,5];
+const _s0=new THREE.Vector3(),_s1=new THREE.Vector3();
 function updateScaleBar(){
   const W2=W()/2;
-  for(const d of SCALE_STEPS){
-    _sv0.set(0,0,0).project(camera);
-    _sv1.set(d,0,0).project(camera);
-    const px=Math.abs(_sv1.x-_sv0.x)*W2;
+  for(const d of SSTEPS){
+    _s0.set(0,0,0).project(camera); _s1.set(d,0,0).project(camera);
+    const px=Math.abs(_s1.x-_s0.x)*W2;
     if(px>=50&&px<=220){
       G('scale-line').style.width=px.toFixed(1)+'px';
       G('scale-text').textContent=d<1?`${Math.round(d*100)} cm`:`${d} m`;
@@ -477,21 +674,13 @@ let lastTrailTick=0;
 function animate(){
   requestAnimationFrame(animate);
   const now=Date.now();
-  if(now-lastTrailTick>50){
-    lastTrailTick=now;
-    const dur=parseFloat(G('trail-dur').value)||30;
-    const cutoff=now/1000-dur;
-    updateTrailGeom(droneTrail.filter(p=>p.t>=cutoff));
-  }
-  if(droneX!=null){ droneMesh.position.copy(tv(droneX,droneY,droneZ)); droneMesh.visible=true; }
-  updatePanel();
-  controls.update();
-  renderer.render(scene,camera);
-  labelRend.render(scene,camera);
+  if(now-lastTrailTick>50){lastTrailTick=now;updateTrail(droneTrail.filter(p=>p.t>=now/1000-30));}
+  if(droneX!=null){droneMesh.position.copy(tv(droneX,droneY,droneZ));droneMesh.visible=true;}
+  updatePanel(); controls.update();
+  renderer.render(scene,camera); labelRend.render(scene,camera);
   updateScaleBar();
 }
 
-// ─── Resize ───────────────────────────────────────────────────────────────────
 new ResizeObserver(()=>{
   camera.aspect=W()/H(); camera.updateProjectionMatrix();
   renderer.setSize(W(),H()); labelRend.setSize(W(),H());
