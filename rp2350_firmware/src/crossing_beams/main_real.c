@@ -67,9 +67,6 @@
 // Timing
 // ---------------------------------------------------------------------------
 
-/** Odometry send interval [µs] — 40 Hz */
-#define ODOM_INTERVAL_US   25000ULL
-
 /** Diagnostic print interval [µs] — 10 Hz */
 #define PRINT_INTERVAL_US  100000ULL
 
@@ -368,12 +365,8 @@ int main(void)
     printf("Capture core ready.\n");
 
     /* ④ Compute loop */
-    uint64_t last_odom_us  = 0;
     uint64_t last_print_us = 0;
-
-    /* Last centroid — reused by the 40 Hz odometry gate when no new solve is ready. */
     float    last_cx = 0.0f, last_cy = 0.0f, last_cz = 0.0f;
-    bool     have_centroid = false;
 
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
@@ -385,14 +378,11 @@ int main(void)
         /* Decode whatever core 1 has produced since last pass */
         angle_decoder_update(g_lh2, g_angles, CAL, now_us);
 
-        /* ── 40 Hz: solve + odometry send ─────────────────────────────────── */
-        if (now_us - last_odom_us >= ODOM_INTERVAL_US) {
-            last_odom_us = now_us;
-
+        /* ── Event-driven: solve + odometry, only when fresh data exists ───── */
+        {
             lh2_point3d_t pts[NUM_SENSORS];
             int n = solve3d_calib_run(BS_POSES, g_angles, now_us, pts);
 
-            /* Recompute centroid without printing */
             if (n > 0) {
                 float sx = 0.0f, sy = 0.0f, sz = 0.0f;
                 int   na = 0;
@@ -418,13 +408,10 @@ int main(void)
                     last_cx = sx / na;
                     last_cy = sy / na;
                     last_cz = sz / na;
-                    have_centroid = true;
+                    /* World → NED: negate Z (world z-up → MAVLink z-down).
+                     * Only sent when solve3d produced a genuinely new result. */
+                    mavlink_send_odometry(now_us, last_cx, last_cy, -last_cz);
                 }
-            }
-
-            if (have_centroid) {
-                /* World → NED: negate Z (world z-up → MAVLink z-down). */
-                mavlink_send_odometry(now_us, last_cx, last_cy, -last_cz);
             }
         }
 
@@ -457,7 +444,7 @@ int main(void)
                    s, (double)h0, (double)v0, (double)h1, (double)v1);
         }
 
-        if (have_centroid) {
+        if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
             printf("C,%.4f,%.4f,%.4f\n",
                    (double)last_cx, (double)last_cy, (double)last_cz);
         }
