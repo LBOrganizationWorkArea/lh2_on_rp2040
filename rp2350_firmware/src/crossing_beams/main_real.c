@@ -378,7 +378,7 @@ int main(void)
         /* Decode whatever core 1 has produced since last pass */
         angle_decoder_update(g_lh2, g_angles, CAL, now_us);
 
-        /* ── Event-driven: solve + odometry, only when fresh data exists ───── */
+        /* ── Event-driven: solve + cache centroid, only when fresh data exists ── */
         {
             lh2_point3d_t pts[NUM_SENSORS];
             int n = solve3d_calib_run(BS_POSES, g_angles, now_us, pts);
@@ -408,21 +408,25 @@ int main(void)
                     last_cx = sx / na;
                     last_cy = sy / na;
                     last_cz = sz / na;
-                    /* World → NED: negate Z (world z-up → MAVLink z-down).
-                     * Only sent when solve3d produced a genuinely new result. */
-                    mavlink_send_odometry(now_us, last_cx, last_cy, -last_cz);
                 }
             }
         }
 
-        /* ── 10 Hz: EKF home-set + diagnostic prints ──────────────────────── */
+        /* ── 10 Hz: odometry + EKF home-set (once) + diagnostic prints ──────── */
         if (now_us - last_print_us < PRINT_INTERVAL_US) {
             continue;
         }
         last_print_us = now_us;
 
-        /* When EKF first reports healthy, tell the FC to use the current position
-         * as home.  For synthetic this also restarts the square walk (via g_home_set). */
+        /* Send ODOMETRY at 10 Hz using the latest cached centroid. */
+        if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
+            /* World → NED: negate Z (world z-up → MAVLink z-down). */
+            mavlink_send_odometry(now_us, last_cx, last_cy, -last_cz);
+        }
+
+        /* Send DO_SET_HOME exactly once — the first time EKF reports healthy.
+         * g_home_set latches true so this never fires again, even if EKF
+         * later cycles healthy → unhealthy → healthy. */
         if (!g_home_set && mavlink_is_ekf_healthy()) {
             mavlink_send_do_set_home();
             g_home_set = true;
