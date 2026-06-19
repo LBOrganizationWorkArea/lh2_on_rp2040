@@ -1,0 +1,1 @@
+Implement angle_decoder similarly to what is done in angle4, but obtaining only the last recorded angle and record in the LhCfPoseSample format. if it is necessary we could change to angle format.
