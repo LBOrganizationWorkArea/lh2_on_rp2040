@@ -24,4 +24,10 @@ void mavlink_send_do_set_home(void);
 /* Ask FC to stream EKF_STATUS_REPORT at 1 Hz via SET_MESSAGE_INTERVAL */
 void mavlink_request_ekf_stream(void);
 
+/* TIMESYNC (msg #111) — call at 10 Hz to keep the FC-clock offset converged */
+void mavlink_timesync_send_request(void);
+
+/* Return local_us corrected to FC timebase [µs]; unmodified until first sync. */
+uint64_t mavlink_timesync_corrected_us(uint64_t local_us);
+
 #endif /* MAVLINK_H */

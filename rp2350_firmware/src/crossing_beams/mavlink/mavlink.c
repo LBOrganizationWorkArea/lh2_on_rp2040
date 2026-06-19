@@ -99,6 +99,15 @@
 /* RX payload buffer — sized for EKF_STATUS_REPORT (22 bytes) */
 #define MAX_RX_BUF  32u
 
+/* ---- TIMESYNC (msg #111) ------------------------------------------------- */
+
+#define MSGID_TIMESYNC       111u
+#define CRC_EXTRA_TIMESYNC   34u
+#define TIMESYNC_PL_LEN      16u          /* tc1(int64) + ts1(int64) */
+#define TIMESYNC_FRAME_LEN   28u          /* 10 hdr + 16 payload + 2 CRC */
+#define TIMESYNC_RTT_MAX_NS  50000000LL   /* discard samples with RTT > 50 ms */
+#define TIMESYNC_ALPHA       0.05f        /* EMA gain — τ ≈ 2 s at 10 Hz */
+
 /* ---- Constants ------------------------------------------------------------ */
 
 static const uint8_t k_nan[4] = { 0x00u, 0x00u, 0xC0u, 0x7Fu };
@@ -129,7 +138,9 @@ static struct {
     uint8_t  buf[MAX_RX_BUF];
 } s_rx;
 
-static bool s_ekf_healthy = false;
+static bool  s_ekf_healthy        = false;
+static float s_timesync_offset_ns = 0.0f;  /* EMA of (local_ns − fc_ns) */
+static bool  s_timesync_valid     = false;
 
 /* ---- CRC16/MCRF4XX -------------------------------------------------------- */
 
@@ -156,6 +167,21 @@ static void write_f32(uint8_t *dst, float v)
     memcpy(dst, &v, 4u);
 }
 
+static void write_i64_le(uint8_t *dst, int64_t v)
+{
+    uint64_t u = (uint64_t)v;
+    for (int i = 0; i < 8; i++, u >>= 8u)
+        dst[i] = (uint8_t)(u & 0xFFu);
+}
+
+static int64_t read_i64_le(const uint8_t *p)
+{
+    uint64_t u = 0;
+    for (int i = 7; i >= 0; i--)
+        u = (u << 8u) | p[i];
+    return (int64_t)u;
+}
+
 /* ---- RX parser ------------------------------------------------------------ */
 
 static void _dispatch_ekf(uint8_t crc_hi)
@@ -169,6 +195,63 @@ static void _dispatch_ekf(uint8_t crc_hi)
     uint16_t flags = (uint16_t)s_rx.buf[20] | ((uint16_t)s_rx.buf[21] << 8u);
     s_ekf_healthy = ((flags & EKF_NEED_FLAGS) == EKF_NEED_FLAGS)
                  && !(flags & EKF_CONST_POS);
+}
+
+/* ---- TIMESYNC TX/RX ------------------------------------------------------- */
+
+static void _send_timesync(int64_t tc1, int64_t ts1)
+{
+    uint8_t f[TIMESYNC_FRAME_LEN];
+    memset(f, 0, sizeof(f));
+    f[0] = MAV_STX;
+    f[1] = TIMESYNC_PL_LEN;
+    f[4] = s_seq++;
+    f[5] = MAV_SYSID;
+    f[6] = MAV_COMPID;
+    f[7] = (uint8_t)MSGID_TIMESYNC;
+    write_i64_le(&f[10], tc1);
+    write_i64_le(&f[18], ts1);
+    uint16_t crc = 0xFFFFu;
+    for (int i = 1; i <= 9 + (int)TIMESYNC_PL_LEN; i++)
+        crc = crc_accumulate(f[i], crc);
+    crc = crc_accumulate(CRC_EXTRA_TIMESYNC, crc);
+    f[26] = (uint8_t)(crc & 0xFFu);
+    f[27] = (uint8_t)(crc >> 8u);
+    uart_write_blocking(MAV_UART, f, TIMESYNC_FRAME_LEN);
+}
+
+static void _dispatch_timesync(uint8_t crc_hi)
+{
+    if (s_rx.msgid != MSGID_TIMESYNC || s_rx.discard || s_rx.len < TIMESYNC_PL_LEN) return;
+
+    uint16_t received = (uint16_t)s_rx.crc_lo | ((uint16_t)crc_hi << 8u);
+    uint16_t computed = crc_accumulate(CRC_EXTRA_TIMESYNC, s_rx.crc);
+    if (computed != received) return;
+
+    int64_t tc1    = read_i64_le(&s_rx.buf[0]);
+    int64_t ts1    = read_i64_le(&s_rx.buf[8]);
+    int64_t now_ns = (int64_t)(time_us_64() * 1000ULL);
+
+    if (tc1 == 0) {
+        /* FC is requesting timesync — echo ts1 back, stamp our current time as tc1 */
+        _send_timesync(now_ns, ts1);
+        return;
+    }
+
+    /* FC responded to our earlier request: compute RTT and update offset EMA */
+    int64_t rtt_ns = now_ns - ts1;
+    if (rtt_ns <= 0 || rtt_ns > TIMESYNC_RTT_MAX_NS) return;   /* stale or outlier */
+
+    /* offset = (local_midpoint) − (fc_time_at_midpoint)
+     *        = (ts1 + now_ns)/2 − tc1 */
+    int64_t offset_ns = (ts1 + now_ns - 2LL * tc1) / 2LL;
+
+    if (!s_timesync_valid) {
+        s_timesync_offset_ns = (float)offset_ns;
+        s_timesync_valid     = true;
+    } else {
+        s_timesync_offset_ns += TIMESYNC_ALPHA * ((float)offset_ns - s_timesync_offset_ns);
+    }
 }
 
 static void _rx_feed(uint8_t b)
@@ -224,7 +307,9 @@ static void _rx_feed(uint8_t b)
         s_rx.crc_lo = b; s_rx.state = RXS_CRC1;
         break;
     case RXS_CRC1:
-        _dispatch_ekf(b); s_rx.state = RXS_IDLE;
+        _dispatch_ekf(b);
+        _dispatch_timesync(b);
+        s_rx.state = RXS_IDLE;
         break;
     }
 }
@@ -354,4 +439,19 @@ void mavlink_request_ekf_stream(void)
 {
     /* Ask the FC to stream EKF_STATUS_REPORT (id 193) at 1 Hz (1 000 000 µs) */
     _send_cmd_long(MAV_CMD_MSG_INTV, 193.0f, 1000000.0f);
+}
+
+void mavlink_timesync_send_request(void)
+{
+    /* tc1=0 marks a request; ts1 is our timestamp so we can compute RTT on reply */
+    int64_t now_ns = (int64_t)(time_us_64() * 1000ULL);
+    _send_timesync(0, now_ns);
+}
+
+uint64_t mavlink_timesync_corrected_us(uint64_t local_us)
+{
+    if (!s_timesync_valid) return local_us;
+    /* fc_time = local_time − offset  (offset = local_ns − fc_ns) */
+    int64_t corrected = (int64_t)local_us - (int64_t)(s_timesync_offset_ns / 1000.0f);
+    return corrected > 0 ? (uint64_t)corrected : 0u;
 }
