@@ -24,8 +24,8 @@
  *   [36..59]   vx/vy/vz + rates    float  NaN / 0.0
  *   [60..143]  pose_covariance     float[21]  diagonal set, rest 0.0
  *   [144..227] velocity_covariance float[21]  NaN (not used by AP)
- *   [228]      frame_id            uint8  1  (MAV_FRAME_LOCAL_NED)
- *   [229]      child_frame_id      uint8  8  (MAV_FRAME_BODY_NED)
+ *   [228]      frame_id            uint8  20 (MAV_FRAME_LOCAL_FRD)
+ *   [229]      child_frame_id      uint8  12 (MAV_FRAME_BODY_FRD)
  *   [230]      reset_counter       uint8  0
  *   [231]      estimator_type      uint8  0  (MAV_ESTIMATOR_TYPE_UNKNOWN)
  *   [232]      quality             int8   100
@@ -400,8 +400,8 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
     for (int i = 0; i < 21; i++)
         memcpy(&frame[154 + i * 4], k_nan, 4u);
 
-    frame[238] = 1u;    /* frame_id       = MAV_FRAME_LOCAL_NED  */
-    frame[239] = 8u;    /* child_frame_id = MAV_FRAME_BODY_NED   */
+    frame[238] = 20u;   /* frame_id       = MAV_FRAME_LOCAL_FRD  */
+    frame[239] = 12u;   /* child_frame_id = MAV_FRAME_BODY_FRD   */
     frame[240] = 0u;    /* reset_counter  */
     frame[241] = 0u;    /* estimator_type = MAV_ESTIMATOR_TYPE_UNKNOWN */
     frame[242] = 100;   /* quality        */
