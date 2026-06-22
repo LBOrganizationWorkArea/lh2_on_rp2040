@@ -403,7 +403,7 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
     frame[238] = 1u;    /* frame_id       = MAV_FRAME_LOCAL_NED  */
     frame[239] = 8u;    /* child_frame_id = MAV_FRAME_BODY_NED   */
     frame[240] = 0u;    /* reset_counter  */
-    frame[241] = 3u;    /* estimator_type = MAV_ESTIMATOR_TYPE_VIO */
+    frame[241] = 0u;    /* estimator_type = MAV_ESTIMATOR_TYPE_UNKNOWN */
     frame[242] = 100;   /* quality        */
 
     /* ---- CRC ------------------------------------------------------------- */
