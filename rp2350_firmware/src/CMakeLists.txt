@@ -30,7 +30,7 @@ pico_sdk_init()
 # ============================================================================
 
 add_executable(crossing_beams
-    main_real.c
+    main.c
     lh2/lh2.c
     lh2/lh2_decoder.c
     angle_decoder/angle_decoder.c
@@ -66,7 +66,7 @@ target_compile_options(crossing_beams PRIVATE
 # ============================================================================
 # crossing_beams_synthetic — full dual-core pipeline, no sensors
 #
-# Builds main_real.c with -DSYNTHETIC_CAPTURE: core 1 fabricates the LFSR
+# Builds main.c with -DSYNTHETIC_CAPTURE: core 1 fabricates the LFSR
 # counts a real sensor would emit for a body tracing a 1 m × 1 m square, then
 # core 0 runs the REAL angle_decoder → solve3d → MAVLink path unchanged.
 # Exercises the cross-core architecture on-chip without any hardware.
@@ -75,7 +75,7 @@ target_compile_options(crossing_beams PRIVATE
 # ============================================================================
 
 add_executable(crossing_beams_synthetic
-    main_real.c
+    main.c
     angle_decoder/angle_decoder.c
     cv/cv.c
     solve3d/solve3d.c
