@@ -418,10 +418,6 @@ int main(void)
         }
         last_print_us = now_us;
 
-        /* Send TIMESYNC request at 10 Hz; FC replies and _dispatch_timesync()
-         * updates the EMA offset via mavlink_rx_update(). */
-        mavlink_timesync_send_request();
-
         /* Send ODOMETRY at 10 Hz with timestamp corrected to FC timebase. */
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
             mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),

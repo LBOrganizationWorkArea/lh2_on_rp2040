@@ -233,7 +233,14 @@ static void _dispatch_timesync(uint8_t crc_hi)
     int64_t now_ns = (int64_t)(time_us_64() * 1000ULL);
 
     if (tc1 == 0) {
-        /* FC is requesting timesync — echo ts1 back, stamp our current time as tc1 */
+        /* FC broadcasting its time — calibrate offset, then echo */
+        int64_t offset_ns = now_ns - ts1;
+        if (!s_timesync_valid) {
+            s_timesync_offset_ns = (float)offset_ns;
+            s_timesync_valid     = true;
+        } else {
+            s_timesync_offset_ns += TIMESYNC_ALPHA * ((float)offset_ns - s_timesync_offset_ns);
+        }
         _send_timesync(now_ns, ts1);
         return;
     }
@@ -441,12 +448,6 @@ void mavlink_request_ekf_stream(void)
     _send_cmd_long(MAV_CMD_MSG_INTV, 193.0f, 1000000.0f);
 }
 
-void mavlink_timesync_send_request(void)
-{
-    /* tc1=0 marks a request; ts1 is our timestamp so we can compute RTT on reply */
-    int64_t now_ns = (int64_t)(time_us_64() * 1000ULL);
-    _send_timesync(0, now_ns);
-}
 
 uint64_t mavlink_timesync_corrected_us(uint64_t local_us)
 {
