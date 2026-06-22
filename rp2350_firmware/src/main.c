@@ -422,9 +422,8 @@ int main(void)
          * updates the EMA offset via mavlink_rx_update(). */
         mavlink_timesync_send_request();
 
-        /* Send ODOMETRY at 10 Hz with timestamp corrected to FC timebase. */
-        if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
-            /* World → NED: negate Z (world z-up → MAVLink z-down). */
+        /* Send ODOMETRY at 10 Hz only after EKF is healthy (g_home_set). */
+        if (g_home_set && (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f)) {
             mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
                                   last_cx, last_cy, -last_cz);
         }
