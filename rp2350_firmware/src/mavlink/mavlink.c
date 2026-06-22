@@ -27,7 +27,7 @@
  *   [228]      frame_id            uint8  1  (MAV_FRAME_LOCAL_NED)
  *   [229]      child_frame_id      uint8  8  (MAV_FRAME_BODY_NED)
  *   [230]      reset_counter       uint8  0
- *   [231]      estimator_type      uint8  3  (MAV_ESTIMATOR_TYPE_VIO)
+ *   [231]      estimator_type      uint8  6  (MAV_ESTIMATOR_TYPE_MOCAP)
  *   [232]      quality             int8   100
  *
  *   [243..244] CRC16/MCRF4XX over [1]..[242], CRC_EXTRA=91
@@ -403,7 +403,7 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
     frame[238] = 1u;    /* frame_id       = MAV_FRAME_LOCAL_NED  */
     frame[239] = 8u;    /* child_frame_id = MAV_FRAME_BODY_NED   */
     frame[240] = 0u;    /* reset_counter  */
-    frame[241] = 0u;    /* estimator_type = MAV_ESTIMATOR_TYPE_UNKNOWN */
+    frame[241] = 6u;    /* estimator_type = MAV_ESTIMATOR_TYPE_MOCAP */
     frame[242] = 100;   /* quality        */
 
     /* ---- CRC ------------------------------------------------------------- */
