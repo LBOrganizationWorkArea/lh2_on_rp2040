@@ -76,17 +76,18 @@ def _roty(deg):
 
 def synthetic_poses():
     """
-    Two base stations on the floor (1 m apart along X), both looking straight
-    up (+Z). R = Ry(-90deg) maps the BS-local boresight (+X) to world +Z.
+    Two base stations mounted on the ceiling (2.26 m apart along X, at z=3.45 m),
+    both looking straight down (-Z). R = Ry(+90deg) maps the BS-local boresight
+    (+X) to world -Z.
 
     With this geometry a body at world (bx, by, 2) is seen by both stations and
     the two rays cross exactly at it (baseline along X is perpendicular to the
-    +Z viewing direction -> well-conditioned).
+    -Z viewing direction -> well-conditioned).
     """
-    R = _roty(-90.0)   # local +X -> world +Z
+    R = _roty(90.0)   # local +X -> world -Z
     return [
-        BsPose(origin=[0.0, 0.0, 0.0], R=R),   # BS0  (geos:0)
-        BsPose(origin=[1.0, 0.0, 0.0], R=R),   # BS1  (geos:1)
+        BsPose(origin=[0.0,  0.0, 3.45], R=R),   # BS0  (geos:0)
+        BsPose(origin=[2.26, 0.0, 3.45], R=R),   # BS1  (geos:1)
     ]
 
 
