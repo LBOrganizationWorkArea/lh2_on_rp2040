@@ -758,9 +758,14 @@ function loadFile(file) {
     G('iw-dur').textContent  = dur;
     G('iw-file').textContent = shortName;
 
-    // Drop zone
+    // Drop zone — show diagnostic so we can spot parsing failures without F12
     const kb = (file.size/1024).toFixed(0);
-    dz.innerHTML = `<span style="color:#3DFF7A">✓ ${file.name}</span><br><span style="font-size:10px;color:#555">${kb} KB · ${_totalRec} records</span>`;
+    const shownPct = _totalRec > 0 ? Math.round(100*allMessages.length/_totalRec) : 0;
+    dz.innerHTML = `
+      <span style="color:#3DFF7A;font-size:13px">✓ ${file.name}</span><br>
+      <span style="font-size:11px;color:#aaa">${kb} KB  ·  format: <b>${_format}</b>  ·  FMT types: <b>${_fmtCount}</b></span><br>
+      <span style="font-size:12px;color:#fbc707">parsed <b>${_totalRec}</b> records  →  showing <b>${allMessages.length}</b> (${shownPct}%)</span>
+    `;
     dz.classList.add('loaded');
 
     // Render then scroll to end so the flight is visible, not the boot sequence
