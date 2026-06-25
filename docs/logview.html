@@ -67,18 +67,19 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
 }
 #clear-filter:hover { background: #3a2e00; }
 
-/* Message log virtual scroll */
-#mavlog-wrap { flex: 1; display: flex; flex-direction: column; min-height: 300px; }
+/* Message log */
+#mavlog-wrap { flex: 1; display: flex; flex-direction: column; min-height: 200px; }
 #mavlog-hdr  { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; flex-shrink: 0; }
 #msg-count   { font-size: 9px; color: #333; }
 #mavlog {
-  flex: 1; overflow-y: auto; overflow-x: auto; min-height: 0; position: relative;
+  flex: 1; overflow-y: auto; overflow-x: auto; min-height: 0;
   background: #0e0e0e; border: 1px solid #1e1e1e; border-radius: 3px;
 }
-#mavlog-spacer  { min-height: 1px; }
-#mavlog-content { position: absolute; top: 0; left: 0; min-width: 100%; }
 .ml    { font-size: 10px; line-height: 17px; height: 34px; overflow: hidden;
-         white-space: normal; word-break: break-all; padding: 0 3px; }
+         white-space: normal; word-break: break-all; padding: 0 3px;
+         content-visibility: auto; contain-intrinsic-size: 0 34px; }
+.ml-gap { font-size: 9px; color: #2a2a2a; text-align: center; padding: 4px 0;
+          border-top: 1px solid #1a1a1a; border-bottom: 1px solid #1a1a1a; margin: 2px 0; }
 .ml-ts { color: #2b2b2b; margin-right: 4px; }
 .ml-mid { color: #3a3a3a; margin-right: 4px; }
 .ml-hb   { color: #8a7abc; }
@@ -122,6 +123,12 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
 #iw-msgs  { font-size: 14px; font-weight: bold; color: #3DFF7A; }
 #iw-dur   { font-size: 11px; color: #666; }
 #iw-file  { font-size: 10px; color: #444; word-break: break-all; }
+
+/* Version tag */
+#version {
+  position: fixed; bottom: 8px; right: 10px; z-index: 50;
+  font-size: 9px; color: #2a2a2a; letter-spacing: 1px; pointer-events: none;
+}
 
 /* Drop overlay */
 #drop-overlay {
@@ -195,10 +202,7 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
       <input id="msg-filter" placeholder="filter by type or content…" oninput="applyFilter()">
       <button id="clear-filter" onclick="clearFilter()">✕</button>
     </div>
-    <div id="mavlog" onscroll="renderLog()">
-      <div id="mavlog-spacer"></div>
-      <div id="mavlog-content"></div>
-    </div>
+    <div id="mavlog"></div>
   </div>
 </div>
 
@@ -214,6 +218,8 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
     <div id="scale-text">— m</div>
   </div>
 </div>
+
+<div id="version">v2.1.2</div>
 
 <!-- Full-page drop overlay -->
 <div id="drop-overlay">
@@ -604,40 +610,29 @@ let allMessages      = [];
 let filteredMessages = [];
 let droneTrail       = [];
 
-// ─── Virtual scroll ──────────────────────────────────────────────────────────
-const ROW_H = 34; // 2 lines × 17 px — matches .ml height
-
+// ─── Log render ──────────────────────────────────────────────────────────────
 function scrollLog(pos) {
-  const box = G('mavlog');
-  box.scrollTop = pos === Infinity ? Number.MAX_SAFE_INTEGER : pos;
-  renderLog(); // re-render at new scroll position without waiting for scroll event
+  G('mavlog').scrollTop = pos === Infinity ? Number.MAX_SAFE_INTEGER : pos;
 }
 
+const GAP_THRESHOLD_MS = 60000; // show separator when consecutive messages differ by >60s
+
 function renderLog() {
-  const box     = G('mavlog');
-  const spacer  = G('mavlog-spacer');
-  const content = G('mavlog-content');
-  const total   = filteredMessages.length;
-  spacer.style.height = (total * ROW_H) + 'px';
-
-  const scrollTop = box.scrollTop;
-  const visH      = box.clientHeight;
-  const start = Math.max(0, Math.floor(scrollTop / ROW_H) - 2);
-  const end   = Math.min(total, start + Math.ceil(visH / ROW_H) + 4);
-
-  content.style.transform = `translateY(${start * ROW_H}px)`;
-  content.innerHTML = '';
-  for (let i = start; i < end; i++) {
-    const m   = filteredMessages[i];
-    const ts  = m.t_ms != null ? `${(m.t_ms/1000).toFixed(2)}s` : `#${i+1}`;
-    const row = document.createElement('div');
-    row.style.height = ROW_H + 'px';
-    row.className = `ml ${m.cls}`;
-    row.innerHTML = `<span class="ml-ts">${ts}</span><span class="ml-mid">[${m.name}]</span> ${m.summary}`;
-    content.appendChild(row);
+  const msgs = filteredMessages;
+  const rows = [];
+  for (let i = 0; i < msgs.length; i++) {
+    const m    = msgs[i];
+    const prev = msgs[i - 1];
+    if (i > 0 && m.t_ms != null && prev.t_ms != null && m.t_ms - prev.t_ms > GAP_THRESHOLD_MS) {
+      const gapS = ((m.t_ms - prev.t_ms) / 1000).toFixed(0);
+      rows.push(`<div class="ml-gap">── gap: ${gapS}s ──</div>`);
+    }
+    const ts = m.t_ms != null ? `${(m.t_ms/1000).toFixed(2)}s` : `#${i+1}`;
+    rows.push(`<div class="ml ${m.cls}"><span class="ml-ts">${ts}</span><span class="ml-mid">[${m.name}]</span> ${m.summary}</div>`);
   }
-  G('msg-count').textContent = filteredMessages.length < allMessages.length
-    ? `${filteredMessages.length} / ${allMessages.length}`
+  G('mavlog').innerHTML = rows.join('');
+  G('msg-count').textContent = msgs.length < allMessages.length
+    ? `${msgs.length} / ${allMessages.length}`
     : allMessages.length;
 }
 
@@ -769,9 +764,7 @@ function loadFile(file) {
     dz.innerHTML = `<span style="color:#3DFF7A">✓ ${file.name}</span>  <span style="color:#555;font-size:10px">${kb} KB · ${_totalRec} records · ${_format}</span>`;
     dz.classList.add('loaded');
 
-    // Render first (sets spacer height), then jump to end on next frame
     renderLog();
-    requestAnimationFrame(() => scrollLog(Infinity));
   };
   reader.readAsArrayBuffer(file);
 }
