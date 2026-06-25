@@ -170,7 +170,7 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
   <input type="file" id="file-input" accept=".bin,.mavlink,.log" style="display:none">
 
   <div id="stats">
-    <div class="stat-row"><span>SHOWN MESSAGES</span><span class="stat-val" id="st-total">-</span></div>
+    <div class="stat-row"><span>SHOWN / PARSED</span><span class="stat-val" id="st-total">-</span></div>
     <div class="stat-row"><span>DURATION</span><span class="stat-val" id="st-dur">-</span></div>
     <div class="stat-row"><span>POSITION SAMPLES</span><span class="stat-val" id="st-pos">-</span></div>
     <div class="stat-row" style="margin-top:2px;padding-top:2px;border-top:1px solid #1e1e1e">
@@ -517,58 +517,64 @@ function dfSummary(name, fields, cols) {
   return parts.join('  ');
 }
 
-function parseDataFlash(raw) {
-  const buf  = raw.buffer; // raw.byteOffset=0 from FileReader → absolute positions work
-  const fmts = {};         // type_byte → {name, length, format, cols}
-  const msgs = [];
-  let i = 0;
-  const n = raw.length;
+function dfStr(raw, offset, len) {
+  return String.fromCharCode(...raw.subarray(offset, offset+len)).replace(/\0/g,'').trim();
+}
 
+function parseDataFlash(raw) {
+  const buf = raw.buffer;
+  const n   = raw.length;
+
+  // ── Pass 1: collect every FMT record regardless of position in file ──────
+  const fmts = {};
+  for (let i = 0; i < n - 88; i++) {
+    if (raw[i] !== DF_H1 || raw[i+1] !== DF_H2 || raw[i+2] !== DF_FMT_ID) continue;
+    const b     = i + 3;
+    const ftype = raw[b];
+    const flen  = raw[b+1];
+    if (flen < 3) { i += 88; continue; }
+    const name   = dfStr(raw, b+2,  4);
+    const format = dfStr(raw, b+6,  16);
+    const cols   = dfStr(raw, b+22, 64).split(',').map(s=>s.trim()).filter(Boolean);
+    if (name.length) fmts[ftype] = { name, length: flen, format, cols };
+    i += 88; // skip ahead (loop will +1)
+  }
+
+  // ── Pass 2: process data records ─────────────────────────────────────────
+  const msgs = [];
+  let totalRecords = 0;
+  let i = 0;
   while (i < n - 2) {
     if (raw[i] !== DF_H1 || raw[i+1] !== DF_H2) { i++; continue; }
     const type = raw[i+2];
 
-    if (type === DF_FMT_ID) {
-      // FMT record: 3-byte header + 86-byte body = 89 bytes total
-      if (i + 89 > n) break;
-      const b       = i + 3;
-      const ftype   = raw[b];
-      const flen    = raw[b+1];
-      const name    = String.fromCharCode(...raw.slice(b+2, b+6)).replace(/\0/g,'').trim();
-      const format  = String.fromCharCode(...raw.slice(b+6, b+22)).replace(/\0/g,'').trim();
-      const cols    = String.fromCharCode(...raw.slice(b+22, b+86)).replace(/\0/g,'').trim()
-                        .split(',').map(s => s.trim()).filter(Boolean);
-      fmts[ftype] = { name, length: flen, format, cols };
-      i += 89;
-      continue;
-    }
+    if (type === DF_FMT_ID) { i += 89; continue; } // already handled in pass 1
 
     const fmt = fmts[type];
     if (!fmt || fmt.length < 3) { i++; continue; }
-    if (i + fmt.length > n)     { i++; continue; }
+    if (i + fmt.length > n)     { i += fmt.length; continue; }
 
+    totalRecords++;
     const dataPos = i + 3;
     let fields;
-    try { fields = dfParseFields(buf, dataPos, fmt.format, fmt.cols); }
-    catch(_) { i += fmt.length; continue; }
+    try   { fields = dfParseFields(buf, dataPos, fmt.format, fmt.cols); }
+    catch (_) { i += fmt.length; continue; }
 
     let t_ms = null;
-    if (fields.TimeUS != null) t_ms = fields.TimeUS / 1000;
-    else if (fields.TimeMS != null) t_ms = fields.TimeMS;
+    if (fields.TimeUS != null)       t_ms = fields.TimeUS / 1000;
+    else if (fields.TimeMS != null)  t_ms = fields.TimeMS;
 
     const name = fmt.name;
     if (DF_SHOW.has(name)) {
-      msgs.push({
-        mid: type, name,
-        cls: dfMsgClass(name),
-        summary: dfSummary(name, fields, fmt.cols),
-        t_ms, fields,
-      });
+      msgs.push({ mid: type, name, cls: dfMsgClass(name),
+                  summary: dfSummary(name, fields, fmt.cols), t_ms, fields });
     }
-
     i += fmt.length;
   }
-  return msgs;
+
+  const fmtCount = Object.keys(fmts).length;
+  console.log(`DataFlash: ${fmtCount} types defined, ${totalRecords} data records, ${msgs.length} shown`);
+  return { msgs, totalRecords, fmtCount };
 }
 
 // ─── GPS → local NED ─────────────────────────────────────────────────────────
@@ -582,11 +588,15 @@ function gpsToNed(lat, lng, alt, oLat, oLng, oAlt) {
 
 // ─── Auto-detect format & parse ───────────────────────────────────────────────
 function parseFile(raw) {
-  // Scan first 32 bytes for DataFlash magic
-  for (let i = 0; i < Math.min(32, raw.length - 1); i++) {
-    if (raw[i] === DF_H1 && raw[i+1] === DF_H2) return parseDataFlash(raw);
+  // Scan first 200 bytes for DataFlash magic (in case of preamble)
+  for (let i = 0; i < Math.min(200, raw.length - 1); i++) {
+    if (raw[i] === DF_H1 && raw[i+1] === DF_H2) {
+      const r = parseDataFlash(raw);
+      return { msgs: r.msgs, totalRecords: r.totalRecords, fmtCount: r.fmtCount, format: 'DataFlash' };
+    }
   }
-  return parseMAVLink(raw);
+  const msgs = parseMAVLink(raw);
+  return { msgs, totalRecords: msgs.length, fmtCount: 0, format: 'MAVLink' };
 }
 
 // ─── State ────────────────────────────────────────────────────────────────────
@@ -650,9 +660,13 @@ function loadFile(file) {
 
   const reader = new FileReader();
   reader.onload = e => {
-    const raw = new Uint8Array(e.target.result);
-    allMessages      = parseFile(raw);
+    const raw        = new Uint8Array(e.target.result);
+    const parsed     = parseFile(raw);
+    allMessages      = parsed.msgs;
     filteredMessages = allMessages;
+    const _totalRec  = parsed.totalRecords;
+    const _fmtCount  = parsed.fmtCount;
+    const _format    = parsed.format;
 
     // Build trail — phase 1: NED metres (MAVLink LOCAL_POS_NED or DataFlash XKF1/NKF1)
     droneTrail = [];
@@ -731,22 +745,22 @@ function loadFile(file) {
     }
 
     // Stats
-    G('st-total').textContent = allMessages.length;
-    G('st-dur').textContent   = dur;
-    G('st-pos').textContent   = droneTrail.length;
+    G('st-total').textContent   = `${allMessages.length} / ${_totalRec} raw`;
+    G('st-dur').textContent     = dur;
+    G('st-pos').textContent     = droneTrail.length;
     G('stats').classList.add('show');
 
 
     // Info widget
     const shortName = file.name.length > 22 ? file.name.slice(0,20)+'…' : file.name;
     G('iw-msgs').style.color = '#3DFF7A';
-    G('iw-msgs').textContent = `${allMessages.length} messages`;
+    G('iw-msgs').textContent = `${_totalRec} records (${allMessages.length} shown)  [${_format}]`;
     G('iw-dur').textContent  = dur;
     G('iw-file').textContent = shortName;
 
     // Drop zone
     const kb = (file.size/1024).toFixed(0);
-    dz.innerHTML = `<span style="color:#3DFF7A">✓ ${file.name}</span><br><span style="font-size:10px;color:#555">${kb} KB · ${allMessages.length} frames</span>`;
+    dz.innerHTML = `<span style="color:#3DFF7A">✓ ${file.name}</span><br><span style="font-size:10px;color:#555">${kb} KB · ${_totalRec} records</span>`;
     dz.classList.add('loaded');
 
     // Render then scroll to end so the flight is visible, not the boot sequence
