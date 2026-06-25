@@ -15,7 +15,7 @@ body {
 #panel {
   width: 336px; min-width: 336px; background: #161616;
   border-right: 1px solid #222; padding: 8px;
-  display: flex; flex-direction: column; gap: 5px; overflow: hidden;
+  display: flex; flex-direction: column; gap: 5px; overflow-y: auto; overflow-x: hidden;
 }
 .lbl   { font-size: 10px; color: #555; letter-spacing: 1px; }
 hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
@@ -68,7 +68,7 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
 #clear-filter:hover { background: #3a2e00; }
 
 /* Message log virtual scroll */
-#mavlog-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#mavlog-wrap { flex: 1; display: flex; flex-direction: column; min-height: 300px; }
 #mavlog-hdr  { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; flex-shrink: 0; }
 #msg-count   { font-size: 9px; color: #333; }
 #mavlog {
@@ -140,7 +140,7 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
 
 <div id="panel">
   <!-- Logo -->
-  <svg viewBox="-40 -40 1202.52 314.66667" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;padding:2px 0">
+  <svg viewBox="-40 -40 1202.52 314.66667" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;max-height:55px;padding:2px 0">
     <path d="M 0,0 H 12.148 V -44.178 H 39.681 V -55.227 H 0 Z" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,94.8548,79.854133)"></path>
     <path d="M 0,0 V 31.555 H 12.147 V 0.315 c 0,-8.994 4.498,-13.651 11.911,-13.651 7.419,0 11.916,4.497 11.916,13.253 V 31.555 H 48.122 V 0.393 c 0,-16.729 -9.386,-24.932 -24.219,-24.932 C 9.07,-24.539 0,-16.252 0,0" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,156.73893,121.92707)"></path>
     <path d="M 0,0 H 13.092 L 27.61,-23.351 42.128,0 H 55.22 V -55.227 H 43.149 v 36.058 L 27.61,-42.758 H 27.295 L 11.91,-19.407 v -35.82 H 0 Z" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,237.46613,79.854133)"></path>
@@ -171,11 +171,7 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
 
   <div id="stats">
     <div class="stat-row"><span>SHOWN / PARSED</span><span class="stat-val" id="st-total">-</span></div>
-    <div class="stat-row"><span>DURATION</span><span class="stat-val" id="st-dur">-</span></div>
-    <div class="stat-row"><span>POSITION SAMPLES</span><span class="stat-val" id="st-pos">-</span></div>
-    <div class="stat-row" style="margin-top:2px;padding-top:2px;border-top:1px solid #1e1e1e">
-      <span style="color:#3a3a3a;font-size:9px">scroll log to see all messages</span>
-    </div>
+    <div class="stat-row"><span>DURATION · POS SAMPLES</span><span class="stat-val"><span id="st-dur">-</span> · <span id="st-pos">-</span></span></div>
   </div>
 
   <hr>
@@ -768,14 +764,9 @@ function loadFile(file) {
     G('iw-dur').textContent  = dur;
     G('iw-file').textContent = shortName;
 
-    // Drop zone — show diagnostic so we can spot parsing failures without F12
+    // Drop zone — compact after load so it doesn't eat message-log height
     const kb = (file.size/1024).toFixed(0);
-    const shownPct = _totalRec > 0 ? Math.round(100*allMessages.length/_totalRec) : 0;
-    dz.innerHTML = `
-      <span style="color:#3DFF7A;font-size:13px">✓ ${file.name}</span><br>
-      <span style="font-size:11px;color:#aaa">${kb} KB  ·  format: <b>${_format}</b>  ·  FMT types: <b>${_fmtCount}</b></span><br>
-      <span style="font-size:12px;color:#fbc707">parsed <b>${_totalRec}</b> records  →  showing <b>${allMessages.length}</b> (${shownPct}%)</span>
-    `;
+    dz.innerHTML = `<span style="color:#3DFF7A">✓ ${file.name}</span>  <span style="color:#555;font-size:10px">${kb} KB · ${_totalRec} records · ${_format}</span>`;
     dz.classList.add('loaded');
 
     // Render first (sets spacer height), then jump to end on next frame
