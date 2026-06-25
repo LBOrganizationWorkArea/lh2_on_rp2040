@@ -418,7 +418,9 @@ const FC_SZ = {a:64,b:1,B:1,c:2,C:2,d:8,e:4,E:4,f:4,h:2,H:2,i:4,I:4,L:4,M:1,n:4,
 const DF_SHOW = new Set([
   // Flight narrative
   'MSG', 'EV', 'ERR', 'MODE', 'ARM', 'CMD', 'ORGN', 'VER',
-  // Position & altitude
+  // NED position in metres — primary source for indoor/LH2 flights
+  'XKF1', 'NKF1',
+  // Lat/lng position & altitude — fallback for outdoor / GPS flights
   'POS', 'GPS', 'GPA', 'BARO',
   // Attitude
   'ATT',
@@ -481,12 +483,12 @@ function dfParseFields(buf, pos, format, columns) {
 }
 
 function dfMsgClass(name) {
-  if (/^(ATT|AHR2|NKF\d|XKF\d|EKF\d)$/.test(name)) return 'ml-att';
-  if (/^(GPS\d?|GPA\d?|POS)$/.test(name))            return 'ml-pos';
+  if (/^(XKF1|NKF1)$/.test(name))                     return 'ml-pos';
+  if (/^(ATT|AHR2)$/.test(name))                      return 'ml-att';
+  if (/^(GPS\d?|GPA\d?|POS)$/.test(name))             return 'ml-pos';
   if (name === 'MSG')                                  return 'ml-info';
   if (name === 'ERR')                                  return 'ml-err';
   if (/^(EV|MODE|ARMING|ARM|STAT)$/.test(name))       return 'ml-hb';
-  if (/^(NKF|XKF|EKF)/.test(name))                    return 'ml-ekf';
   return 'ml-info';
 }
 
@@ -644,29 +646,43 @@ function loadFile(file) {
     allMessages      = parseFile(raw);
     filteredMessages = allMessages;
 
-    // Build trail: prefer LOCAL_POSITION_NED; fall back to DataFlash GPS/POS
+    // Build trail — phase 1: NED metres (MAVLink LOCAL_POS_NED or DataFlash XKF1/NKF1)
     droneTrail = [];
     let xMin=Infinity,xMax=-Infinity,yMin=Infinity,yMax=-Infinity,zMin=Infinity,zMax=-Infinity;
     let gpsOrigin = null;
 
-    for (const m of allMessages) {
-      let x,y,z,t;
-      if (m.mid === 32 && m.dv) {              // MAVLink LOCAL_POSITION_NED
-        x=m.dv.getFloat32(4,true); y=m.dv.getFloat32(8,true); z=m.dv.getFloat32(12,true);
-        t=m.t_ms!=null?m.t_ms/1000:droneTrail.length/10;
-      } else if (m.fields && /^(GPS\d?|POS)$/.test(m.name)) {   // DataFlash GPS or POS
-        const f=m.fields;
-        const lat=f.Lat, lng=f.Lng, alt=f.Alt??f.RAlt??0;
-        if (lat==null||lng==null||Math.abs(lat)<0.0001) continue;
-        if ((m.name.startsWith('GPS'))&&(f.Status??3)<3) continue; // need 3D fix
-        if (!gpsOrigin) gpsOrigin={lat,lng,alt:alt||0};
-        ({x,y,z}=gpsToNed(lat,lng,alt||0,gpsOrigin.lat,gpsOrigin.lng,gpsOrigin.alt));
-        t=m.t_ms!=null?m.t_ms/1000:droneTrail.length/5;
-      } else continue;
+    function pushPt(x,y,z,t) {
       droneTrail.push({x,y,z,t});
       if(x<xMin)xMin=x; if(x>xMax)xMax=x;
       if(y<yMin)yMin=y; if(y>yMax)yMax=y;
       if(z<zMin)zMin=z; if(z>zMax)zMax=z;
+    }
+
+    for (const m of allMessages) {
+      if (m.mid === 32 && m.dv) {             // MAVLink LOCAL_POSITION_NED
+        pushPt(m.dv.getFloat32(4,true), m.dv.getFloat32(8,true), m.dv.getFloat32(12,true),
+               m.t_ms!=null?m.t_ms/1000:droneTrail.length/10);
+      } else if (m.fields && /^(XKF1|NKF1)$/.test(m.name)) {  // DataFlash EKF NED position
+        const f=m.fields;
+        if ((f.C??0) !== 0) continue;         // primary EKF core only
+        const x=f.PN, y=f.PE, z=f.PD;
+        if (x==null||y==null||z==null) continue;
+        pushPt(x, y, z, m.t_ms!=null?m.t_ms/1000:droneTrail.length/10);
+      }
+    }
+
+    // Phase 2: fall back to GPS lat/lng→NED only if no NED data found
+    if (droneTrail.length === 0) {
+      for (const m of allMessages) {
+        if (!m.fields || !/^(GPS\d?|POS)$/.test(m.name)) continue;
+        const f=m.fields;
+        const lat=f.Lat, lng=f.Lng, alt=f.Alt??f.RAlt??0;
+        if (lat==null||lng==null||Math.abs(lat)<0.0001) continue;
+        if (m.name.startsWith('GPS')&&(f.Status??3)<3) continue;
+        if (!gpsOrigin) gpsOrigin={lat,lng,alt:alt||0};
+        const {x,y,z}=gpsToNed(lat,lng,alt||0,gpsOrigin.lat,gpsOrigin.lng,gpsOrigin.alt);
+        pushPt(x, y, z, m.t_ms!=null?m.t_ms/1000:droneTrail.length/5);
+      }
     }
 
     updateTrailFull();
@@ -676,7 +692,7 @@ function loadFile(file) {
       const p = droneTrail[droneTrail.length-1];
       droneMesh.position.copy(tv(p.x, p.y, p.z));
       droneMesh.visible = true;
-      const coord = gpsOrigin ? 'NED from origin' : 'NED';
+      const coord = gpsOrigin ? 'GPS→NED' : 'EKF NED';
       G('pos-x').textContent = `X(N)  ${fmtF(p.x)} m`;
       G('pos-y').textContent = `Y(E)  ${fmtF(p.y)} m`;
       G('pos-z').textContent = `Z(D)  ${fmtF(p.z)} m`;
