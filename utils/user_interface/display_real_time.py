@@ -12,7 +12,7 @@ from pathlib import Path
 import yaml
 import serial.tools.list_ports
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pymavlink import mavutil
@@ -261,6 +261,49 @@ async def ws_endpoint(ws: WebSocket):
             await ws.receive_text()
     except WebSocketDisconnect:
         _mgr.disconnect(ws)
+
+
+@app.websocket('/ws/udp')
+async def ws_udp(ws: WebSocket, port: int = Query(default=14550)):
+    """Relay raw MAVLink UDP datagrams to a browser WebSocket client."""
+    await ws.accept()
+    queue: asyncio.Queue[bytes] = asyncio.Queue()
+
+    class _UdpProto(asyncio.DatagramProtocol):
+        def datagram_received(self, data, addr):
+            queue.put_nowait(data)
+        def error_received(self, exc):
+            logging.warning('UDP relay error: %s', exc)
+
+    loop = asyncio.get_event_loop()
+    try:
+        transport, _ = await loop.create_datagram_endpoint(
+            _UdpProto, local_addr=('0.0.0.0', port))
+    except OSError as e:
+        await ws.send_text(f'error: {e}')
+        await ws.close()
+        return
+
+    logging.info('UDP relay listening on :%d', port)
+
+    async def _forward():
+        try:
+            while True:
+                data = await queue.get()
+                await ws.send_bytes(data)
+        except Exception:
+            pass
+
+    forward_task = asyncio.create_task(_forward())
+    try:
+        while True:
+            await ws.receive_text()     # blocks until client disconnects
+    except (WebSocketDisconnect, Exception):
+        pass
+    finally:
+        forward_task.cancel()
+        transport.close()
+        logging.info('UDP relay closed (port %d)', port)
 
 
 
