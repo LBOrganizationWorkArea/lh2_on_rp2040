@@ -97,10 +97,6 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
   padding: 10px 10px 8px; display: flex; flex-direction: column; gap: 6px;
   backdrop-filter: blur(6px);
 }
-#logview-widget {
-  background: rgba(16,16,16,0.93); border: 1px solid #282828; border-radius: 5px;
-  padding: 6px; backdrop-filter: blur(6px);
-}
 #conn-widget .lbl { font-size: 10px; color: #555; letter-spacing: 1px; }
 .row { display: flex; align-items: center; gap: 6px; }
 .row span { color: #555; font-size: 11px; }
@@ -135,13 +131,60 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
 #udp-port:focus { border-color: #444; }
 #udp-port::-webkit-inner-spin-button,
 #udp-port::-webkit-outer-spin-button { -webkit-appearance: none; }
-#logview-link {
-  display: block; text-align: center; font-size: 11px; color: #fbc707;
-  letter-spacing: 1px; text-decoration: none; padding: 5px;
-  border: 1px solid #fbc707; border-radius: 3px; background: #2a2000;
-  width: 100%; font-family: monospace;
+/* ── Hamburger menu ─────────────────────────────────────────────────────────── */
+#menu-widget { position: relative; }
+#menu-btn {
+  background: rgba(16,16,16,0.93); border: 1px solid #282828; border-radius: 5px;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 10px 14px; width: 100%; backdrop-filter: blur(6px);
 }
-#logview-link:hover { background: #3a2e00; }
+#menu-btn:hover { background: rgba(28,28,28,0.97); }
+.hb-line { width: 18px; height: 2px; background: #fbc707; border-radius: 1px; pointer-events: none; }
+#menu-dropdown {
+  position: absolute; top: calc(100% + 4px); right: 0; width: 100%;
+  background: rgba(14,14,14,0.98); border: 1px solid #282828; border-radius: 5px;
+  display: flex; flex-direction: column; overflow: hidden;
+  backdrop-filter: blur(6px); z-index: 30;
+}
+.menu-item {
+  width: 100%; padding: 9px 12px; text-align: left;
+  background: transparent; border: none; border-bottom: 1px solid #1e1e1e;
+  font-size: 11px; font-family: monospace; letter-spacing: 1px;
+  color: #fbc707; cursor: pointer; text-decoration: none; display: block;
+}
+.menu-item:last-child { border-bottom: none; }
+.menu-item:hover { background: #2a2000; color: #fbc707; }
+
+/* ── LH pose editor modal ───────────────────────────────────────────────────── */
+#lh-modal {
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.72); align-items: center; justify-content: center;
+}
+#lh-modal.open { display: flex; }
+#lh-modal-box {
+  background: #161616; border: 1px solid #282828; border-radius: 6px;
+  padding: 16px; width: 340px; display: flex; flex-direction: column; gap: 12px;
+}
+#lh-modal-box .modal-title { font-size: 12px; color: #888; letter-spacing: 2px; }
+#lh-sel { display: flex; }
+.lh-tab {
+  flex: 1; padding: 5px; font-size: 11px; letter-spacing: 1px;
+  background: #111; color: #555; border: 1px solid #2a2a2a; border-radius: 3px; position: relative;
+}
+.lh-tab:not(:first-child) { margin-left: -1px; }
+.lh-tab.sel { background: #2a2000; color: #fbc707; border-color: #fbc707; z-index: 1; }
+.lh-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+.lh-field { display: flex; flex-direction: column; gap: 3px; }
+.lh-field span { font-size: 9px; color: #555; letter-spacing: 1px; }
+.lh-field input {
+  background: #1e1e1e; color: #ddd; border: 1px solid #2e2e2e; border-radius: 3px;
+  padding: 4px 6px; font-size: 12px; font-family: monospace; outline: none; width: 100%;
+}
+.lh-field input:focus { border-color: #444; }
+.lh-btns { display: flex; gap: 8px; }
+.lh-btns button { flex: 1; }
+.btn-cancel { background: #111 !important; color: #666 !important; border-color: #2a2a2a !important; }
+.btn-cancel:hover { background: #1a1a1a !important; color: #888 !important; }
 </style>
 </head>
 <body>
@@ -218,8 +261,16 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
       <div class="small-st" id="conn-status"></div>
       <div id="telem-st" style="color:#555">WAITING…</div>
     </div>
-    <div id="logview-widget">
-      <a href="logview.html" id="logview-link">ANALYSE LOGS →</a>
+    <div id="menu-widget">
+      <button id="menu-btn" onclick="toggleMenu()">
+        <div class="hb-line"></div>
+        <div class="hb-line"></div>
+        <div class="hb-line"></div>
+      </button>
+      <div id="menu-dropdown" style="display:none">
+        <a href="logview.html" class="menu-item">ANALYSE LOGS →</a>
+        <button class="menu-item" onclick="openLhEditor()">CHANGE LH POSE</button>
+      </div>
     </div>
   </div>
 
@@ -236,7 +287,7 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
   <div id="webserial-warn">WebSerial not supported — use Chrome or Edge</div>
 </div>
 
-<div style="position:fixed;bottom:8px;right:10px;z-index:50;font-size:9px;color:#2a2a2a;letter-spacing:1px;pointer-events:none">v2.1.2</div>
+<div style="position:fixed;bottom:8px;right:10px;z-index:50;font-size:9px;color:#2a2a2a;letter-spacing:1px;pointer-events:none">v2.2.0</div>
 
 <script type="importmap">
 {
@@ -734,17 +785,24 @@ const grid=new THREE.GridHelper(20,40,0x1e1e1e,0x1a1a1a);
 grid.position.set(0,0,0); scene.add(grid);
 
 const LH_COLS=[0xFF66FF,0x66FFFF];
-LIGHTHOUSES.forEach((lh,i)=>{
-  const[px,py,pz]=lh.pos,R=lh.R,c=LH_COLS[i%2];
-  const m=new THREE.Mesh(new THREE.OctahedronGeometry(0.025),new THREE.MeshBasicMaterial({color:c}));
-  m.position.copy(tv(px,py,pz)); scene.add(m);
-  addLabel(`LH${lh.id}`,px,py,pz+.09,'#fff');
-  const bm=[-R[0][2],-R[1][2],-R[2][2]];
-  const lx=[R[0][0],R[1][0],R[2][0]],ly=[R[0][1],R[1][1],R[2][1]];
-  addLine(px,py,pz,px+bm[0]*.3,py+bm[1]*.3,pz+bm[2]*.3,c,3);
-  addLine(px,py,pz,px+lx[0]*.1,py+lx[1]*.1,pz+lx[2]*.1,0xFFA040,2);
-  addLine(px,py,pz,px+ly[0]*.1,py+ly[1]*.1,pz+ly[2]*.1,0xFFFF40,2);
-});
+const lhSceneObjs=[];
+function drawLighthouses(){
+  lhSceneObjs.forEach(o=>scene.remove(o)); lhSceneObjs.length=0;
+  LIGHTHOUSES.forEach((lh,i)=>{
+    const[px,py,pz]=lh.pos,R=lh.R,c=LH_COLS[i%2];
+    const push=o=>{scene.add(o);lhSceneObjs.push(o);};
+    const m=new THREE.Mesh(new THREE.OctahedronGeometry(0.025),new THREE.MeshBasicMaterial({color:c}));
+    m.position.copy(tv(px,py,pz)); push(m);
+    const ld=document.createElement('div'); ld.className='label'; ld.textContent=`LH${lh.id}`; ld.style.color='#fff';
+    const lo=new CSS2DObject(ld); lo.position.copy(tv(px,py,pz+.09)); push(lo);
+    const bm=[-R[0][2],-R[1][2],-R[2][2]],lx=[R[0][0],R[1][0],R[2][0]],ly=[R[0][1],R[1][1],R[2][1]];
+    const mkL=(ax,ay,az,bx2,by2,bz2,col,w=2)=>{const l=new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(ax,ay,az),tv(bx2,by2,bz2)]),new THREE.LineBasicMaterial({color:col,linewidth:w}));push(l);};
+    mkL(px,py,pz,px+bm[0]*.3,py+bm[1]*.3,pz+bm[2]*.3,c,3);
+    mkL(px,py,pz,px+lx[0]*.1,py+lx[1]*.1,pz+lx[2]*.1,0xFFA040,2);
+    mkL(px,py,pz,px+ly[0]*.1,py+ly[1]*.1,pz+ly[2]*.1,0xFFFF40,2);
+  });
+}
+drawLighthouses();
 
 const droneMesh=new THREE.Mesh(
   new THREE.SphereGeometry(0.018,16,16),new THREE.MeshBasicMaterial({color:0xFF3333}));
@@ -785,6 +843,65 @@ function updateScaleBar(){
   }
 }
 
+// ─── Hamburger menu ──────────────────────────────────────────────────────────
+let _menuOpen=false;
+function toggleMenu(){
+  _menuOpen=!_menuOpen;
+  G('menu-dropdown').style.display=_menuOpen?'flex':'none';
+}
+document.addEventListener('click',e=>{
+  if(_menuOpen&&!G('menu-widget').contains(e.target)){
+    _menuOpen=false; G('menu-dropdown').style.display='none';
+  }
+});
+window.toggleMenu=toggleMenu;
+
+// ─── LH pose editor ───────────────────────────────────────────────────────────
+let _lhSelIdx=0;
+
+function _matToEuler(R){
+  const pitch=Math.asin(-R[2][0]);
+  const roll =Math.atan2(R[2][1],R[2][2]);
+  const yaw  =Math.atan2(R[1][0],R[0][0]);
+  return{yaw:yaw*180/Math.PI, pitch:pitch*180/Math.PI, roll:roll*180/Math.PI};
+}
+function _eulerToMat(yDeg,pDeg,rDeg){
+  const y=yDeg*Math.PI/180,p=pDeg*Math.PI/180,r=rDeg*Math.PI/180;
+  const cy=Math.cos(y),sy=Math.sin(y),cp=Math.cos(p),sp=Math.sin(p),cr=Math.cos(r),sr=Math.sin(r);
+  return[[cy*cp,cy*sp*sr-sy*cr,cy*sp*cr+sy*sr],
+         [sy*cp,sy*sp*sr+cy*cr,sy*sp*cr-cy*sr],
+         [-sp,  cp*sr,         cp*cr          ]];
+}
+function _lhLoad(idx){
+  const lh=LIGHTHOUSES[idx];
+  const[px,py,pz]=lh.pos, e=_matToEuler(lh.R);
+  G('lh-x').value=px.toFixed(3); G('lh-y').value=py.toFixed(3); G('lh-z').value=pz.toFixed(3);
+  G('lh-yaw').value=e.yaw.toFixed(1); G('lh-pitch').value=e.pitch.toFixed(1); G('lh-roll').value=e.roll.toFixed(1);
+}
+function openLhEditor(){
+  _menuOpen=false; G('menu-dropdown').style.display='none';
+  const sel=G('lh-sel'); sel.innerHTML='';
+  LIGHTHOUSES.forEach((lh,i)=>{
+    const b=document.createElement('button');
+    b.className='lh-tab'+(i===_lhSelIdx?' sel':'');
+    b.textContent=`LH${lh.id}`;
+    b.onclick=()=>{_lhSelIdx=i; sel.querySelectorAll('.lh-tab').forEach((t,j)=>t.classList.toggle('sel',j===i)); _lhLoad(i);};
+    sel.appendChild(b);
+  });
+  _lhLoad(_lhSelIdx);
+  G('lh-modal').classList.add('open');
+}
+function closeLhEditor(){ G('lh-modal').classList.remove('open'); }
+function applyLhPose(){
+  const x=parseFloat(G('lh-x').value)||0, y=parseFloat(G('lh-y').value)||0, z=parseFloat(G('lh-z').value)||0;
+  const yw=parseFloat(G('lh-yaw').value)||0, pt=parseFloat(G('lh-pitch').value)||0, rl=parseFloat(G('lh-roll').value)||0;
+  LIGHTHOUSES[_lhSelIdx].pos=[x,y,z];
+  LIGHTHOUSES[_lhSelIdx].R=_eulerToMat(yw,pt,rl);
+  drawLighthouses(); closeLhEditor();
+}
+G('lh-modal').addEventListener('click',e=>{ if(e.target===G('lh-modal')) closeLhEditor(); });
+window.openLhEditor=openLhEditor; window.closeLhEditor=closeLhEditor; window.applyLhPose=applyLhPose;
+
 // ─── Animation loop ───────────────────────────────────────────────────────────
 let lastTrailTick=0;
 function animate(){
@@ -804,5 +921,36 @@ new ResizeObserver(()=>{
 
 animate();
 </script>
+
+<!-- Lighthouse pose editor modal -->
+<div id="lh-modal">
+  <div id="lh-modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <span class="modal-title">LIGHTHOUSE POSE</span>
+      <button style="width:auto;padding:3px 8px;font-size:13px;line-height:1" onclick="closeLhEditor()">✕</button>
+    </div>
+    <div id="lh-sel"></div>
+    <div>
+      <div class="lbl" style="margin-bottom:5px">POSITION (m)</div>
+      <div class="lh-row">
+        <div class="lh-field"><span>X</span><input id="lh-x" type="number" step="0.01"></div>
+        <div class="lh-field"><span>Y</span><input id="lh-y" type="number" step="0.01"></div>
+        <div class="lh-field"><span>Z</span><input id="lh-z" type="number" step="0.01"></div>
+      </div>
+    </div>
+    <div>
+      <div class="lbl" style="margin-bottom:5px">ROTATION (°)</div>
+      <div class="lh-row">
+        <div class="lh-field"><span>YAW</span><input id="lh-yaw" type="number" step="1"></div>
+        <div class="lh-field"><span>PITCH</span><input id="lh-pitch" type="number" step="1"></div>
+        <div class="lh-field"><span>ROLL</span><input id="lh-roll" type="number" step="1"></div>
+      </div>
+    </div>
+    <div class="lh-btns">
+      <button onclick="applyLhPose()">APPLY</button>
+      <button class="btn-cancel" onclick="closeLhEditor()">CANCEL</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
