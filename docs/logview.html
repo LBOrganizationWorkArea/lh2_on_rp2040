@@ -190,6 +190,10 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
     <div id="mavlog-hdr">
       <span class="lbl">ALL MESSAGES</span>
       <span id="msg-count"></span>
+      <span style="margin-left:auto;display:flex;gap:4px">
+        <button onclick="scrollLog(0)"         title="Jump to start">⬆</button>
+        <button onclick="scrollLog(Infinity)"  title="Jump to end">⬇</button>
+      </span>
     </div>
     <div id="filter-bar">
       <input id="msg-filter" placeholder="filter by type or content…" oninput="applyFilter()">
@@ -607,6 +611,12 @@ let droneTrail       = [];
 // ─── Virtual scroll ──────────────────────────────────────────────────────────
 const ROW_H = 34; // 2 lines × 17 px — matches .ml height
 
+function scrollLog(pos) {
+  const box = G('mavlog');
+  box.scrollTop = pos === Infinity ? Number.MAX_SAFE_INTEGER : pos;
+  renderLog(); // re-render at new scroll position without waiting for scroll event
+}
+
 function renderLog() {
   const box     = G('mavlog');
   const spacer  = G('mavlog-spacer');
@@ -768,9 +778,9 @@ function loadFile(file) {
     `;
     dz.classList.add('loaded');
 
-    // Render then scroll to end so the flight is visible, not the boot sequence
+    // Render first (sets spacer height), then jump to end on next frame
     renderLog();
-    G('mavlog').scrollTop = Number.MAX_SAFE_INTEGER;
+    requestAnimationFrame(() => scrollLog(Infinity));
   };
   reader.readAsArrayBuffer(file);
 }
