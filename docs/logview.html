@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LBEES LOG VIEWER</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #111; color: #ccc;
+  font-family: 'Courier New', monospace;
+  display: flex; height: 100vh; overflow: hidden;
+}
+
+/* ── Left panel ──────────────────────────────────────────────── */
+#panel {
+  width: 336px; min-width: 336px; background: #161616;
+  border-right: 1px solid #222; padding: 8px;
+  display: flex; flex-direction: column; gap: 5px; overflow: hidden;
+}
+.lbl   { font-size: 10px; color: #555; letter-spacing: 1px; }
+hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
+.pos-val { font-size: 12px; color: #aaa; }
+
+/* Back link */
+#back-link {
+  display: block; text-align: center; font-size: 10px; color: #fbc707;
+  letter-spacing: 1px; text-decoration: none; padding: 4px 0;
+  border: 1px solid #fbc707; border-radius: 3px; background: #2a2000;
+  flex-shrink: 0;
+}
+#back-link:hover { background: #3a2e00; }
+
+/* Drop zone */
+#drop-zone {
+  border: 2px dashed #252525; border-radius: 5px; padding: 14px 8px;
+  text-align: center; color: #444; font-size: 11px; cursor: pointer;
+  transition: border-color 0.15s, color 0.15s; flex-shrink: 0;
+}
+#drop-zone.drag-over { border-color: #3DFF7A; color: #3DFF7A; }
+#drop-zone.loaded    { border-color: #3DFF7A44; color: #3DFF7A; padding: 8px; }
+
+/* Stats */
+#stats {
+  font-size: 10px; color: #555; display: none;
+  flex-direction: column; gap: 2px; flex-shrink: 0;
+}
+#stats.show { display: flex; }
+.stat-row { display: flex; justify-content: space-between; }
+.stat-val { color: #888; }
+
+
+/* Position range */
+#pos-range { font-size: 9px; color: #333; min-height: 9px; }
+
+/* Filter bar */
+#filter-bar { display: flex; gap: 4px; flex-shrink: 0; }
+#msg-filter {
+  flex: 1; background: #1e1e1e; color: #ddd; border: 1px solid #2e2e2e;
+  border-radius: 3px; padding: 3px 6px; font-size: 11px; font-family: monospace;
+  outline: none;
+}
+#msg-filter:focus { border-color: #444; }
+#clear-filter {
+  background: #2a2000; color: #fbc707; border: 1px solid #fbc707;
+  border-radius: 3px; padding: 3px 7px; font-size: 11px; font-family: monospace;
+  cursor: pointer;
+}
+#clear-filter:hover { background: #3a2e00; }
+
+/* Message log virtual scroll */
+#mavlog-wrap { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+#mavlog-hdr  { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; flex-shrink: 0; }
+#msg-count   { font-size: 9px; color: #333; }
+#mavlog {
+  flex: 1; overflow-y: auto; overflow-x: auto; min-height: 0; position: relative;
+  background: #0e0e0e; border: 1px solid #1e1e1e; border-radius: 3px;
+}
+#mavlog-spacer  { min-height: 1px; }
+#mavlog-content { position: absolute; top: 0; left: 0; min-width: 100%; }
+.ml    { font-size: 10px; line-height: 17px; height: 34px; overflow: hidden;
+         white-space: normal; word-break: break-all; padding: 0 3px; }
+.ml-ts { color: #2b2b2b; margin-right: 4px; }
+.ml-mid { color: #3a3a3a; margin-right: 4px; }
+.ml-hb   { color: #8a7abc; }
+.ml-ekf  { color: #c4c44a; }
+.ml-pos  { color: #4a8a9a; }
+.ml-att  { color: #7a8a6a; }
+.ml-wp   { color: #7acc7a; }
+.ml-ack  { color: #9a9acc; }
+.ml-info { color: #888; }
+.ml-warn { color: #c49a50; }
+.ml-err  { color: #cc5050; }
+
+/* ── 3-D scene ───────────────────────────────────────────────── */
+#scene-container { flex: 1; position: relative; overflow: hidden; }
+#scene-container canvas,
+#scene-container > div:not(#scale-bar-wrap):not(#info-widget) {
+  position: absolute !important; top:0; left:0;
+  width:100% !important; height:100% !important;
+}
+.label {
+  font-size: 13px; font-family: monospace;
+  pointer-events: none; user-select: none;
+  text-shadow: 0 0 4px #000;
+}
+#scale-bar-wrap {
+  position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  pointer-events: none; z-index: 10;
+}
+#scale-line { height: 3px; background: #aaa; border-left: 2px solid #aaa; border-right: 2px solid #aaa; min-width: 4px; }
+#scale-text { font-size: 11px; color: #aaa; letter-spacing: 0.5px; white-space: nowrap; }
+
+/* Info widget */
+#info-widget {
+  position: absolute; top: 12px; right: 12px; z-index: 20;
+  background: rgba(16,16,16,0.93); border: 1px solid #282828; border-radius: 5px;
+  padding: 10px 14px; display: flex; flex-direction: column; gap: 4px;
+  backdrop-filter: blur(6px); min-width: 140px;
+}
+#info-widget .lbl { font-size: 10px; color: #555; letter-spacing: 1px; }
+#iw-msgs  { font-size: 14px; font-weight: bold; color: #3DFF7A; }
+#iw-dur   { font-size: 11px; color: #666; }
+#iw-file  { font-size: 10px; color: #444; word-break: break-all; }
+
+/* Drop overlay */
+#drop-overlay {
+  display: none; position: fixed; inset: 0; z-index: 100;
+  background: rgba(0,0,0,0.75); align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px;
+}
+#drop-overlay.show { display: flex; }
+#drop-overlay-box {
+  border: 3px dashed #3DFF7A; border-radius: 12px; padding: 40px 60px;
+  text-align: center; color: #3DFF7A; font-size: 16px; letter-spacing: 2px;
+}
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <!-- Logo -->
+  <svg viewBox="-40 -40 1202.52 314.66667" xmlns="http://www.w3.org/2000/svg" style="display:block;width:100%;padding:2px 0">
+    <path d="M 0,0 H 12.148 V -44.178 H 39.681 V -55.227 H 0 Z" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,94.8548,79.854133)"></path>
+    <path d="M 0,0 V 31.555 H 12.147 V 0.315 c 0,-8.994 4.498,-13.651 11.911,-13.651 7.419,0 11.916,4.497 11.916,13.253 V 31.555 H 48.122 V 0.393 c 0,-16.729 -9.386,-24.932 -24.219,-24.932 C 9.07,-24.539 0,-16.252 0,0" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,156.73893,121.92707)"></path>
+    <path d="M 0,0 H 13.092 L 27.61,-23.351 42.128,0 H 55.22 V -55.227 H 43.149 v 36.058 L 27.61,-42.758 H 27.295 L 11.91,-19.407 v -35.82 H 0 Z" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,237.46613,79.854133)"></path>
+    <path d="m 247.17,116.109 h 12.147 V 60.882 H 247.17 Z" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,0,234.66667)"></path>
+    <path d="M 0,0 H 11.204 L 37.079,-34.002 V 0 H 49.072 V -55.227 H 38.736 L 11.987,-20.12 V -55.227 H 0 Z" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,364.1888,79.854133)"></path>
+    <path d="m 0,0 v 0.161 c 0,9.462 -6.944,17.357 -16.728,17.357 -9.783,0 -16.567,-7.734 -16.567,-17.204 V 0.161 c 0,-9.47 6.944,-17.358 16.728,-17.358 C -6.784,-17.197 0,-9.469 0,0 m -45.995,0 v 0.161 c 0,15.699 12.385,28.554 29.428,28.554 17.043,0 29.267,-12.7 29.267,-28.401 V 0.161 C 12.7,-15.54 0.315,-28.4 -16.728,-28.4 c -17.043,0 -29.267,12.7 -29.267,28.4" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,505.3952,116.88147)"></path>
+    <path d="M 0,0 V 31.555 H 12.147 V 0.315 c 0,-8.994 4.498,-13.651 11.911,-13.651 7.42,0 11.916,4.497 11.916,13.253 V 31.555 H 48.122 V 0.393 c 0,-16.729 -9.386,-24.932 -24.219,-24.932 C 9.071,-24.539 0,-16.252 0,0" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,535.63933,121.92707)"></path>
+    <path d="m 0,0 7.182,8.603 c 4.965,-4.106 10.175,-6.707 16.49,-6.707 4.966,0 7.966,1.971 7.966,5.203 V 7.26 c 0,3.077 -1.896,4.65 -11.127,7.021 C 9.392,17.12 2.209,20.197 2.209,31.163 v 0.161 c 0,10.014 8.05,16.644 19.33,16.644 8.049,0 14.91,-2.525 20.512,-7.021 l -6.309,-9.155 c -4.894,3.392 -9.706,5.448 -14.364,5.448 -4.65,0 -7.098,-2.133 -7.098,-4.812 v -0.16 c 0,-3.63 2.364,-4.811 11.909,-7.259 11.205,-2.917 17.519,-6.945 17.519,-16.568 v -0.16 c 0,-10.966 -8.364,-17.12 -20.274,-17.12 C 15.07,-8.839 6.629,-5.916 0,0" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,611.31387,142.75787)"></path>
+    <path d="m 0,0 c 5.363,0 8.602,1.895 8.602,6 v 0.153 c 0,3.707 -2.763,6 -8.995,6 h -14.042 l 0,-12.153 z m -3.231,22.252 c 5.364,0 8.755,1.734 8.755,5.833 v 0.161 c 0,3.629 -2.839,5.678 -7.965,5.678 H -14.435 V 22.252 Z M -26.268,44.575 H -0.63 c 6.315,0 11.28,-1.734 14.442,-4.888 2.517,-2.525 3.783,-5.602 3.783,-9.392 v -0.154 c 0,-6.238 -3.315,-9.707 -7.259,-11.917 C 16.728,15.777 20.672,12.07 20.672,4.657 V 4.496 C 20.672,-5.603 12.469,-10.651 0,-10.651 h -26.268 z" style="fill:#ffffff;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,718.74733,139.28773)"></path>
+    <path d="M 0,0 H 41.652 V -10.805 H 12.07 V -22.008 H 38.1 V -32.819 H 12.07 v -11.596 h 29.981 v -10.812 l -42.051,0 z" style="fill:#ffffff;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,759.7148,79.854133)"></path>
+    <path d="M 0,0 H 41.653 V -10.805 H 12.071 v -11.203 h 26.03 v -10.811 h -26.03 v -11.596 h 29.981 v -10.812 l -42.052,0 z" style="fill:#ffffff;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,830.23173,79.854133)"></path>
+    <path d="m 0,0 7.182,8.603 c 4.965,-4.106 10.175,-6.707 16.49,-6.707 4.966,0 7.966,1.971 7.966,5.203 V 7.26 c 0,3.077 -1.896,4.65 -11.126,7.021 C 9.392,17.12 2.21,20.197 2.21,31.163 v 0.161 c 0,10.014 8.049,16.644 19.329,16.644 8.049,0 14.91,-2.525 20.512,-7.021 l -6.309,-9.155 c -4.894,3.392 -9.706,5.448 -14.363,5.448 -4.651,0 -7.099,-2.133 -7.099,-4.812 v -0.16 c 0,-3.63 2.365,-4.811 11.91,-7.259 11.204,-2.917 17.518,-6.945 17.518,-16.568 v -0.16 c 0,-10.966 -8.364,-17.12 -20.273,-17.12 C 15.07,-8.839 6.629,-5.916 0,0" style="fill:#ffffff;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,895.69667,142.75787)"></path>
+    <path d="M 0,0 19.654,19.654 39.309,0 19.654,-19.655 Z" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,990.1432,195.1068)"></path>
+    <path d="M 0,0 19.654,19.654 39.309,0 19.654,-19.654 Z" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,1.89,117.1172)"></path>
+    <path d="M 0,0 19.655,19.654 39.31,0 19.655,-19.654 Z" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,1068.2175,117.1172)"></path>
+    <path d="M 0,0 19.654,19.654 39.309,0 19.654,-19.654 Z" style="fill:#fbc707;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,990.1432,38.957733)"></path>
+    <path d="M 0,0 19.654,19.654 39.309,0 19.654,-19.654 Z" style="fill:#ffffff;stroke:none" transform="matrix(1.3333333,0,0,-1.3333333,990.1432,117.1172)"></path>
+  </svg>
+
+  <a href="index.html" id="back-link">← LIVE VIEW</a>
+
+  <div id="drop-zone">
+    <div style="font-size:20px;margin-bottom:5px;color:#333">⊕</div>
+    <div>Drop MAVLink .bin log here</div>
+    <div style="color:#2a2a2a;margin-top:3px;font-size:10px">or click to browse</div>
+  </div>
+  <input type="file" id="file-input" accept=".bin,.mavlink,.log" style="display:none">
+
+  <div id="stats">
+    <div class="stat-row"><span>MESSAGES</span><span class="stat-val" id="st-total">-</span></div>
+    <div class="stat-row"><span>DURATION</span><span class="stat-val" id="st-dur">-</span></div>
+    <div class="stat-row"><span>POSITION SAMPLES</span><span class="stat-val" id="st-pos">-</span></div>
+  </div>
+
+  <hr>
+  <div class="lbl">LOCAL POSITION NED</div>
+  <div class="pos-val" id="pos-x">X  ---</div>
+  <div class="pos-val" id="pos-y">Y  ---</div>
+  <div class="pos-val" id="pos-z">Z↓ ---</div>
+  <div id="pos-range"></div>
+
+  <hr>
+  <div id="mavlog-wrap">
+    <div id="mavlog-hdr">
+      <span class="lbl">ALL MESSAGES</span>
+      <span id="msg-count"></span>
+    </div>
+    <div id="filter-bar">
+      <input id="msg-filter" placeholder="filter by type or content…" oninput="applyFilter()">
+      <button id="clear-filter" onclick="clearFilter()">✕</button>
+    </div>
+    <div id="mavlog" onscroll="renderLog()">
+      <div id="mavlog-spacer"></div>
+      <div id="mavlog-content"></div>
+    </div>
+  </div>
+</div>
+
+<div id="scene-container">
+  <div id="info-widget">
+    <div class="lbl">LOG FILE</div>
+    <div id="iw-msgs" style="color:#555">no file loaded</div>
+    <div id="iw-dur"></div>
+    <div id="iw-file"></div>
+  </div>
+  <div id="scale-bar-wrap">
+    <div id="scale-line" style="width:80px"></div>
+    <div id="scale-text">— m</div>
+  </div>
+</div>
+
+<!-- Full-page drop overlay -->
+<div id="drop-overlay">
+  <div id="drop-overlay-box">
+    DROP LOG FILE
+    <div style="font-size:11px;margin-top:8px;color:#2aaa55;letter-spacing:1px">.bin · .mavlink · .log</div>
+  </div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three":         "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE                     from 'three';
+import { OrbitControls }              from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const G = id => document.getElementById(id);
+
+// ─── MAVLink tables ───────────────────────────────────────────────────────────
+const CRC_EXTRA = {
+    0: 50,   // HEARTBEAT
+    1: 124,  // SYS_STATUS
+   24: 24,   // GPS_RAW_INT
+   30: 39,   // ATTITUDE
+   32: 185,  // LOCAL_POSITION_NED
+   33: 104,  // GLOBAL_POSITION_INT
+   36: 148,  // SERVO_OUTPUT_RAW
+   42: 28,   // MISSION_CURRENT
+   46: 11,   // MISSION_ITEM_REACHED
+   62: 183,  // NAV_CONTROLLER_OUTPUT
+   65: 118,  // RC_CHANNELS
+   74: 20,   // VFR_HUD
+   77: 143,  // COMMAND_ACK
+  105: 93,   // HIGHRES_IMU
+  107: 47,   // ALTITUDE
+  147: 154,  // BATTERY_STATUS
+  193: 71,   // EKF_STATUS_REPORT
+  245: 130,  // EXTENDED_SYS_STATE
+  253: 83,   // STATUSTEXT
+  331: 91,   // ODOMETRY
+};
+const MSG_FULL_LEN = {
+    0: 9,    1: 31,   24: 30,  30: 28,  32: 28,  33: 28,
+   36: 37,  42: 6,   46: 2,   62: 26,  65: 42,  74: 20,
+   77: 10, 105: 62, 107: 32, 147: 41, 193: 22, 245: 2,
+  253: 54, 331: 232,
+};
+const MSG_NAMES = {
+    0: 'HEARTBEAT',        1: 'SYS_STATUS',      24: 'GPS_RAW_INT',
+   30: 'ATTITUDE',        32: 'LOCAL_POS_NED',   33: 'GLOBAL_POS_INT',
+   36: 'SERVO_OUT',       42: 'MISSION_CUR',     46: 'WP_REACHED',
+   62: 'NAV_CTRL',        65: 'RC_CHANNELS',     74: 'VFR_HUD',
+   77: 'COMMAND_ACK',    105: 'HIGHRES_IMU',    107: 'ALTITUDE',
+  147: 'BATTERY',        193: 'EKF_STATUS',     245: 'EXT_SYS_STATE',
+  253: 'STATUSTEXT',     331: 'ODOMETRY',
+};
+
+function mavCrc(bytes) {
+  let crc = 0xFFFF;
+  for (const b of bytes) {
+    let tmp = (b ^ crc) & 0xFF;
+    tmp ^= (tmp << 4) & 0xFF;
+    crc = ((crc >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF;
+  }
+  return crc;
+}
+
+const ARDU_MODES = ['STABILIZE','ACRO','ALT_HOLD','AUTO','GUIDED','LOITER','RTL',
+  'CIRCLE','','LAND','','DRIFT','','SPORT','FLIP','AUTOTUNE','POSHOLD',
+  'BRAKE','THROW','AVOID','GUIDED_NOGPS','SMART_RTL'];
+const ACK_RES = ['ACCEPTED','TMP_REJECT','DENIED','UNSUPPORTED','FAILED','IN_PROG','CANCELLED'];
+const SEV_NAME = ['EMERG','ALERT','CRIT','ERROR','WARN','NOTICE','INFO','DEBUG'];
+
+function fmtF(v, d=3) { return (v>=0?'+':'')+v.toFixed(d); }
+function fmtDeg(r)    { return (r*180/Math.PI).toFixed(1)+'°'; }
+
+// Read uint64 as JS number (safe for times up to ~104 days in ms)
+function readU64ms(dv, offset) {
+  const lo = dv.getUint32(offset,   true);
+  const hi = dv.getUint32(offset+4, true);
+  return (hi * 0x100000000 + lo) / 1000; // us → ms
+}
+
+function decodeSummary(mid, dv) {
+  try {
+    switch(mid) {
+      case 0: {
+        const cm = dv.getUint32(0,true), base = dv.getUint8(6);
+        return `${ARDU_MODES[cm] ?? 'MODE'+cm}  ${(base&0x80) ? 'ARMED' : 'disarmed'}`;
+      }
+      case 1: {
+        const vbat  = dv.getUint16(14,true);
+        const ibat  = dv.getInt16(16,true);
+        return `vbat=${(vbat/1000).toFixed(2)}V ibat=${(ibat/100).toFixed(1)}A`;
+      }
+      case 24: {
+        const fix = dv.getUint8(28); const sats = dv.getUint8(29);
+        return `fix=${fix} sats=${sats}`;
+      }
+      case 30: {
+        return `R${fmtDeg(dv.getFloat32(4,true))} P${fmtDeg(dv.getFloat32(8,true))} Y${fmtDeg(dv.getFloat32(12,true))}`;
+      }
+      case 32: {
+        const x=dv.getFloat32(4,true), y=dv.getFloat32(8,true), z=dv.getFloat32(12,true);
+        return `x=${fmtF(x)} y=${fmtF(y)} z=${fmtF(z)}`;
+      }
+      case 33: {
+        const lat=dv.getInt32(0,true)/1e7, lon=dv.getInt32(4,true)/1e7;
+        const alt=(dv.getInt32(8,true)/1000).toFixed(1);
+        return `${lat.toFixed(5)}, ${lon.toFixed(5)}  alt=${alt}m`;
+      }
+      case 42: return `seq=${dv.getUint16(0,true)}`;
+      case 46: return `seq=${dv.getUint16(0,true)}`;
+      case 74: {
+        const as=dv.getFloat32(0,true).toFixed(1), gs=dv.getFloat32(4,true).toFixed(1);
+        const alt=dv.getFloat32(8,true).toFixed(1), hdg=(dv.getUint16(18,true)/100).toFixed(0);
+        return `AS=${as} GS=${gs} alt=${alt}m hdg=${hdg}°`;
+      }
+      case 77: {
+        const cmd=dv.getUint16(0,true), res=dv.getUint8(2);
+        return `cmd=${cmd} → ${ACK_RES[res] ?? 'RES'+res}`;
+      }
+      case 147: {
+        const id=dv.getUint8(40); const pct=dv.getInt8(41);
+        return `id=${id} ${pct>=0?pct+'%':'?%'}`;
+      }
+      case 193: {
+        const f=dv.getUint16(20,true);
+        const ok=!!(f&0x01)&&!!(f&0x08)&&!(f&0x80);
+        return `0x${f.toString(16).padStart(4,'0')}  ${ok?'OK':'DEGRADED'}`;
+      }
+      case 245: {
+        return `landed=${dv.getUint8(0)} vtol=${dv.getUint8(1)}`;
+      }
+      case 253: {
+        const sev=dv.getUint8(0);
+        const b=[]; for(let i=1;i<Math.min(51,dv.byteLength);i++){const c=dv.getUint8(i);if(!c)break;b.push(c);}
+        return `[${SEV_NAME[sev]??sev}] ${String.fromCharCode(...b)}`;
+      }
+      case 331: {
+        const x=dv.getFloat32(8,true), y=dv.getFloat32(12,true), z=dv.getFloat32(16,true);
+        return `x=${fmtF(x)} y=${fmtF(y)} z=${fmtF(z)}`;
+      }
+      default: return '';
+    }
+  } catch(_) { return ''; }
+}
+
+function msgClass(mid, dv) {
+  if (mid === 0)           return 'ml-hb';
+  if (mid === 32 || mid === 331) return 'ml-pos';
+  if (mid === 30)          return 'ml-att';
+  if (mid === 193)         return 'ml-ekf';
+  if (mid === 42 || mid === 46) return 'ml-wp';
+  if (mid === 77)          return 'ml-ack';
+  if (mid === 253) {
+    const sev = dv.getUint8(0);
+    return sev <= 3 ? 'ml-err' : sev === 4 ? 'ml-warn' : 'ml-info';
+  }
+  return 'ml-info';
+}
+
+// ─── MAVLink parser ───────────────────────────────────────────────────────────
+function parseMAVLink(raw) {
+  const msgs = [];
+  const n = raw.length;
+  let i = 0;
+  while (i < n - 11) {
+    if (raw[i] !== 0xFD) { i++; continue; }
+    const len = raw[i+1];
+    if (i + 12 + len > n) { i++; continue; }
+    const mid = raw[i+7] | (raw[i+8]<<8) | (raw[i+9]<<16);
+    if (!(mid in CRC_EXTRA)) { i++; continue; }
+    const bodySlice = raw.subarray(i+1, i+10+len);
+    const crcR = raw[i+10+len] | (raw[i+11+len]<<8);
+    if (mavCrc([...bodySlice, CRC_EXTRA[mid]]) !== crcR) { i++; continue; }
+    const fl = MSG_FULL_LEN[mid] || len;
+    const pad = new Uint8Array(fl);
+    pad.set(raw.subarray(i+10, i+10+len));
+    const dv = new DataView(pad.buffer);
+    let t_ms = null;
+    if      (mid===32)  t_ms = dv.getUint32(0,true);
+    else if (mid===30)  t_ms = dv.getUint32(0,true);
+    else if (mid===331) t_ms = readU64ms(dv, 0);
+    else if (mid===33)  t_ms = dv.getUint32(24,true);
+    msgs.push({ mid, name: MSG_NAMES[mid]??`MSG_${mid}`, cls: msgClass(mid,dv),
+                summary: decodeSummary(mid,dv), t_ms, dv });
+    i += 12 + len;
+  }
+  return msgs;
+}
+
+// ─── DataFlash parser ─────────────────────────────────────────────────────────
+const DF_H1=0xA3, DF_H2=0x95, DF_FMT_ID=0x80;
+const FC_SZ = {a:64,b:1,B:1,c:2,C:2,d:8,e:4,E:4,f:4,h:2,H:2,i:4,I:4,L:4,M:1,n:4,N:16,q:8,Q:8,Z:64};
+
+// Only show what a GCS exposes: events, position, attitude, power, RC
+const DF_SHOW = new Set([
+  // Flight narrative
+  'MSG', 'EV', 'ERR', 'MODE', 'ARM', 'CMD', 'ORGN', 'VER',
+  // Position & altitude
+  'POS', 'GPS', 'GPA', 'BARO',
+  // Attitude
+  'ATT',
+  // Power / battery
+  'BAT', 'POWR',
+  // RC in / servo out
+  'RCIN', 'RCOU',
+]);
+
+function dfReadField(buf, pos, fc) {
+  const dv = new DataView(buf, pos);
+  switch(fc) {
+    case 'b':                return [dv.getInt8(0),          1];
+    case 'B': case 'M':     return [dv.getUint8(0),         1];
+    case 'h':                return [dv.getInt16(0,true),    2];
+    case 'H':                return [dv.getUint16(0,true),   2];
+    case 'c':                return [dv.getInt16(0,true)/100,  2];
+    case 'C':                return [dv.getUint16(0,true)/100, 2];
+    case 'i':                return [dv.getInt32(0,true),    4];
+    case 'I':                return [dv.getUint32(0,true),   4];
+    case 'L':                return [dv.getInt32(0,true)/1e7,4];
+    case 'e':                return [dv.getInt32(0,true)/100,4];
+    case 'E':                return [dv.getUint32(0,true)/100,4];
+    case 'f':                return [dv.getFloat32(0,true),  4];
+    case 'd':                return [dv.getFloat64(0,true),  8];
+    case 'q': {
+      const lo=dv.getUint32(0,true),hi=dv.getInt32(4,true);
+      return [hi*0x100000000+lo, 8];
+    }
+    case 'Q': {
+      const lo=dv.getUint32(0,true),hi=dv.getUint32(4,true);
+      return [hi*0x100000000+lo, 8];
+    }
+    case 'n': {
+      const b=[]; for(let k=0;k<4;k++){const c=new Uint8Array(buf,pos+k,1)[0];if(!c)break;b.push(c);}
+      return [String.fromCharCode(...b), 4];
+    }
+    case 'N': {
+      const b=[]; for(let k=0;k<16;k++){const c=new Uint8Array(buf,pos+k,1)[0];if(!c)break;b.push(c);}
+      return [String.fromCharCode(...b), 16];
+    }
+    case 'Z': {
+      const b=[]; for(let k=0;k<64;k++){const c=new Uint8Array(buf,pos+k,1)[0];if(!c)break;b.push(c);}
+      return [String.fromCharCode(...b), 64];
+    }
+    case 'a': return [null, 64];
+    default:  return [null, FC_SZ[fc]??1];
+  }
+}
+
+function dfParseFields(buf, pos, format, columns) {
+  const fields = {};
+  let p = pos;
+  for (let j = 0; j < format.length; j++) {
+    const [val, sz] = dfReadField(buf, p, format[j]);
+    if (j < columns.length) fields[columns[j]] = val;
+    p += sz;
+  }
+  return fields;
+}
+
+function dfMsgClass(name) {
+  if (/^(ATT|AHR2|NKF\d|XKF\d|EKF\d)$/.test(name)) return 'ml-att';
+  if (/^(GPS\d?|GPA\d?|POS)$/.test(name))            return 'ml-pos';
+  if (name === 'MSG')                                  return 'ml-info';
+  if (name === 'ERR')                                  return 'ml-err';
+  if (/^(EV|MODE|ARMING|ARM|STAT)$/.test(name))       return 'ml-hb';
+  if (/^(NKF|XKF|EKF)/.test(name))                    return 'ml-ekf';
+  return 'ml-info';
+}
+
+function dfSummary(name, fields, cols) {
+  const skip = new Set(['TimeUS','TimeMS','TimeMS2']);
+  const parts = [];
+  let cnt = 0;
+  for (const col of cols) {
+    if (skip.has(col)) continue;
+    const v = fields[col];
+    if (v == null) continue;
+    const vs = typeof v === 'number'
+      ? (Number.isInteger(v) || Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(3))
+      : String(v);
+    parts.push(`${col}=${vs}`);
+    if (++cnt >= 8) { parts.push('…'); break; }
+  }
+  return parts.join('  ');
+}
+
+function parseDataFlash(raw) {
+  const buf  = raw.buffer; // raw.byteOffset=0 from FileReader → absolute positions work
+  const fmts = {};         // type_byte → {name, length, format, cols}
+  const msgs = [];
+  let i = 0;
+  const n = raw.length;
+
+  while (i < n - 2) {
+    if (raw[i] !== DF_H1 || raw[i+1] !== DF_H2) { i++; continue; }
+    const type = raw[i+2];
+
+    if (type === DF_FMT_ID) {
+      // FMT record: 3-byte header + 86-byte body = 89 bytes total
+      if (i + 89 > n) break;
+      const b       = i + 3;
+      const ftype   = raw[b];
+      const flen    = raw[b+1];
+      const name    = String.fromCharCode(...raw.slice(b+2, b+6)).replace(/\0/g,'').trim();
+      const format  = String.fromCharCode(...raw.slice(b+6, b+22)).replace(/\0/g,'').trim();
+      const cols    = String.fromCharCode(...raw.slice(b+22, b+86)).replace(/\0/g,'').trim()
+                        .split(',').map(s => s.trim()).filter(Boolean);
+      fmts[ftype] = { name, length: flen, format, cols };
+      i += 89;
+      continue;
+    }
+
+    const fmt = fmts[type];
+    if (!fmt || fmt.length < 3) { i++; continue; }
+    if (i + fmt.length > n)     { i++; continue; }
+
+    const dataPos = i + 3;
+    let fields;
+    try { fields = dfParseFields(buf, dataPos, fmt.format, fmt.cols); }
+    catch(_) { i += fmt.length; continue; }
+
+    let t_ms = null;
+    if (fields.TimeUS != null) t_ms = fields.TimeUS / 1000;
+    else if (fields.TimeMS != null) t_ms = fields.TimeMS;
+
+    const name = fmt.name;
+    if (DF_SHOW.has(name)) {
+      msgs.push({
+        mid: type, name,
+        cls: dfMsgClass(name),
+        summary: dfSummary(name, fields, fmt.cols),
+        t_ms, fields,
+      });
+    }
+
+    i += fmt.length;
+  }
+  return msgs;
+}
+
+// ─── GPS → local NED ─────────────────────────────────────────────────────────
+function gpsToNed(lat, lng, alt, oLat, oLng, oAlt) {
+  const R = 6371000;
+  const x =  R * (lat - oLat) * Math.PI / 180;
+  const y =  R * Math.cos(oLat * Math.PI / 180) * (lng - oLng) * Math.PI / 180;
+  const z = -(alt - oAlt);
+  return { x, y, z };
+}
+
+// ─── Auto-detect format & parse ───────────────────────────────────────────────
+function parseFile(raw) {
+  // Scan first 32 bytes for DataFlash magic
+  for (let i = 0; i < Math.min(32, raw.length - 1); i++) {
+    if (raw[i] === DF_H1 && raw[i+1] === DF_H2) return parseDataFlash(raw);
+  }
+  return parseMAVLink(raw);
+}
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let allMessages      = [];
+let filteredMessages = [];
+let droneTrail       = [];
+
+// ─── Virtual scroll ──────────────────────────────────────────────────────────
+const ROW_H = 34; // 2 lines × 17 px — matches .ml height
+
+function renderLog() {
+  const box     = G('mavlog');
+  const spacer  = G('mavlog-spacer');
+  const content = G('mavlog-content');
+  const total   = filteredMessages.length;
+  spacer.style.height = (total * ROW_H) + 'px';
+
+  const scrollTop = box.scrollTop;
+  const visH      = box.clientHeight;
+  const start = Math.max(0, Math.floor(scrollTop / ROW_H) - 2);
+  const end   = Math.min(total, start + Math.ceil(visH / ROW_H) + 4);
+
+  content.style.transform = `translateY(${start * ROW_H}px)`;
+  content.innerHTML = '';
+  for (let i = start; i < end; i++) {
+    const m   = filteredMessages[i];
+    const ts  = m.t_ms != null ? `${(m.t_ms/1000).toFixed(2)}s` : `#${i+1}`;
+    const row = document.createElement('div');
+    row.style.height = ROW_H + 'px';
+    row.className = `ml ${m.cls}`;
+    row.innerHTML = `<span class="ml-ts">${ts}</span><span class="ml-mid">[${m.name}]</span> ${m.summary}`;
+    content.appendChild(row);
+  }
+  G('msg-count').textContent = filteredMessages.length < allMessages.length
+    ? `${filteredMessages.length} / ${allMessages.length}`
+    : allMessages.length;
+}
+
+window.applyFilter = function() {
+  const q = G('msg-filter').value.trim().toLowerCase();
+  filteredMessages = q
+    ? allMessages.filter(m => m.name.toLowerCase().includes(q) || m.summary.toLowerCase().includes(q))
+    : allMessages;
+  G('mavlog').scrollTop = 0;
+  renderLog();
+};
+
+window.clearFilter = function() {
+  G('msg-filter').value = '';
+  filteredMessages = allMessages;
+  G('mavlog').scrollTop = 0;
+  renderLog();
+};
+
+// ─── Load file ────────────────────────────────────────────────────────────────
+function loadFile(file) {
+  if (!file) return;
+  const dz = G('drop-zone');
+  dz.innerHTML = `<span style="color:#555">Parsing ${file.name}…</span>`;
+  dz.classList.remove('loaded');
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const raw = new Uint8Array(e.target.result);
+    allMessages      = parseFile(raw);
+    filteredMessages = allMessages;
+
+    // Build trail: prefer LOCAL_POSITION_NED; fall back to DataFlash GPS/POS
+    droneTrail = [];
+    let xMin=Infinity,xMax=-Infinity,yMin=Infinity,yMax=-Infinity,zMin=Infinity,zMax=-Infinity;
+    let gpsOrigin = null;
+
+    for (const m of allMessages) {
+      let x,y,z,t;
+      if (m.mid === 32 && m.dv) {              // MAVLink LOCAL_POSITION_NED
+        x=m.dv.getFloat32(4,true); y=m.dv.getFloat32(8,true); z=m.dv.getFloat32(12,true);
+        t=m.t_ms!=null?m.t_ms/1000:droneTrail.length/10;
+      } else if (m.fields && /^(GPS\d?|POS)$/.test(m.name)) {   // DataFlash GPS or POS
+        const f=m.fields;
+        const lat=f.Lat, lng=f.Lng, alt=f.Alt??f.RAlt??0;
+        if (lat==null||lng==null||Math.abs(lat)<0.0001) continue;
+        if ((m.name.startsWith('GPS'))&&(f.Status??3)<3) continue; // need 3D fix
+        if (!gpsOrigin) gpsOrigin={lat,lng,alt:alt||0};
+        ({x,y,z}=gpsToNed(lat,lng,alt||0,gpsOrigin.lat,gpsOrigin.lng,gpsOrigin.alt));
+        t=m.t_ms!=null?m.t_ms/1000:droneTrail.length/5;
+      } else continue;
+      droneTrail.push({x,y,z,t});
+      if(x<xMin)xMin=x; if(x>xMax)xMax=x;
+      if(y<yMin)yMin=y; if(y>yMax)yMax=y;
+      if(z<zMin)zMin=z; if(z>zMax)zMax=z;
+    }
+
+    updateTrailFull();
+
+    // Last known position
+    if (droneTrail.length > 0) {
+      const p = droneTrail[droneTrail.length-1];
+      droneMesh.position.copy(tv(p.x, p.y, p.z));
+      droneMesh.visible = true;
+      const coord = gpsOrigin ? 'NED from origin' : 'NED';
+      G('pos-x').textContent = `X(N)  ${fmtF(p.x)} m`;
+      G('pos-y').textContent = `Y(E)  ${fmtF(p.y)} m`;
+      G('pos-z').textContent = `Z(D)  ${fmtF(p.z)} m`;
+      if (droneTrail.length > 1) {
+        const rng = Math.max(xMax-xMin, yMax-yMin);
+        G('pos-range').textContent =
+          `${coord}  N[${xMin.toFixed(1)}…${xMax.toFixed(1)}]  E[${yMin.toFixed(1)}…${yMax.toFixed(1)}]  span=${rng.toFixed(0)}m`;
+      }
+      // Auto-fit camera
+      const cx=(xMin+xMax)/2, cy=(yMin+yMax)/2;
+      const spread = Math.max(xMax-xMin, yMax-yMin, 2);
+      controls.target.set(cx, 0, -cy);
+      camera.position.set(cx+spread*0.7, spread*0.6, -cy+spread*0.7);
+      controls.update();
+    } else if (gpsOrigin == null) {
+      G('pos-x').textContent = 'X  ---';
+      G('pos-y').textContent = 'Y  ---';
+      G('pos-z').textContent = 'Z  ---';
+      G('pos-range').textContent = 'no position data in log';
+    }
+
+    // Duration
+    const tMsgs = allMessages.filter(m => m.t_ms != null);
+    let dur = '?';
+    if (tMsgs.length >= 2) {
+      const ms = tMsgs[tMsgs.length-1].t_ms - tMsgs[0].t_ms;
+      dur = ms >= 60000 ? `${(ms/60000).toFixed(1)} min` : `${(ms/1000).toFixed(1)} s`;
+    }
+
+    // Stats
+    G('st-total').textContent = allMessages.length;
+    G('st-dur').textContent   = dur;
+    G('st-pos').textContent   = droneTrail.length;
+    G('stats').classList.add('show');
+
+
+    // Info widget
+    const shortName = file.name.length > 22 ? file.name.slice(0,20)+'…' : file.name;
+    G('iw-msgs').style.color = '#3DFF7A';
+    G('iw-msgs').textContent = `${allMessages.length} messages`;
+    G('iw-dur').textContent  = dur;
+    G('iw-file').textContent = shortName;
+
+    // Drop zone
+    const kb = (file.size/1024).toFixed(0);
+    dz.innerHTML = `<span style="color:#3DFF7A">✓ ${file.name}</span><br><span style="font-size:10px;color:#555">${kb} KB · ${allMessages.length} frames</span>`;
+    dz.classList.add('loaded');
+
+    // Scroll to top, render
+    G('mavlog').scrollTop = 0;
+    renderLog();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ─── File input ────────────────────────────────────────────────────────────────
+G('file-input').addEventListener('change', e => {
+  if (e.target.files[0]) loadFile(e.target.files[0]);
+});
+G('drop-zone').addEventListener('click', () => G('file-input').click());
+
+// ─── Drag & drop (whole page) ─────────────────────────────────────────────────
+let dragDepth = 0;
+document.addEventListener('dragenter', e => { e.preventDefault(); dragDepth++; G('drop-overlay').classList.add('show'); });
+document.addEventListener('dragleave', e => { e.preventDefault(); if(--dragDepth<=0){dragDepth=0;G('drop-overlay').classList.remove('show');} });
+document.addEventListener('dragover',  e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault(); dragDepth=0; G('drop-overlay').classList.remove('show');
+  const f = e.dataTransfer.files[0]; if(f) loadFile(f);
+});
+
+// ─── Lighthouse config (same as live page) ───────────────────────────────────
+const LIGHTHOUSES = [
+  { id:'0', pos:[0.0,0.0,-1.5], R:[[ 0,-1,0],[ 1,0,0],[ 0,0,1]] },
+  { id:'1', pos:[1.0,0.0,-1.5], R:[[ 0,-1,0],[ 1,0,0],[ 0,0,1]] },
+];
+
+// ─── Three.js ─────────────────────────────────────────────────────────────────
+const container = document.getElementById('scene-container');
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x111111);
+const W = () => container.clientWidth;
+const H = () => container.clientHeight;
+
+const camera = new THREE.PerspectiveCamera(45, W()/H(), 0.01, 500);
+camera.position.set(2.5, 2.0, 2.5);
+
+const renderer = new THREE.WebGLRenderer({ antialias:true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setSize(W(), H());
+container.appendChild(renderer.domElement);
+
+const labelRend = new CSS2DRenderer();
+labelRend.setSize(W(), H());
+labelRend.domElement.style.pointerEvents = 'none';
+container.appendChild(labelRend.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(0.5, 0.75, -0.5);
+controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.update();
+
+const tv = (x,y,z) => new THREE.Vector3(x,-z,-y);
+
+function addLine(ax,ay,az,bx,by,bz,col,w=2) {
+  scene.add(new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([tv(ax,ay,az),tv(bx,by,bz)]),
+    new THREE.LineBasicMaterial({color:col,linewidth:w})));
+}
+function addLabel(txt,x,y,z,col) {
+  const d = document.createElement('div');
+  d.className='label'; d.textContent=txt; d.style.color=col;
+  const o = new CSS2DObject(d); o.position.copy(tv(x,y,z)); scene.add(o);
+}
+
+// Axes
+const AL = 0.15;
+addLine(0,0,0,AL,0,0,0xFF4444,3); addLabel('X',AL+.03,0,0,'#FF4444');
+addLine(0,0,0,0,AL,0,0x44FF44,3); addLabel('Y',0,AL+.03,0,'#44FF44');
+addLine(0,0,0,0,0,AL,0x4488FF,3); addLabel('Z',0,0,AL+.03,'#4488FF');
+
+// Grid (larger for log replay)
+const grid = new THREE.GridHelper(20, 40, 0x1e1e1e, 0x1a1a1a);
+grid.position.set(0,0,0); scene.add(grid);
+
+// Lighthouses
+const LH_COLS = [0xFF66FF, 0x66FFFF];
+LIGHTHOUSES.forEach((lh,i) => {
+  const [px,py,pz]=lh.pos, R=lh.R, c=LH_COLS[i%2];
+  const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.025), new THREE.MeshBasicMaterial({color:c}));
+  m.position.copy(tv(px,py,pz)); scene.add(m);
+  addLabel(`LH${lh.id}`,px,py,pz+.09,'#fff');
+  const bm=[-R[0][2],-R[1][2],-R[2][2]];
+  const lx=[R[0][0],R[1][0],R[2][0]], ly=[R[0][1],R[1][1],R[2][1]];
+  addLine(px,py,pz,px+bm[0]*.3,py+bm[1]*.3,pz+bm[2]*.3,c,3);
+  addLine(px,py,pz,px+lx[0]*.1,py+lx[1]*.1,pz+lx[2]*.1,0xFFA040,2);
+  addLine(px,py,pz,px+ly[0]*.1,py+ly[1]*.1,pz+ly[2]*.1,0xFFFF40,2);
+});
+
+// Drone marker (last position)
+const droneMesh = new THREE.Mesh(
+  new THREE.SphereGeometry(0.022, 16, 16),
+  new THREE.MeshBasicMaterial({color:0xFF3333}));
+droneMesh.visible = false; scene.add(droneMesh);
+
+// Trail
+const MAX_T = 100000;
+const tPos = new Float32Array(MAX_T*3), tCol = new Float32Array(MAX_T*3);
+const tGeom = new THREE.BufferGeometry();
+const tPA = new THREE.BufferAttribute(tPos,3), tCA = new THREE.BufferAttribute(tCol,3);
+tGeom.setAttribute('position', tPA); tGeom.setAttribute('color', tCA);
+tGeom.setDrawRange(0, 0);
+scene.add(new THREE.Line(tGeom, new THREE.LineBasicMaterial({vertexColors:true})));
+
+function trailColor(t) {
+  const lp=(t,xp,fp)=>{for(let i=0;i<xp.length-1;i++)if(t<=xp[i+1]){const f=(t-xp[i])/(xp[i+1]-xp[i]);return fp[i]+f*(fp[i+1]-fp[i]);}return fp[fp.length-1];};
+  return [lp(t,[0,.5,1],[1,1,.2]), lp(t,[0,.5,1],[.13,.65,1]), lp(t,[0,.5,1],[.13,0,.26])];
+}
+
+function updateTrailFull() {
+  const pts = droneTrail;
+  const n   = Math.min(pts.length, MAX_T);
+  for (let i=0; i<n; i++) {
+    const p=pts[i], v=tv(p.x,p.y,p.z), t=n>1?i/(n-1):1;
+    tPos[i*3]=v.x; tPos[i*3+1]=v.y; tPos[i*3+2]=v.z;
+    const [r,g,b]=trailColor(t); tCol[i*3]=r; tCol[i*3+1]=g; tCol[i*3+2]=b;
+  }
+  tPA.needsUpdate=true; tCA.needsUpdate=true; tGeom.setDrawRange(0,n);
+}
+
+// ─── Scale bar ────────────────────────────────────────────────────────────────
+const SSTEPS = [.02,.05,.1,.2,.5,1,2,5,10,20];
+const _s0=new THREE.Vector3(), _s1=new THREE.Vector3();
+function updateScaleBar() {
+  const W2 = W()/2;
+  for (const d of SSTEPS) {
+    _s0.set(0,0,0).project(camera); _s1.set(d,0,0).project(camera);
+    const px = Math.abs(_s1.x-_s0.x)*W2;
+    if (px>=50 && px<=220) {
+      G('scale-line').style.width = px.toFixed(1)+'px';
+      G('scale-text').textContent = d<1 ? `${Math.round(d*100)} cm` : `${d} m`;
+      return;
+    }
+  }
+}
+
+// ─── Animation loop ───────────────────────────────────────────────────────────
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+  labelRend.render(scene, camera);
+  updateScaleBar();
+}
+
+new ResizeObserver(() => {
+  camera.aspect = W()/H(); camera.updateProjectionMatrix();
+  renderer.setSize(W(), H()); labelRend.setSize(W(), H());
+}).observe(container);
+
+animate();
+</script>
+</body>
+</html>

@@ -51,7 +51,7 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
   flex: 1; overflow-y: auto; min-height: 0;
   background: #0e0e0e; border: 1px solid #1e1e1e; border-radius: 3px; padding: 3px;
 }
-.ml     { font-size: 10px; line-height: 1.65; white-space: nowrap; overflow: hidden; }
+.ml     { font-size: 10px; line-height: 1.5; white-space: normal; word-break: break-all; overflow: visible; }
 .ml-ts  { color: #2e2e2e; margin-right: 5px; }
 .ml-hb  { color: #8a7abc; }
 .ml-ekf { color: #c4c44a; }
@@ -64,7 +64,7 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
 /* ── 3-D scene ───────────────────────────────────────────────── */
 #scene-container { flex: 1; position: relative; overflow: hidden; }
 #scene-container canvas,
-#scene-container > div:not(#scale-bar-wrap):not(#webserial-warn):not(#conn-widget):not(#mode-widget) {
+#scene-container > div:not(#scale-bar-wrap):not(#webserial-warn):not(#conn-area):not(#mode-widget) {
   position: absolute !important; top:0; left:0;
   width:100% !important; height:100% !important;
 }
@@ -87,12 +87,19 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
   z-index: 20; pointer-events: none; display: none;
 }
 
-/* Connection widget */
-#conn-widget {
+/* Connection + tools column */
+#conn-area {
   position: absolute; top: 12px; right: 12px; z-index: 20;
+  display: flex; flex-direction: column; gap: 6px; width: 186px;
+}
+#conn-widget {
   background: rgba(16,16,16,0.93); border: 1px solid #282828; border-radius: 5px;
-  padding: 10px 10px 8px; display: flex; flex-direction: column; gap: 6px; width: 186px;
+  padding: 10px 10px 8px; display: flex; flex-direction: column; gap: 6px;
   backdrop-filter: blur(6px);
+}
+#logview-widget {
+  background: rgba(16,16,16,0.93); border: 1px solid #282828; border-radius: 5px;
+  padding: 6px; backdrop-filter: blur(6px);
 }
 #conn-widget .lbl { font-size: 10px; color: #555; letter-spacing: 1px; }
 .row { display: flex; align-items: center; gap: 6px; }
@@ -103,14 +110,21 @@ select {
 }
 select:focus { border-color: #444; }
 button {
-  background: #1a3a1a; color: #3DFF7A; border: 1px solid #3DFF7A;
+  background: #2a2000; color: #fbc707; border: 1px solid #fbc707;
   border-radius: 3px; padding: 5px; width: 100%; cursor: pointer;
   font-size: 11px; font-family: monospace; letter-spacing: 1px;
 }
-button:hover { background: #234d23; }
+button:hover { background: #3a2e00; }
 button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
 .small-st { font-size: 10px; color: #555; min-height: 12px; }
 #telem-st { font-size: 13px; font-weight: bold; }
+#logview-link {
+  display: block; text-align: center; font-size: 11px; color: #fbc707;
+  letter-spacing: 1px; text-decoration: none; padding: 5px;
+  border: 1px solid #fbc707; border-radius: 3px; background: #2a2000;
+  width: 100%; font-family: monospace;
+}
+#logview-link:hover { background: #3a2e00; }
 </style>
 </head>
 <body>
@@ -158,25 +172,30 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
 </div>
 
 <div id="scene-container">
-  <div id="conn-widget">
-    <div class="lbl">CONNECTION</div>
-    <div class="row">
-      <select id="baud-input">
-        <option value="4800">4800</option>
-        <option value="9600">9600</option>
-        <option value="19200">19200</option>
-        <option value="38400">38400</option>
-        <option value="57600" selected>57600</option>
-        <option value="115200">115200</option>
-        <option value="230400">230400</option>
-        <option value="460800">460800</option>
-        <option value="921600">921600</option>
-      </select>
-      <span>baud</span>
+  <div id="conn-area">
+    <div id="conn-widget">
+      <div class="lbl">CONNECTION</div>
+      <div class="row">
+        <select id="baud-input">
+          <option value="4800">4800</option>
+          <option value="9600">9600</option>
+          <option value="19200">19200</option>
+          <option value="38400">38400</option>
+          <option value="57600" selected>57600</option>
+          <option value="115200">115200</option>
+          <option value="230400">230400</option>
+          <option value="460800">460800</option>
+          <option value="921600">921600</option>
+        </select>
+        <span>baud</span>
+      </div>
+      <button id="connect-btn" onclick="toggleConnect()">CONNECT SERIAL</button>
+      <div class="small-st" id="conn-status"></div>
+      <div id="telem-st" style="color:#555">WAITING…</div>
     </div>
-    <button id="connect-btn" onclick="toggleConnect()">CONNECT SERIAL</button>
-    <div class="small-st" id="conn-status"></div>
-    <div id="telem-st" style="color:#555">WAITING…</div>
+    <div id="logview-widget">
+      <a href="logview.html" id="logview-link">ANALYSE LOGS →</a>
+    </div>
   </div>
 
   <!-- Flight mode widget – floating top-left of scene -->
@@ -630,8 +649,8 @@ addLine(0,0,0,AL,0,0,0xFF4444,3); addLabel('X',AL+.03,0,0,'#FF4444');
 addLine(0,0,0,0,AL,0,0x44FF44,3); addLabel('Y',0,AL+.03,0,'#44FF44');
 addLine(0,0,0,0,0,AL,0x4488FF,3); addLabel('Z',0,0,AL+.03,'#4488FF');
 
-const grid=new THREE.GridHelper(2,10,0x1e1e1e,0x1a1a1a);
-grid.position.set(0.5,0,-0.5); scene.add(grid);
+const grid=new THREE.GridHelper(20,40,0x1e1e1e,0x1a1a1a);
+grid.position.set(0,0,0); scene.add(grid);
 
 const LH_COLS=[0xFF66FF,0x66FFFF];
 LIGHTHOUSES.forEach((lh,i)=>{
