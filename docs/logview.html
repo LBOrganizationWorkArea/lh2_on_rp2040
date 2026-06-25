@@ -170,9 +170,12 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
   <input type="file" id="file-input" accept=".bin,.mavlink,.log" style="display:none">
 
   <div id="stats">
-    <div class="stat-row"><span>MESSAGES</span><span class="stat-val" id="st-total">-</span></div>
+    <div class="stat-row"><span>SHOWN MESSAGES</span><span class="stat-val" id="st-total">-</span></div>
     <div class="stat-row"><span>DURATION</span><span class="stat-val" id="st-dur">-</span></div>
     <div class="stat-row"><span>POSITION SAMPLES</span><span class="stat-val" id="st-pos">-</span></div>
+    <div class="stat-row" style="margin-top:2px;padding-top:2px;border-top:1px solid #1e1e1e">
+      <span style="color:#3a3a3a;font-size:9px">scroll log to see all messages</span>
+    </div>
   </div>
 
   <hr>
@@ -493,6 +496,11 @@ function dfMsgClass(name) {
 }
 
 function dfSummary(name, fields, cols) {
+  // For EKF NED position: show PN/PE/PD first, then attitude
+  if (name === 'XKF1' || name === 'NKF1') {
+    const f = (k, d=3) => fields[k] != null ? fields[k].toFixed(d) : '?';
+    return `N=${f('PN')}  E=${f('PE')}  D=${f('PD')}    R=${f('Roll',1)}° P=${f('Pitch',1)}° Y=${f('Yaw',1)}°  VN=${f('VN',2)} VE=${f('VE',2)} VD=${f('VD',2)}`;
+  }
   const skip = new Set(['TimeUS','TimeMS','TimeMS2']);
   const parts = [];
   let cnt = 0;
@@ -741,9 +749,9 @@ function loadFile(file) {
     dz.innerHTML = `<span style="color:#3DFF7A">✓ ${file.name}</span><br><span style="font-size:10px;color:#555">${kb} KB · ${allMessages.length} frames</span>`;
     dz.classList.add('loaded');
 
-    // Scroll to top, render
-    G('mavlog').scrollTop = 0;
+    // Render then scroll to end so the flight is visible, not the boot sequence
     renderLog();
+    G('mavlog').scrollTop = Number.MAX_SAFE_INTEGER;
   };
   reader.readAsArrayBuffer(file);
 }
