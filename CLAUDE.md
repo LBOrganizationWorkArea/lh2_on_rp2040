@@ -19,6 +19,24 @@ Detailed rules for each area are in `.claude/rules/`:
 - **Utils** (calibration, GCS server, post-flight) → [`.claude/rules/utils.md`](.claude/rules/utils.md)
 - **Website** (GCS frontend) → [`.claude/rules/website.md`](.claude/rules/website.md)
 
+## Algorithm reference
+
+`docs/crossing_beams_algo_comparison.md` compares all solver implementations:
+- `alvarado23lighthouse/data_processing.py` — original Python reference the firmware was ported from
+- `origin/latest_crossing_beams` Python branch — skew-lines C.B. method (same as Taffanel 2021)
+- Current firmware — calibrated DLT (`solve3d.c` + `cv.c`)
+
+The firmware's advantage over the Python C.B. scripts is **calibrated poses**, not the DLT algorithm itself.
+
+### Current calibration state warning
+
+`bs_poses_cal.h` currently contains **synthetic placeholder geometry** (`BS_POSE_SOURCE "synthetic"`). Real lab geometry is in `utils/calibration/lab.yaml` (Rz(90°), 1.0 m sep, 1.5 m height). Mismatch causes wrong triangulation. Fix before lab use:
+```bash
+python utils/calibration/calibrate_export.py --yaml utils/calibration/lab.yaml \
+  -o rp2350_firmware/src/bs_poses_cal.h
+make -C rp2350_firmware/src/build crossing_beams crossing_beams_synthetic -j$(nproc)
+```
+
 ## System overview
 
 The system decodes Valve Lighthouse v2 sweep pulses from 4 TS4231 sensors on an RP2350, triangulates a 3D position, and streams MAVLink ODOMETRY (msg #331) to a Pixhawk flight controller.

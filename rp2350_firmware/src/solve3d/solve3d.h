@@ -1,21 +1,14 @@
 /**
  * @file   solve3d.h
- * @brief  3D solver for the crossing-beams system — calibrated-pose variant.
+ * @brief  3D solver for the crossing-beams system — calibrated-pose skew-lines variant.
  *
- * This is the original epipolar-geometry pipeline from data_processing.py,
- * *enhanced* to use KNOWN base-station poses instead of estimating them.
+ * Implements the Crossing Beam method from Taffanel 2021 (arXiv:2104.11523,
+ * Section II-B, eq. 2–3): builds a unit ray in each base-station's local frame
+ * from (horiz, vert) angles, rotates it to the world frame using the calibrated
+ * rotation matrix R, then finds the midpoint of closest approach between the two
+ * skew rays.  Rays with a gap > 0.1 m are discarded as low-quality.
  *
- * The original solve_3d_scene() did:
- *     angles_to_pixels → find_fundamental_mat → recover_pose → triangulate_points
- * The pose estimation (find_fundamental_mat + recover_pose) is scale-ambiguous
- * and ill-conditioned for a near-coplanar sensor cloud, which is what made the
- * output unstable. Since the base stations are fixed and calibrated, we keep the
- * validated front/back of the pipeline:
- *     angles_to_pixels  +  triangulate_points   (the DLT — unchanged)
- * and replace the estimated pose with projection matrices built directly from
- * the calibrated poses. The result is metric and stable.
- *
- * Depends on: cv/cv.h (triangulate_points), angle_decoder (lh2_angles_t).
+ * Depends on: angle_decoder (lh2_angles_t).
  */
 
 #ifndef SOLVE3D_H
@@ -51,22 +44,13 @@ typedef struct {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief  Project lighthouse azimuth/elevation onto the z=1 image plane.
- *
- * From data_processing.py :: LH2_angles_to_pixels():
- *   px = [ tan(az),  tan(el) / cos(az) ]
- * i.e. the normalised pinhole projection of a +Z-looking camera. Retained
- * unchanged from the original pipeline.
- */
-void angles_to_pixels(float az_rad, float el_rad, float px_out[2]);
-
-/**
  * @brief  Triangulate a metric 3D point for every sensor both base stations see.
  *
  * For each sensor with fresh angles from both base stations:
- *   1. project the calibrated (horiz, vert) angles to pixels (angles_to_pixels),
- *   2. build each base station's world→image projection matrix from its pose,
- *   3. DLT-triangulate the pair (cv triangulate_points) → world point.
+ *   1. Build a unit ray in each BS-local frame from (horiz, vert) radians.
+ *   2. Rotate to world frame using the calibrated R matrix.
+ *   3. Find the midpoint of closest approach (skew-lines method).
+ *   4. Discard if ray gap > 0.1 m.
  *
  * @param bs       array of NUM_BS calibrated base-station poses
  * @param angles   decoded angle table [NUM_SENSORS][NUM_BS]
