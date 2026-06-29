@@ -106,13 +106,14 @@ def _mavlink_thread(port, baud, stop_event):
                 mavutil.mavlink.MAV_AUTOPILOT_INVALID,
                 0, 0, 0)
 
-            # Request streams: position @ 10 Hz, extended status @ 2 Hz
+            # POSITION (stream 6)  → LOCAL_POSITION_NED at 10 Hz
+            # EXTRA3   (stream 12) → EKF_STATUS_REPORT  at 2 Hz
             mav.mav.request_data_stream_send(
                 mav.target_system, mav.target_component,
                 mavutil.mavlink.MAV_DATA_STREAM_POSITION, 10, 1)
             mav.mav.request_data_stream_send(
                 mav.target_system, mav.target_component,
-                mavutil.mavlink.MAV_DATA_STREAM_EXTENDED_STATUS, 2, 1)
+                mavutil.mavlink.MAV_DATA_STREAM_EXTRA3, 2, 1)
 
             with _lock:
                 _state['serial_ok'] = True

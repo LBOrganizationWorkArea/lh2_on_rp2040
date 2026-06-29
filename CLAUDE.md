@@ -36,7 +36,7 @@ TS4231 sensors → PIO+DMA capture (core 1)
 
 The GCS version is a single string in `docs/index.html` (line ~290):
 ```html
-<div ...>v2.2.1</div>
+<div ...>v2.2.2</div>
 ```
 
 Bump the version on every user-facing change before committing:
@@ -51,6 +51,33 @@ Bump the version on every user-facing change before committing:
 1. Make the code change.
 2. Bump the version in `docs/index.html`.
 3. Commit both together with the version in the commit message, e.g. `gcs: fix MAVLink heartbeat (v2.2.1)`.
+
+## MAVLink GCS connection rules
+
+### ArduPilot stream IDs (`MAV_DATA_STREAM`)
+
+| ID | Name | Messages |
+|----|------|----------|
+| 2 | EXTENDED_STATUS | SYS_STATUS, GPS_RAW_INT |
+| 6 | POSITION | LOCAL_POSITION_NED, GLOBAL_POSITION_INT |
+| 10 | EXTRA1 | ATTITUDE |
+| 11 | EXTRA2 | VFR_HUD |
+| 12 | EXTRA3 | EKF_STATUS_REPORT |
+
+**Our GCS needs:** stream 6 (POSITION) for `LOCAL_POSITION_NED` + stream 12 (EXTRA3) for `EKF_STATUS_REPORT`.
+
+### Stream request vs. SR*_* params
+
+- `REQUEST_DATA_STREAM` (msg 66) — session-only; FC reverts on reboot.
+- `SR0_*` / `SR1_*` / `SR2_*` FC params — persist to flash (SR0=USB, SR1=TELEM1, SR2=TELEM2). Set once via MAVProxy if the FC is used over UDP (where stream requests can't be sent).
+
+### GCS heartbeat requirement
+
+ArduPilot stops streaming to a GCS that stops sending heartbeats. `display_real_time.py` must send a heartbeat (`MAV_TYPE_GCS`) every 1 s.
+
+### UDP relay limitation
+
+`/ws/udp` is receive-only — no path to write back to the FC. Stream requests only work over the serial path. For UDP, `SR*_*` params must already be set in flash.
 
 ### Key constraints
 
