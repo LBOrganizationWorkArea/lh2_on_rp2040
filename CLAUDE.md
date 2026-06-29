@@ -32,6 +32,26 @@ TS4231 sensors → PIO+DMA capture (core 1)
               → MAVLink ODOMETRY @ 10 Hz → Pixhawk TELEM2
 ```
 
+## Version control
+
+The GCS version is a single string in `docs/index.html` (line ~290):
+```html
+<div ...>v2.2.1</div>
+```
+
+Bump the version on every user-facing change before committing:
+
+| Change type | Bump | Example |
+|---|---|---|
+| New feature / new UI section | minor | v2.2.0 → v2.3.0 |
+| Bug fix / small improvement | patch | v2.2.0 → v2.2.1 |
+| Breaking redesign | major | v2.x.x → v3.0.0 |
+
+**Workflow** (must follow this order):
+1. Make the code change.
+2. Bump the version in `docs/index.html`.
+3. Commit both together with the version in the commit message, e.g. `gcs: fix MAVLink heartbeat (v2.2.1)`.
+
 ### Key constraints
 
 - ArduPilot requires `MAV_FRAME_LOCAL_FRD` (20) / `MAV_FRAME_BODY_FRD` (12) in ODOMETRY — any other frame is silently discarded.

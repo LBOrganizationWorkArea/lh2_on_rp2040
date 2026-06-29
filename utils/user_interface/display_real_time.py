@@ -88,10 +88,47 @@ def _mavlink_thread(port, baud, stop_event):
     while not stop_event.is_set():
         try:
             mav = mavutil.mavlink_connection(port, baud=baud)
+
+            # Wait for the FC's heartbeat so target_system is known (5 s timeout)
+            logging.info("Waiting for FC heartbeat on %s ...", port)
+            hb = mav.wait_heartbeat(timeout=5)
+            if hb is None:
+                logging.warning("No heartbeat received, retrying...")
+                stop_event.wait(2.0)
+                continue
+
+            logging.info("FC heartbeat received (sys=%d comp=%d)",
+                         mav.target_system, mav.target_component)
+
+            # Tell the FC we're a GCS
+            mav.mav.heartbeat_send(
+                mavutil.mavlink.MAV_TYPE_GCS,
+                mavutil.mavlink.MAV_AUTOPILOT_INVALID,
+                0, 0, 0)
+
+            # Request streams: position @ 10 Hz, extended status @ 2 Hz
+            mav.mav.request_data_stream_send(
+                mav.target_system, mav.target_component,
+                mavutil.mavlink.MAV_DATA_STREAM_POSITION, 10, 1)
+            mav.mav.request_data_stream_send(
+                mav.target_system, mav.target_component,
+                mavutil.mavlink.MAV_DATA_STREAM_EXTENDED_STATUS, 2, 1)
+
             with _lock:
                 _state['serial_ok'] = True
             logging.info("MAVLink connected on %s @ %d", port, baud)
+
+            last_heartbeat = time.time()
             while not stop_event.is_set():
+                # Send GCS heartbeat every 1 s to keep the FC streaming
+                now = time.time()
+                if now - last_heartbeat >= 1.0:
+                    mav.mav.heartbeat_send(
+                        mavutil.mavlink.MAV_TYPE_GCS,
+                        mavutil.mavlink.MAV_AUTOPILOT_INVALID,
+                        0, 0, 0)
+                    last_heartbeat = now
+
                 msg = mav.recv_match(
                     type=['LOCAL_POSITION_NED', 'EKF_STATUS_REPORT'],
                     blocking=True, timeout=1.0)
