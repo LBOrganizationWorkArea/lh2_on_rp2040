@@ -36,7 +36,7 @@ TS4231 sensors → PIO+DMA capture (core 1)
 
 The GCS version is a single string in `docs/index.html` (line ~290):
 ```html
-<div ...>v2.2.2</div>
+<div ...>v2.2.3</div>
 ```
 
 Bump the version on every user-facing change before committing:
