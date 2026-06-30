@@ -219,7 +219,7 @@ hr     { border: none; border-top: 1px solid #222; margin: 1px 0; }
   </div>
 </div>
 
-<div id="version">v2.1.2</div>
+<div id="version">v2.1.3</div>
 
 <!-- Full-page drop overlay -->
 <div id="drop-overlay">
@@ -815,7 +815,8 @@ controls.target.set(0.5, 0.75, -0.5);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
 controls.update();
 
-const tv = (x,y,z) => new THREE.Vector3(x,-z,-y);
+// NED: X=North, Y=East, Z=Down  →  Three.js: X=North, Y=Up, Z=East
+const tv = (x,y,z) => new THREE.Vector3(x,-z,y);
 
 function addLine(ax,ay,az,bx,by,bz,col,w=2) {
   scene.add(new THREE.Line(
