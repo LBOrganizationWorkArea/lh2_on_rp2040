@@ -18,8 +18,8 @@
 #include "solve3d.h"
 #include <math.h>
 
-/* Rays further apart than this are discarded (Taffanel 2021 threshold: 0.1 m). */
-#define CB_MAX_GAP_M 0.10f
+/* Rays further apart than this are discarded (widened from 0.1 m for lab diagnosis). */
+#define CB_MAX_GAP_M 0.50f
 
 int solve3d_calib_run(const lh2_bs_pose_t bs[NUM_BS],
                       const lh2_angles_t  angles[NUM_SENSORS][NUM_BS],
