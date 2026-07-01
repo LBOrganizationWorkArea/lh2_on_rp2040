@@ -367,6 +367,7 @@ int main(void)
     /* ④ Compute loop */
     uint64_t last_print_us = 0;
     float    last_cx = 0.0f, last_cy = 0.0f, last_cz = 0.0f;
+    bool     has_fresh_pts = false;
 
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
@@ -408,6 +409,7 @@ int main(void)
                     last_cx = sx / na;
                     last_cy = sy / na;
                     last_cz = sz / na;
+                    has_fresh_pts = true;
                 }
             }
         }
@@ -418,11 +420,17 @@ int main(void)
         }
         last_print_us = now_us;
 
-        /* Send ODOMETRY at 10 Hz with timestamp corrected to FC timebase. */
-        if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
+        /* Send ODOMETRY at 10 Hz with timestamp corrected to FC timebase.
+         * When the solver converged this tick, send valid data; otherwise send
+         * zero position with FLT_MAX covariance so the EKF ignores it rather
+         * than receiving silence and assuming the device is dead. */
+        if (has_fresh_pts) {
             mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
                                   last_cx, last_cy, -last_cz);
+        } else {
+            mavlink_send_odometry_invalid(mavlink_timesync_corrected_us(now_us));
         }
+        has_fresh_pts = false;
 
         /* Send DO_SET_HOME exactly once — the first time EKF reports healthy.
          * g_home_set latches true so this never fires again, even if EKF

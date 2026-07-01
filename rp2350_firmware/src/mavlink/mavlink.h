@@ -11,6 +11,8 @@
 
 void mavlink_init(void);
 void mavlink_send_odometry(uint64_t usec, float x, float y, float z);
+/* Send ODOMETRY with zero position and FLT_MAX covariance (solver did not converge). */
+void mavlink_send_odometry_invalid(uint64_t usec);
 
 /* RX — call every main-loop iteration to drain UART FIFO */
 void mavlink_rx_update(void);

@@ -83,6 +83,9 @@
 /** Position variance sent in pose_covariance diagonal [m²]. ~10 cm σ. */
 #define POS_VAR  0.01f
 
+/** Covariance sent when position is invalid — signals EKF to ignore this frame. */
+#define POS_VAR_INVALID  3.402823466e+38f   /* FLT_MAX */
+
 /* ---- RX constants --------------------------------------------------------- */
 
 #define MSGID_EKF_STATUS   193u
@@ -414,6 +417,57 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
     frame[242] = 100;   /* quality        */
 
     /* ---- CRC ------------------------------------------------------------- */
+    uint16_t crc = 0xFFFFu;
+    for (int i = 1; i <= (int)(9u + MAV_PAYLOAD_LEN); i++)
+        crc = crc_accumulate(frame[i], crc);
+    crc = crc_accumulate(MAV_CRC_EXTRA, crc);
+
+    frame[243] = (uint8_t)(crc & 0xFFu);
+    frame[244] = (uint8_t)(crc >> 8u);
+
+    uart_write_blocking(MAV_UART, frame, FRAME_LEN);
+}
+
+void mavlink_send_odometry_invalid(uint64_t usec)
+{
+    uint8_t frame[FRAME_LEN];
+    memset(frame, 0, sizeof(frame));
+
+    frame[0] = MAV_STX;
+    frame[1] = MAV_PAYLOAD_LEN;
+    frame[4] = s_seq++;
+    frame[5] = MAV_SYSID;
+    frame[6] = MAV_COMPID;
+    frame[7] = (uint8_t)( MAV_MSGID        & 0xFFu);
+    frame[8] = (uint8_t)((MAV_MSGID >>  8u) & 0xFFu);
+    frame[9] = (uint8_t)((MAV_MSGID >> 16u) & 0xFFu);
+
+    write_u64_le(&frame[10], usec);
+    /* x/y/z = 0 (memset) */
+
+    static const float q_unit[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+    memcpy(&frame[30], q_unit, 16u);
+
+    memcpy(&frame[46], k_nan, 4u);
+    memcpy(&frame[50], k_nan, 4u);
+    memcpy(&frame[54], k_nan, 4u);
+
+    write_f32(&frame[70],  POS_VAR_INVALID);  /* cov[0]  x variance   */
+    write_f32(&frame[94],  POS_VAR_INVALID);  /* cov[6]  y variance   */
+    write_f32(&frame[114], POS_VAR_INVALID);  /* cov[11] z variance   */
+    write_f32(&frame[130], POS_VAR_INVALID);  /* cov[15] roll variance  */
+    write_f32(&frame[142], POS_VAR_INVALID);  /* cov[18] pitch variance */
+    write_f32(&frame[150], POS_VAR_INVALID);  /* cov[20] yaw variance   */
+
+    for (int i = 0; i < 21; i++)
+        memcpy(&frame[154 + i * 4], k_nan, 4u);
+
+    frame[238] = 20u;   /* frame_id       = MAV_FRAME_LOCAL_FRD */
+    frame[239] = 12u;   /* child_frame_id = MAV_FRAME_BODY_FRD  */
+    frame[240] = 0u;
+    frame[241] = 0u;
+    frame[242] = 0;     /* quality = 0 (invalid) */
+
     uint16_t crc = 0xFFFFu;
     for (int i = 1; i <= (int)(9u + MAV_PAYLOAD_LEN); i++)
         crc = crc_accumulate(frame[i], crc);
