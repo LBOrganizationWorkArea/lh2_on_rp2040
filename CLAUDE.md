@@ -18,6 +18,7 @@ Detailed rules for each area are in `.claude/rules/`:
 - **Firmware** → [`.claude/rules/firmware.md`](.claude/rules/firmware.md)
 - **Utils** (calibration, GCS server, post-flight) → [`.claude/rules/utils.md`](.claude/rules/utils.md)
 - **Website** (GCS frontend) → [`.claude/rules/website.md`](.claude/rules/website.md)
+- **Scale / calibration bug** → [`.claude/rules/scale_calibration_bug.md`](.claude/rules/scale_calibration_bug.md)
 
 ## System overview
 
