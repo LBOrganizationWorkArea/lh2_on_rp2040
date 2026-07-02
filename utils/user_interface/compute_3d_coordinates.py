@@ -11,7 +11,7 @@ DATA_LOG_FILE = Path("tools/flight_recording.txt")
 
 # Constantes géométriques
 TAN_30 = 0.577350269
-D_BS = 1.0  # Distance entre la BS 4 (X=0) et la BS 10 (X=1)
+D_BS = 2.26  # Distance entre la BS 4 (X=0) et la BS 10 (X=2.26) en mètres
 SENSORS = [0, 1, 2, 3]
 
 # Filtre EMA (Barycentre temporel pour la stabilité brute)
