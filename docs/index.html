@@ -131,6 +131,14 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
 #udp-port:focus { border-color: #444; }
 #udp-port::-webkit-inner-spin-button,
 #udp-port::-webkit-outer-spin-button { -webkit-appearance: none; }
+/* DroneBridge IP/port inputs */
+#db-row input {
+  background: #1e1e1e; color: #ddd; border: 1px solid #2e2e2e; border-radius: 3px;
+  padding: 3px 5px; font-size: 11px; font-family: monospace; outline: none;
+}
+#db-row input:focus { border-color: #444; }
+#db-ip   { width: 100px; }
+#db-port { width: 44px; }
 /* ── Hamburger menu ─────────────────────────────────────────────────────────── */
 #menu-widget { position: relative; }
 #menu-btn {
@@ -238,6 +246,7 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
       <div class="type-tabs">
         <button id="tab-serial" class="type-tab sel" onclick="setConnType('serial')">SERIAL</button>
         <button id="tab-udp"    class="type-tab"     onclick="setConnType('udp')">UDP</button>
+        <button id="tab-db"     class="type-tab"     onclick="setConnType('db')">DB</button>
       </div>
       <div id="serial-row" class="row">
         <select id="baud-input">
@@ -256,6 +265,11 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
       <div id="udp-row" class="row" style="display:none">
         <input id="udp-port" type="number" value="14550" min="1024" max="65535">
         <span>port</span>
+      </div>
+      <div id="db-row" class="row" style="display:none">
+        <input id="db-ip"   type="text" value="192.168.4.1" placeholder="ESP IP">
+        <span>:</span>
+        <input id="db-port" type="text" value="80"          placeholder="port">
       </div>
       <button id="connect-btn" onclick="toggleConnect()">CONNECT SERIAL</button>
       <div class="small-st" id="conn-status"></div>
@@ -287,7 +301,7 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
   <div id="webserial-warn">WebSerial not supported — use Chrome or Edge</div>
 </div>
 
-<div style="position:fixed;bottom:8px;right:10px;z-index:50;font-size:9px;color:#2a2a2a;letter-spacing:1px;pointer-events:none">v2.2.5</div>
+<div style="position:fixed;bottom:8px;right:10px;z-index:50;font-size:9px;color:#2a2a2a;letter-spacing:1px;pointer-events:none">v2.3.0</div>
 
 <script type="importmap">
 {
@@ -420,7 +434,7 @@ let droneRoll=null,dronePitch=null,droneYaw=null;
 let ekfFlags=null,ekfHealthy=null;
 let lastMsgTime=0,serialOk=false;
 let serialPort=null,serialReader=null;
-let udpWs=null, connType='serial';
+let udpWs=null, dbWs=null, connType='serial';
 
 // FC state shown in status badges + mode panel
 let fcArmed=false, fcModeName='?', fcSysStatus=0;
@@ -536,13 +550,17 @@ function _resetFlightState() {
 }
 
 function setConnType(type) {
-  if (serialPort || udpWs) return;   // can't switch while connected
+  if (serialPort || udpWs || dbWs) return;   // can't switch while connected
   connType = type;
   G('serial-row').style.display = type === 'serial' ? '' : 'none';
   G('udp-row').style.display    = type === 'udp'    ? '' : 'none';
+  G('db-row').style.display     = type === 'db'     ? '' : 'none';
   G('tab-serial').classList.toggle('sel', type === 'serial');
   G('tab-udp').classList.toggle('sel', type === 'udp');
-  G('connect-btn').textContent = type === 'serial' ? 'CONNECT SERIAL' : 'CONNECT UDP';
+  G('tab-db').classList.toggle('sel',   type === 'db');
+  G('connect-btn').textContent =
+    type === 'serial' ? 'CONNECT SERIAL' :
+    type === 'udp'    ? 'CONNECT UDP'    : 'CONNECT DB';
 }
 window.setConnType = setConnType;
 
@@ -581,6 +599,48 @@ async function toggleConnect() {
       G('connect-btn').classList.remove('active');
       G('conn-status').textContent = 'disconnected';
       _resetFlightState();
+    };
+    return;
+  }
+
+  // ── DroneBridge ESP32 (direct WebSocket to ESP) ──────────────────────────
+  if (connType === 'db') {
+    if (dbWs) {
+      dbWs.onclose = null;
+      dbWs.close(); dbWs = null; serialOk = false;
+      G('connect-btn').textContent = 'CONNECT DB';
+      G('connect-btn').classList.remove('active');
+      G('conn-status').textContent = 'disconnected';
+      _resetFlightState();
+      return;
+    }
+    const ip   = G('db-ip').value.trim()   || '192.168.4.1';
+    const port = G('db-port').value.trim() || '80';
+    G('conn-status').textContent = 'connecting…';
+    let ws;
+    try { ws = new WebSocket(`ws://${ip}:${port}/`); } catch(e) {
+      G('conn-status').textContent = `bad URL: ${e.message}`; return;
+    }
+    ws.binaryType = 'arraybuffer';
+    dbWs = ws;
+    const parser = new MAVParser(onMavMsg);
+    ws.onopen = () => {
+      serialOk = true;
+      G('connect-btn').textContent = 'DISCONNECT';
+      G('connect-btn').classList.add('active');
+      G('conn-status').textContent = `${ip}:${port}`;
+      _resetFlightState();
+    };
+    ws.onmessage = e => {
+      try { parser.feed(new Uint8Array(e.data)); } catch(pe) { console.warn('MAVParser:', pe); }
+    };
+    ws.onerror = () => { G('conn-status').textContent = 'connection error'; };
+    ws.onclose = () => {
+      dbWs = null; serialOk = false;
+      G('connect-btn').textContent = 'CONNECT DB';
+      G('connect-btn').classList.remove('active');
+      if (!G('conn-status').textContent.startsWith('connection error'))
+        G('conn-status').textContent = 'disconnected';
     };
     return;
   }
