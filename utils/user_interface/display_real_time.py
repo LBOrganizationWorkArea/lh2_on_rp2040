@@ -301,28 +301,78 @@ async def ws_endpoint(ws: WebSocket):
         _mgr.disconnect(ws)
 
 
+def _gcs_heartbeat_bytes():
+    """Build a minimal MAVLink v2 GCS heartbeat packet (no pymavlink connection needed)."""
+    # CRC-16/MCRF4XX used by MAVLink
+    def _crc(data, extra):
+        crc = 0xFFFF
+        for b in data:
+            tmp = b ^ (crc & 0xFF)
+            tmp ^= (tmp << 4) & 0xFF
+            crc = ((crc >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF
+        tmp = extra ^ (crc & 0xFF)
+        tmp ^= (tmp << 4) & 0xFF
+        crc = ((crc >> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >> 4)) & 0xFFFF
+        return crc
+
+    payload = bytes([0, 0, 0, 0,   # custom_mode (uint32)
+                     6,             # type = MAV_TYPE_GCS
+                     8,             # autopilot = MAV_AUTOPILOT_INVALID
+                     0,             # base_mode
+                     0,             # system_status = MAV_STATE_UNINIT
+                     3])            # mavlink_version
+    header = bytes([0xFD,           # magic v2
+                    len(payload),   # 9
+                    0, 0,           # incompat / compat flags
+                    0,              # seq
+                    255,            # sysid (GCS)
+                    190,            # compid (MAV_COMP_ID_MISSIONPLANNER)
+                    0, 0, 0])       # msgid 0 = HEARTBEAT
+    crc_input = header[1:] + payload   # from LEN byte onward
+    crc_val = _crc(crc_input, 50)      # CRC_EXTRA for HEARTBEAT = 50
+    return header + payload + bytes([crc_val & 0xFF, (crc_val >> 8) & 0xFF])
+
+_GCS_HEARTBEAT = _gcs_heartbeat_bytes()
+
+
 @app.websocket('/ws/udp')
-async def ws_udp(ws: WebSocket, port: int = Query(default=14550)):
-    """Relay raw MAVLink UDP datagrams to a browser WebSocket client."""
+async def ws_udp(ws: WebSocket,
+                 host: str = Query(default=''),
+                 port: int = Query(default=14550)):
+    """Relay MAVLink UDP datagrams to a browser WebSocket client.
+
+    Client mode (host provided): connects to the remote address, sends
+    periodic GCS heartbeats so DroneBridge/ESP32 learns the GCS address.
+    Server mode (host empty): listens passively on the local port.
+    """
     await ws.accept()
     queue: asyncio.Queue[bytes] = asyncio.Queue()
 
     class _UdpProto(asyncio.DatagramProtocol):
+        def __init__(self):
+            self.transport = None
+        def connection_made(self, t):
+            self.transport = t
         def datagram_received(self, data, addr):
             queue.put_nowait(data)
         def error_received(self, exc):
             logging.warning('UDP relay error: %s', exc)
 
+    proto = _UdpProto()
     loop = asyncio.get_event_loop()
     try:
-        transport, _ = await loop.create_datagram_endpoint(
-            _UdpProto, local_addr=('0.0.0.0', port))
+        if host:
+            transport, _ = await loop.create_datagram_endpoint(
+                lambda: proto, remote_addr=(host, port))
+            logging.info('UDP relay client → %s:%d', host, port)
+        else:
+            transport, _ = await loop.create_datagram_endpoint(
+                lambda: proto, local_addr=('0.0.0.0', port))
+            logging.info('UDP relay listening on :%d', port)
     except OSError as e:
         await ws.send_text(f'error: {e}')
         await ws.close()
         return
-
-    logging.info('UDP relay listening on :%d', port)
 
     async def _forward():
         try:
@@ -332,7 +382,18 @@ async def ws_udp(ws: WebSocket, port: int = Query(default=14550)):
         except Exception:
             pass
 
-    forward_task = asyncio.create_task(_forward())
+    async def _heartbeat():
+        if not host:
+            return
+        try:
+            while True:
+                transport.sendto(_GCS_HEARTBEAT)
+                await asyncio.sleep(1.0)
+        except Exception:
+            pass
+
+    forward_task   = asyncio.create_task(_forward())
+    heartbeat_task = asyncio.create_task(_heartbeat())
     try:
         while True:
             await ws.receive_text()     # blocks until client disconnects
@@ -340,8 +401,9 @@ async def ws_udp(ws: WebSocket, port: int = Query(default=14550)):
         pass
     finally:
         forward_task.cancel()
+        heartbeat_task.cancel()
         transport.close()
-        logging.info('UDP relay closed (port %d)', port)
+        logging.info('UDP relay closed (%s:%d)', host or '0.0.0.0', port)
 
 
 
