@@ -1,30 +1,37 @@
 # Connecting the GCS over WiFi (DroneBridge ESP32)
 
 Besides plugging in via USB, the GCS (`docs/index.html`) can talk to the
-flight controller over WiFi through a DroneBridge ESP32 radio. There are two
-ways to connect, picked with the **DB** / **UDP** tabs in the connection
-widget.
+flight controller over WiFi through a DroneBridge ESP32 radio. How you
+connect depends on which WiFi mode DroneBridge is set to.
 
-## Quick answer: which tab do I use?
+## Access Point mode (ESP32 hosts its own WiFi)
 
-- **Know the ESP32's IP address?** → Use the **UDP** tab. Type the IP in,
-  run `python display_real_time.py`, hit Connect. This works whether
-  DroneBridge is hosting its own WiFi (Access Point, IP is always
-  `192.168.4.1`) or has joined your home/lab WiFi (Client mode — find its IP
-  in your router's device list or DroneBridge's own status page).
-- **Don't want to run the Python backend at all?** → Use the **DB** tab
-  instead. It connects the browser straight to the ESP32
-  (`ws://<ip>:80/mavlink`), no backend needed. Only works when you're on the
-  same network as the ESP32 (typically its own Access Point).
+Connect your laptop/phone to the ESP32's own network. Its IP is always
+`192.168.4.1`. Then either:
 
-That's the 90% case. Just enter the IP and connect.
+- **DB tab** — no backend needed. Connects the browser straight to the ESP32
+  (`ws://192.168.4.1:80/mavlink`). Simplest option.
+- **UDP tab** — run `python display_real_time.py`, then enter `192.168.4.1`
+  as the IP and connect. Use this if you want the backend running anyway
+  (e.g. for calibration config).
 
-## The one exception
+## Client mode (ESP32 joins your WiFi)
 
-Leave the IP field blank in the **UDP** tab only if you've configured
-DroneBridge (in its own web UI) to actively push telemetry to your computer,
-instead of waiting for the GCS to connect to it. In that setup the backend
-just listens for incoming packets rather than dialing out.
+The ESP32's IP is assigned by your router (DHCP), so find it first — check
+your router's device list or DroneBridge's own status page.
+
+- **UDP tab** — run `python display_real_time.py`, enter the ESP32's IP,
+  and connect.
+
+The **DB tab** also works here if DroneBridge exposes `/mavlink` in Client
+mode — just point it at the discovered IP instead of `192.168.4.1`.
+
+## Exception: DroneBridge pushes to you instead
+
+If you've configured DroneBridge (in its own web UI) to actively send
+telemetry to your computer's address, leave the IP field blank in the
+**UDP** tab. The backend then just listens for incoming packets instead of
+connecting out.
 
 ## Other ways to connect
 
@@ -33,9 +40,5 @@ just listens for incoming packets rather than dialing out.
 - **Debug mode**: pick `debug` as the port to see a simulated flight with no
   hardware attached at all.
 
-Run the backend from `utils/user_interface/`:
-```bash
-python display_real_time.py
-```
-See `.claude/rules/utils.md` for more on running it and MAVLink stream
-requirements.
+See `.claude/rules/utils.md` for more on running the backend and MAVLink
+stream requirements.
