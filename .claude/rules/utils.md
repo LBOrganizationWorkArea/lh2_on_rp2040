@@ -62,10 +62,7 @@ Pass `port=debug` via the API to run without hardware — the server generates s
 ### DroneBridge ESP32 (WiFi telemetry, no USB)
 
 See [`utils/user_interface/README.md`](../../utils/user_interface/README.md) for how to connect
-when the FC's MAVLink is relayed over WiFi via a DroneBridge ESP32 radio instead of USB serial —
-covers both DroneBridge Access Point mode (fixed IP, direct WebSocket or backend UDP dial-out) and
-Station/Client mode (DHCP IP you discover and enter, backend still dials out via `/ws/udp`); the
-backend's passive-listen mode is only for the case where DroneBridge itself pushes UDP to the GCS.
+over WiFi via a DroneBridge ESP32 radio instead of USB serial.
 
 ---
 
