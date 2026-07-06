@@ -59,6 +59,13 @@ The browser frontend (`docs/index.html`) connects to this server — it is **not
 
 Pass `port=debug` via the API to run without hardware — the server generates synthetic motion internally.
 
+### DroneBridge ESP32 (WiFi telemetry, no USB)
+
+See [`utils/user_interface/README.md`](../../utils/user_interface/README.md) for how to connect
+when the FC's MAVLink is relayed over WiFi via a DroneBridge ESP32 radio instead of USB serial —
+covers both DroneBridge Access Point mode (direct WebSocket, no backend needed) and Station/Client
+mode (backend `/ws/udp` relay, listening passively since the ESP's IP is DHCP-assigned).
+
 ---
 
 ## Lua scripts (`utils/lua_scripts/`)
