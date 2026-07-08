@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import queue as _queue
 import sys
 import threading
 import time
@@ -33,6 +34,21 @@ _EKF_CONST_POS     = 0x0080
 
 _SIGNAL_TIMEOUT = 3.0
 _TRAIL_LEN      = 2400   # 240 s at 10 Hz
+
+# ── LH2 parameter names (must match lh2_bs_params.lua) ───────────────────────
+
+LH2_PARAMS = [
+    'LH2_NUM_BS',
+    'LH2_BS0_X', 'LH2_BS0_Y', 'LH2_BS0_Z',
+    'LH2_BS0_R00', 'LH2_BS0_R01', 'LH2_BS0_R02',
+    'LH2_BS0_R10', 'LH2_BS0_R11', 'LH2_BS0_R12',
+    'LH2_BS0_R20', 'LH2_BS0_R21', 'LH2_BS0_R22',
+    'LH2_BS1_X', 'LH2_BS1_Y', 'LH2_BS1_Z',
+    'LH2_BS1_R00', 'LH2_BS1_R01', 'LH2_BS1_R02',
+    'LH2_BS1_R10', 'LH2_BS1_R11', 'LH2_BS1_R12',
+    'LH2_BS1_R20', 'LH2_BS1_R21', 'LH2_BS1_R22',
+]
+_LH2_SET = set(LH2_PARAMS)
 
 
 # ── quaternion / vector helpers ───────────────────────────────────────────────
@@ -81,6 +97,19 @@ _state = {
 
 _stop_event = threading.Event()
 
+# ── LH2 param state ───────────────────────────────────────────────────────────
+
+_param_cache: dict[str, float] = {}
+_param_set_q: _queue.Queue     = _queue.Queue()  # items: (name_str, float_value)
+_param_fetch_evt                = threading.Event()
+
+
+def _request_lh2_params(mav) -> None:
+    for name in LH2_PARAMS:
+        mav.mav.param_request_read_send(
+            mav.target_system, mav.target_component,
+            name.encode('ascii').ljust(16, b'\x00'), -1)
+
 
 # ── MAVLink thread ────────────────────────────────────────────────────────────
 
@@ -115,6 +144,9 @@ def _mavlink_thread(port, baud, stop_event):
                 mav.target_system, mav.target_component,
                 mavutil.mavlink.MAV_DATA_STREAM_EXTRA3, 2, 1)
 
+            # Fetch all LH2 geometry params from the FC
+            _request_lh2_params(mav)
+
             with _lock:
                 _state['serial_ok'] = True
             logging.info("MAVLink connected on %s @ %d", port, baud)
@@ -130,19 +162,36 @@ def _mavlink_thread(port, baud, stop_event):
                         0, 0, 0)
                     last_heartbeat = now
 
+                # Drain pending PARAM_SET commands
+                while True:
+                    try:
+                        pname, pval = _param_set_q.get_nowait()
+                        mav.mav.param_set_send(
+                            mav.target_system, mav.target_component,
+                            pname.encode('ascii').ljust(16, b'\x00'),
+                            float(pval), 9)  # 9 = MAV_PARAM_TYPE_REAL32
+                    except _queue.Empty:
+                        break
+
+                # Re-fetch LH2 params if requested by API
+                if _param_fetch_evt.is_set():
+                    _param_fetch_evt.clear()
+                    _request_lh2_params(mav)
+
                 msg = mav.recv_match(
-                    type=['LOCAL_POSITION_NED', 'EKF_STATUS_REPORT'],
-                    blocking=True, timeout=1.0)
+                    type=['LOCAL_POSITION_NED', 'EKF_STATUS_REPORT', 'PARAM_VALUE'],
+                    blocking=True, timeout=0.2)
                 if msg is None:
                     continue
-                if msg.get_type() == 'LOCAL_POSITION_NED':
+                mtype = msg.get_type()
+                if mtype == 'LOCAL_POSITION_NED':
                     now = time.time()
                     x, y, z = msg.x, msg.y, msg.z   # keep NED (z positive-down)
                     with _lock:
                         _state['x'] = x; _state['y'] = y; _state['z'] = z
                         _state['trail'].append((x, y, z, now))
                         _state['last_msg'] = now
-                elif msg.get_type() == 'EKF_STATUS_REPORT':
+                elif mtype == 'EKF_STATUS_REPORT':
                     flags = msg.flags
                     with _lock:
                         _state['ekf_flags'] = flags
@@ -151,6 +200,11 @@ def _mavlink_thread(port, baud, stop_event):
                             and bool(flags & _EKF_POS_HORIZ_REL)
                             and not bool(flags & _EKF_CONST_POS))
                         _state['last_msg'] = time.time()
+                elif mtype == 'PARAM_VALUE':
+                    pid = msg.param_id.rstrip('\x00').strip()
+                    if pid in _LH2_SET:
+                        with _lock:
+                            _param_cache[pid] = float(msg.param_value)
         except Exception as e:
             with _lock:
                 _state['serial_ok'] = False
@@ -207,6 +261,8 @@ def _start_mavlink(port, baud):
         _state.update(serial_ok=False, last_msg=0.0, port=port, baud=baud)
         _state['trail'].clear()
         _state['reset_token'] = _state.get('reset_token', 0) + 1
+        _param_cache.clear()
+    _param_fetch_evt.clear()
     if port == 'debug':
         threading.Thread(target=_debug_thread, args=(_stop_event,), daemon=True).start()
     else:
@@ -258,6 +314,36 @@ async def api_connect(request: Request):
     port  = body.get('port', _DEFAULT_PORT)
     baud  = int(body.get('baud', _DEFAULT_BAUD))
     _start_mavlink(port, baud)
+    return {'ok': True}
+
+
+@app.get('/api/lh2/params')
+async def api_lh2_params_get():
+    """Return cached LH2_BS* parameter values fetched from the FC."""
+    with _lock:
+        return dict(_param_cache)
+
+
+@app.post('/api/lh2/params')
+async def api_lh2_params_set(request: Request):
+    """Queue PARAM_SET commands for the given LH2_* parameters."""
+    body = await request.json()
+    count = 0
+    for name, val in body.items():
+        if str(name).startswith('LH2_'):
+            _param_set_q.put((str(name), float(val)))
+            count += 1
+    return {'ok': True, 'queued': count}
+
+
+@app.post('/api/lh2/fetch')
+async def api_lh2_fetch():
+    """Trigger a re-read of all LH2_BS* parameters from the FC."""
+    with _lock:
+        ok = _state['serial_ok']
+    if not ok:
+        return {'ok': False, 'error': 'FC not connected'}
+    _param_fetch_evt.set()
     return {'ok': True}
 
 
