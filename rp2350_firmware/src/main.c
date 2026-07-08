@@ -92,8 +92,6 @@ static const lh2_cal_t CAL[NUM_BS] = {
     { .A0 = CAL_BS1_A0, .B0 = CAL_BS1_B0, .A1 = CAL_BS1_A1, .B1 = CAL_BS1_B1 },
 };
 
-static const float lh_dist = BS_POSES[1].origin[0] - BS_POSES[0].origin[0];  /* scale factor for output (m) */
-
 // ---------------------------------------------------------------------------
 // Shared state (core 1 writes g_lh2, core 0 reads it)
 // ---------------------------------------------------------------------------
@@ -423,7 +421,7 @@ int main(void)
         /* Send ODOMETRY at 10 Hz with timestamp corrected to FC timebase. */
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
             mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
-                                  lh_dist*last_cx, lh_dist*last_cy, -lh_dist*last_cz);
+                                  last_cx, last_cy, -last_cz);
         }
 
         /* Send DO_SET_HOME exactly once — the first time EKF reports healthy.
@@ -452,7 +450,7 @@ int main(void)
 
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
             printf("C,%.4f,%.4f,%.4f\n",
-                   (double)last_cx*lh_dist, (double)last_cy*lh_dist, (double)last_cz*lh_dist);
+                   (double)last_cx, (double)last_cy, (double)last_cz);
         }
     }
 
