@@ -92,6 +92,14 @@
 #define MAV_CMD_SET_HOME   179u
 #define MAV_CMD_MSG_INTV   511u
 
+/* NAMED_VALUE_FLOAT (msg #251): pushed by lh2_bs_params.lua every 1 s */
+#define MSGID_NAMED_FLOAT     251u
+#define CRC_EXTRA_NAMED_FLOAT 170u
+/* Wire layout (18 bytes): time_boot_ms(4) + value(4) + name(10) */
+#define NAMED_FLOAT_VAL_OFF   4u
+#define NAMED_FLOAT_NAME_OFF  8u
+#define N_LH2_PARAMS          25u   /* NUMBS + 2×(3 origin + 9 R) */
+
 /* EKF_STATUS_REPORT flags we require for "healthy" */
 #define EKF_NEED_FLAGS   (0x0001u | 0x0008u)  /* ATTITUDE | POS_HORIZ_REL */
 #define EKF_CONST_POS    0x0080u               /* constant-pos mode = not healthy */
@@ -118,13 +126,16 @@ static uint8_t s_seq = 0u;
 
 /* ---- RX parser state ------------------------------------------------------ */
 
-/* Sub-states for the byte-by-byte MAVLink v2 frame parser */
+/* Sub-states for the byte-by-byte MAVLink v1/v2 frame parser */
 enum {
     RXS_IDLE = 0,
+    /* MAVLink v2 states */
     RXS_LEN, RXS_INCOMPAT, RXS_COMPAT, RXS_SEQ,
     RXS_SYSID, RXS_COMPID,
     RXS_MSGID0, RXS_MSGID1, RXS_MSGID2,
     RXS_PAYLOAD, RXS_CRC0, RXS_CRC1,
+    /* MAVLink v1 extra states (no incompat/compat, 1-byte msgid) */
+    RXS_V1_SEQ, RXS_V1_SYSID, RXS_V1_COMPID, RXS_V1_MSGID,
 };
 
 static struct {
@@ -132,8 +143,9 @@ static struct {
     uint8_t  len;
     uint8_t  idx;
     bool     discard;      /* payload too long for buf — skip content, still parse */
+    bool     is_v1;        /* true when parsing a MAVLink v1 frame (STX=0xFE) */
     uint32_t msgid;
-    uint16_t crc;          /* running CRC over bytes [1..9+len] */
+    uint16_t crc;          /* running CRC over header+payload bytes */
     uint8_t  crc_lo;       /* saved first CRC byte */
     uint8_t  buf[MAX_RX_BUF];
 } s_rx;
@@ -141,6 +153,15 @@ static struct {
 static bool  s_ekf_healthy        = false;
 static float s_timesync_offset_ns = 0.0f;  /* EMA of (local_ns − fc_ns) */
 static bool  s_timesync_valid     = false;
+
+/* ---- BS pose param state ------------------------------------------------- */
+
+static float    s_bs_origin[NUM_BS][3];
+static float    s_bs_R[NUM_BS][3][3];
+static uint32_t s_received_mask  = 0u;  /* bit i set when param i received */
+static bool     s_poses_ready    = false;
+static uint32_t s_param_val_seen = 0u;  /* total PARAM_VALUE frames with valid CRC */
+static uint32_t s_rx_bytes       = 0u;  /* total raw bytes received on UART */
 
 /* ---- CRC16/MCRF4XX -------------------------------------------------------- */
 
@@ -183,6 +204,74 @@ static int64_t read_i64_le(const uint8_t *p)
 }
 
 /* ---- RX parser ------------------------------------------------------------ */
+
+/* ---- LH2 NAMED_VALUE_FLOAT parser ---------------------------------------- */
+
+/*
+ * Bit layout for s_received_mask (25 bits total):
+ *   bit  0        : NUMBS
+ *   bits 1–3      : BS0 X, Y, Z
+ *   bits 4–12     : BS0 R[0][0]..R[2][2]  (row-major: 4+r*3+c)
+ *   bits 13–15    : BS1 X, Y, Z
+ *   bits 16–24    : BS1 R[0][0]..R[2][2]
+ */
+static void _parse_named_float(const char *name, float value)
+{
+    int bit = -1;
+
+    if (strcmp(name, "NUMBS") == 0) {
+        bit = 0;
+    } else if (name[0]=='B' && name[1]=='S' &&
+               (name[2]=='0' || name[2]=='1')) {
+        int         i    = name[2] - '0';
+        const char *f    = name + 3;
+        int         base = (i == 0) ? 1 : 13;
+
+        if (f[0]=='X' && f[1]=='\0') {
+            s_bs_origin[i][0] = value; bit = base + 0;
+        } else if (f[0]=='Y' && f[1]=='\0') {
+            s_bs_origin[i][1] = value; bit = base + 1;
+        } else if (f[0]=='Z' && f[1]=='\0') {
+            s_bs_origin[i][2] = value; bit = base + 2;
+        } else if (f[0]=='R' && f[1]>='0' && f[1]<='2' &&
+                                 f[2]>='0' && f[2]<='2' && f[3]=='\0') {
+            int r = f[1]-'0', c = f[2]-'0';
+            s_bs_R[i][r][c] = value; bit = base + 3 + r*3 + c;
+        }
+    }
+
+    if (bit < 0 || (unsigned)bit >= N_LH2_PARAMS) return;
+    s_received_mask |= (1u << bit);
+    if (s_received_mask == (1u << N_LH2_PARAMS) - 1u)
+        s_poses_ready = true;
+}
+
+static void _dispatch_named_float(uint8_t crc_hi)
+{
+    if (s_rx.msgid != MSGID_NAMED_FLOAT || s_rx.discard) return;
+    /* MAVLink v2 truncates trailing zero bytes: "NUMBS" → LEN=13, not 18.
+     * Need at least: time(4) + value(4) + 1 name byte = 9. */
+    if (s_rx.len < (NAMED_FLOAT_VAL_OFF + 4u + 1u)) return;
+
+    uint16_t received = (uint16_t)s_rx.crc_lo | ((uint16_t)crc_hi << 8u);
+    uint16_t computed = crc_accumulate(CRC_EXTRA_NAMED_FLOAT, s_rx.crc);
+    if (computed != received) return;
+
+    s_param_val_seen++;
+
+    float value;
+    memcpy(&value, &s_rx.buf[NAMED_FLOAT_VAL_OFF], 4u);
+
+    /* Copy available name bytes; zero-fill the rest (handles v2 truncation). */
+    char name[11];
+    uint8_t avail = (s_rx.len > NAMED_FLOAT_NAME_OFF)
+                  ? (uint8_t)(s_rx.len - NAMED_FLOAT_NAME_OFF) : 0u;
+    if (avail > 10u) avail = 10u;
+    memcpy(name, &s_rx.buf[NAMED_FLOAT_NAME_OFF], avail);
+    memset(name + avail, '\0', (size_t)(11u - avail));
+
+    _parse_named_float(name, value);
+}
 
 static void _dispatch_ekf(uint8_t crc_hi)
 {
@@ -265,13 +354,14 @@ static void _rx_feed(uint8_t b)
 {
     switch (s_rx.state) {
     case RXS_IDLE:
-        if (b == MAV_STX) s_rx.state = RXS_LEN;
+        if (b == MAV_STX)  { s_rx.is_v1 = false; s_rx.state = RXS_LEN; }
+        else if (b == 0xFEu) { s_rx.is_v1 = true;  s_rx.state = RXS_LEN; }
         break;
     case RXS_LEN:
         s_rx.len = b; s_rx.idx = 0u;
         s_rx.discard = (b > MAX_RX_BUF);
         s_rx.crc = crc_accumulate(b, 0xFFFFu);
-        s_rx.state = RXS_INCOMPAT;
+        s_rx.state = s_rx.is_v1 ? RXS_V1_SEQ : RXS_INCOMPAT;
         break;
     case RXS_INCOMPAT:
         s_rx.crc = crc_accumulate(b, s_rx.crc);
@@ -316,7 +406,27 @@ static void _rx_feed(uint8_t b)
     case RXS_CRC1:
         _dispatch_ekf(b);
         _dispatch_timesync(b);
+        _dispatch_named_float(b);
         s_rx.state = RXS_IDLE;
+        break;
+
+    /* MAVLink v1: seq, sysid, compid, msgid (1 byte) — same CRC accumulation */
+    case RXS_V1_SEQ:
+        s_rx.crc = crc_accumulate(b, s_rx.crc);
+        s_rx.state = RXS_V1_SYSID;
+        break;
+    case RXS_V1_SYSID:
+        s_rx.crc = crc_accumulate(b, s_rx.crc);
+        s_rx.state = RXS_V1_COMPID;
+        break;
+    case RXS_V1_COMPID:
+        s_rx.crc = crc_accumulate(b, s_rx.crc);
+        s_rx.state = RXS_V1_MSGID;
+        break;
+    case RXS_V1_MSGID:
+        s_rx.msgid = b;
+        s_rx.crc = crc_accumulate(b, s_rx.crc);
+        s_rx.state = (s_rx.len == 0u) ? RXS_CRC0 : RXS_PAYLOAD;
         break;
     }
 }
@@ -356,6 +466,39 @@ static void _send_cmd_long(uint16_t cmd, float p1, float p2)
 }
 
 /* ---- Public API ----------------------------------------------------------- */
+
+void mavlink_send_heartbeat(void)
+{
+    /* HEARTBEAT (msg #0, CRC_EXTRA=50), 9-byte payload:
+     *   custom_mode  uint32  0
+     *   type         uint8   18 (MAV_TYPE_ONBOARD_CONTROLLER)
+     *   autopilot    uint8   8  (MAV_AUTOPILOT_INVALID)
+     *   base_mode    uint8   0
+     *   system_status uint8  4  (MAV_STATE_ACTIVE)
+     *   mavlink_version uint8 3
+     */
+    enum { PL = 9, TOTAL = 21 };
+    uint8_t f[TOTAL];
+    memset(f, 0, sizeof(f));
+    f[0] = MAV_STX;
+    f[1] = (uint8_t)PL;
+    f[4] = s_seq++;
+    f[5] = MAV_SYSID;
+    f[6] = MAV_COMPID;
+    /* msgid = 0 → bytes 7,8,9 stay 0 */
+    /* payload: custom_mode(4)=0, type(1)=18, autopilot(1)=8, base_mode(1)=0,
+     *          system_status(1)=4, mavlink_version(1)=3 */
+    f[14] = 18u;   /* type           */
+    f[15] = 8u;    /* autopilot      */
+    f[17] = 4u;    /* system_status  */
+    f[18] = 3u;    /* mavlink_version */
+    uint16_t crc = 0xFFFFu;
+    for (int i = 1; i <= 9 + PL; i++) crc = crc_accumulate(f[i], crc);
+    crc = crc_accumulate(50u, crc);   /* CRC_EXTRA for HEARTBEAT */
+    f[19] = (uint8_t)(crc & 0xFFu);
+    f[20] = (uint8_t)(crc >> 8u);
+    uart_write_blocking(MAV_UART, f, TOTAL);
+}
 
 void mavlink_init(void)
 {
@@ -427,8 +570,10 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
 
 void mavlink_rx_update(void)
 {
-    while (uart_is_readable(MAV_UART))
+    while (uart_is_readable(MAV_UART)) {
+        s_rx_bytes++;
         _rx_feed(uart_getc(MAV_UART));
+    }
 }
 
 bool mavlink_is_ekf_healthy(void)
@@ -455,4 +600,32 @@ uint64_t mavlink_timesync_corrected_us(uint64_t local_us)
     /* fc_time = local_time − offset  (offset = local_ns − fc_ns) */
     int64_t corrected = (int64_t)local_us - (int64_t)(s_timesync_offset_ns / 1000.0f);
     return corrected > 0 ? (uint64_t)corrected : 0u;
+}
+
+bool mavlink_bs_poses_ready(void)
+{
+    return s_poses_ready;
+}
+
+uint32_t mavlink_param_val_seen(void)
+{
+    return s_param_val_seen;
+}
+
+uint32_t mavlink_lh2_params_received(void)
+{
+    return (uint32_t)__builtin_popcount(s_received_mask);
+}
+
+uint32_t mavlink_rx_bytes(void)
+{
+    return s_rx_bytes;
+}
+
+void mavlink_get_bs_poses(lh2_bs_pose_t poses[NUM_BS])
+{
+    for (int i = 0; i < NUM_BS; i++) {
+        memcpy(poses[i].origin, s_bs_origin[i], 3u * sizeof(float));
+        memcpy(poses[i].R,      s_bs_R[i],      9u * sizeof(float));
+    }
 }

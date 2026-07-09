@@ -64,14 +64,13 @@ target_compile_options(crossing_beams PRIVATE
 )
 
 # ============================================================================
-# crossing_beams_synthetic — full dual-core pipeline, no sensors
+# crossing_beams_synthetic — dual-core angle output, no sensors
 #
-# Builds main.c with -DSYNTHETIC_CAPTURE: core 1 fabricates the LFSR
-# counts a real sensor would emit for a body tracing a 1 m × 1 m square, then
-# core 0 runs the REAL angle_decoder → solve3d → MAVLink path unchanged.
-# Exercises the cross-core architecture on-chip without any hardware.
+# Builds main.c with -DSYNTHETIC_CAPTURE: core 1 fabricates the LFSR counts
+# a real sensor would emit for a body tracing a 1 m × 1 m square at z=2 m,
+# core 0 runs the real angle_decoder and streams A, / C, lines over USB.
+# Used to test the RPi solver pipeline without physical LH2 hardware.
 # The lh2/ PIO+DMA layer is intentionally omitted (unused in synthetic mode).
-# See SYNTHETIC_CAPTURE.md.
 # ============================================================================
 
 add_executable(crossing_beams_synthetic
