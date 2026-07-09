@@ -11,7 +11,10 @@
 
 void mavlink_init(void);
 void mavlink_send_heartbeat(void);
-void mavlink_send_odometry(uint64_t usec, float x, float y, float z);
+/* q = quaternion [w,x,y,z]; pos_var = position variance [m²];
+ * yaw_var = yaw variance [rad²] (9.87 = π² signals "unknown" to EKF). */
+void mavlink_send_odometry(uint64_t usec, float x, float y, float z,
+                           const float q[4], float pos_var, float yaw_var);
 
 /* RX — call every main-loop iteration to drain UART FIFO */
 void mavlink_rx_update(void);

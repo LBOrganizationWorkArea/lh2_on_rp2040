@@ -140,7 +140,8 @@ static const float SYN_CORNERS[4][3] = {
     {1.00f, 1.00f, 2.00f}, {0.00f, 1.00f, 2.00f},
 };
 
-/** Sensor offsets on the rigid body [x, y] metres (flat 5×5 cm square). */
+/** Sensor offsets on the rigid body [x, y] metres (flat 5×5 cm square).
+ *  Must stay in sync with SENSOR_XY[] in the yaw estimator below. */
 static const float SYN_SENSOR_OFF[NUM_SENSORS][2] = {
     {0.000f, 0.000f}, {0.050f, 0.000f}, {0.050f, 0.050f}, {0.000f, 0.050f},
 };
@@ -239,6 +240,95 @@ static void core1_entry(void)
 #endif /* SYNTHETIC_CAPTURE */
 
 // ---------------------------------------------------------------------------
+// Yaw estimation
+// ---------------------------------------------------------------------------
+
+/* Physical sensor layout in body frame — must match SYN_SENSOR_OFF:
+ *   S0=(0,0)  S1=(L,0)  S2=(L,L)  S3=(0,L)  where L = SENSOR_BASELINE */
+#define SENSOR_BASELINE  0.050f
+
+/* Position variance [m²] indexed by number of fresh sensors (0–4). */
+static const float POS_VAR_TABLE[5] = { 0.09f, 0.09f, 0.04f, 0.02f, 0.01f };
+
+/* Yaw variance [rad²] indexed by number of valid axis pairs (0–4).
+ * Index 0 → caller must fall through to velocity / unknown. */
+static const float YAW_VAR_TABLE[5] = { 9.87f, 0.40f, 0.20f, 0.10f, 0.05f };
+
+/*
+ * Estimate yaw from the rigid-body layout of the sensor array.
+ *
+ * Uses world-frame positions of sensor pairs whose body-frame displacement
+ * is either along body-X or body-Y.  Each valid pair gives an independent
+ * yaw estimate; they are fused via circular mean.
+ *
+ * A pair is rejected if its measured separation deviates from SENSOR_BASELINE
+ * by more than 20 mm (bad triangulation / stale cross-contamination).
+ *
+ * Returns true and sets *yaw_out [rad] + *var_out [rad²] when at least one
+ * valid pair exists.  Returns false when no pair can be formed (< 2 sensors
+ * or all pairs fail the distance check).
+ */
+static bool _estimate_yaw(const lh2_point3d_t *pts, int n,
+                           float *yaw_out, float *var_out)
+{
+#define YAW_DIST_TOL  0.020f   /* 20 mm distance tolerance */
+
+    /* Collect which sensors we have and their world positions. */
+    float pos[NUM_SENSORS][3];
+    bool  have[NUM_SENSORS];
+    for (int s = 0; s < NUM_SENSORS; s++) have[s] = false;
+    for (int i = 0; i < n; i++) {
+        uint8_t s = pts[i].sensor_id;
+        if (s < NUM_SENSORS) {
+            pos[s][0] = pts[i].xyz[0];
+            pos[s][1] = pts[i].xyz[1];
+            pos[s][2] = pts[i].xyz[2];
+            have[s]   = true;
+        }
+    }
+
+    /*
+     * Axis pairs: {from, to, is_body_x}.
+     *   is_body_x=true  → W[to]-W[from] ≈ body-X in world → yaw = atan2(Δy, Δx)
+     *   is_body_x=false → W[to]-W[from] ≈ body-Y in world → yaw = atan2(-Δx, Δy)
+     */
+    static const struct { uint8_t a, b; bool body_x; } PAIRS[4] = {
+        {0, 1, true},   /* S0→S1: body +X */
+        {3, 2, true},   /* S3→S2: body +X */
+        {0, 3, false},  /* S0→S3: body +Y */
+        {1, 2, false},  /* S1→S2: body +Y */
+    };
+
+    float sin_sum = 0.0f, cos_sum = 0.0f;
+    int   n_pairs = 0;
+
+    for (int p = 0; p < 4; p++) {
+        uint8_t a = PAIRS[p].a, b = PAIRS[p].b;
+        if (!have[a] || !have[b]) continue;
+
+        float dx = pos[b][0] - pos[a][0];
+        float dy = pos[b][1] - pos[a][1];
+        float dist = sqrtf(dx*dx + dy*dy);
+
+        if (fabsf(dist - SENSOR_BASELINE) > YAW_DIST_TOL) continue;
+
+        float yaw_est = PAIRS[p].body_x ? atan2f(dy, dx)
+                                        : atan2f(-dx, dy);
+        sin_sum += sinf(yaw_est);
+        cos_sum += cosf(yaw_est);
+        n_pairs++;
+    }
+
+    if (n_pairs == 0) return false;
+
+    *yaw_out = atan2f(sin_sum, cos_sum);
+    *var_out = YAW_VAR_TABLE[n_pairs];
+    return true;
+
+#undef YAW_DIST_TOL
+}
+
+// ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
@@ -314,6 +404,17 @@ int main(void)
     /* ⑤ Compute loop */
     uint64_t last_print_us = 0;
     float    last_cx = 0.0f, last_cy = 0.0f, last_cz = 0.0f;
+    int      last_na = 0;   /* number of fresh sensors in last solve */
+
+    /* Snapshot of solve output kept for the 10 Hz yaw block. */
+    lh2_point3d_t last_pts[NUM_SENSORS];
+    int           last_n = 0;
+
+    /* Velocity-based yaw state (fallback when < 2 sensors). */
+    float    vel_prev_cx = 0.0f, vel_prev_cy = 0.0f;
+    uint64_t vel_prev_us = 0;
+    float    vel_yaw     = 0.0f;
+    float    vel_yaw_var = 9.87f;   /* π² → "unknown" to EKF */
 
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
@@ -352,6 +453,9 @@ int main(void)
                     last_cx = sx / na;
                     last_cy = sy / na;
                     last_cz = sz / na;
+                    last_na = na;
+                    last_n  = n;
+                    memcpy(last_pts, pts, (size_t)n * sizeof(pts[0]));
                 }
             }
         }
@@ -364,8 +468,44 @@ int main(void)
         mavlink_get_bs_poses(BS_POSES);
 
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
+            /* ---- Yaw estimation ------------------------------------------ */
+            float q[4]   = {1.0f, 0.0f, 0.0f, 0.0f};   /* identity fallback */
+            float pos_var = POS_VAR_TABLE[last_na < 4 ? last_na : 4];
+            float yaw_var = 9.87f;
+            float yaw     = 0.0f;
+
+            if (_estimate_yaw(last_pts, last_n, &yaw, &yaw_var)) {
+                /* Primary: rigid-body orientation from sensor positions */
+                q[0] = cosf(yaw * 0.5f);
+                q[3] = sinf(yaw * 0.5f);
+                vel_yaw = yaw;                  /* keep velocity state warmed */
+                vel_yaw_var = yaw_var;
+            } else if (vel_prev_us > 0) {
+                /* Fallback: motion-derived heading (GPS track angle style) */
+                float dt = (float)(now_us - vel_prev_us) * 1e-6f;
+                float vx = (last_cx - vel_prev_cx) / dt;
+                float vy = (last_cy - vel_prev_cy) / dt;
+                float speed = sqrtf(vx*vx + vy*vy);
+                if (speed > 0.10f) {
+                    vel_yaw     = atan2f(vy, vx);
+                    vel_yaw_var = 0.50f;
+                } else {
+                    /* Stationary: yaw decays toward unknown */
+                    vel_yaw_var = vel_yaw_var + 0.05f;
+                    if (vel_yaw_var > 9.87f) vel_yaw_var = 9.87f;
+                }
+                yaw     = vel_yaw;
+                yaw_var = vel_yaw_var;
+                q[0] = cosf(yaw * 0.5f);
+                q[3] = sinf(yaw * 0.5f);
+            }
+            vel_prev_cx = last_cx;
+            vel_prev_cy = last_cy;
+            vel_prev_us = now_us;
+            /* -------------------------------------------------------------- */
+
             mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
-                                  last_cx, last_cy, -last_cz);
+                                  last_cx, last_cy, -last_cz, q, pos_var, yaw_var);
         }
 
         if (!g_home_set && mavlink_is_ekf_healthy()) {
