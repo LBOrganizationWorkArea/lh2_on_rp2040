@@ -287,7 +287,6 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
       </button>
       <div id="menu-dropdown" style="display:none">
         <a href="logview.html"      class="menu-item">ANALYSE LOGS →</a>
-        <a href="lh_positions.html" class="menu-item">DEFINE LH POSITIONS →</a>
         <button class="menu-item" onclick="openLhEditor()">CHANGE LH POSE</button>
       </div>
     </div>
@@ -306,7 +305,7 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
   <div id="webserial-warn">WebSerial not supported — use Chrome or Edge</div>
 </div>
 
-<div style="position:fixed;bottom:8px;right:10px;z-index:50;font-size:9px;color:#2a2a2a;letter-spacing:1px;pointer-events:none">v2.3.6</div>
+<div style="position:fixed;bottom:8px;right:10px;z-index:50;font-size:9px;color:#2a2a2a;letter-spacing:1px;pointer-events:none">v2.3.7</div>
 
 <script type="importmap">
 {
@@ -568,10 +567,19 @@ const LH2_PARAM_NAMES=[
   'LH2_BS1_R20','LH2_BS1_R21','LH2_BS1_R22',
 ];
 
+function _lhSetStatus(msg, type) {
+  // type: 'ok' | 'warn' | 'err' | '' (grey)
+  const st=G('lh-modal-status'); if(!st) return;
+  st.textContent=msg;
+  st.style.color=type==='ok'?'#4adf8c':type==='warn'?'#ffa040':type==='err'?'#FF6655':'#555';
+  const btn=G('lh-reload-btn');
+  if(btn) btn.style.display=(type==='err'||type==='warn')?'inline':'none';
+}
+
 function _onLhParam(name, val) {
   _lhPCache[name]=val;
   const n=Object.keys(_lhPCache).filter(k=>k.startsWith('LH2_BS')).length;
-  const st=G('lh-modal-status'); if(st) st.textContent=`Loading… ${n}/24`;
+  _lhSetStatus(`Loading… ${n}/24`, 'warn');
   if (n<24) return;
   for (let i=0;i<2;i++) {
     const x=_lhPCache[`LH2_BS${i}_X`]??0, y=_lhPCache[`LH2_BS${i}_Y`]??0, z=_lhPCache[`LH2_BS${i}_Z`]??0;
@@ -580,7 +588,7 @@ function _onLhParam(name, val) {
     LIGHTHOUSES[i].R=R;
   }
   drawLighthouses();
-  if (st){ st.textContent='Loaded from FC ✓'; st.style.color='#4adf8c'; }
+  _lhSetStatus('Loaded from FC ✓', 'ok');
   if (G('lh-modal')?.classList.contains('open')) _lhLoad(_lhSelIdx);
 }
 
@@ -617,10 +625,24 @@ async function _mavWrite(pkt) {
   return false;
 }
 async function _fetchLhParams() {
+  _lhSetStatus('Loading from FC…', 'warn');
+  // Send all PARAM_REQUEST_READ — abort early if write fails (not connected)
   for (const n of LH2_PARAM_NAMES) {
-    await _mavWrite(_buildParamRequestRead(n));
+    if (!await _mavWrite(_buildParamRequestRead(n))) {
+      _lhSetStatus('ERROR: not connected to FC', 'err');
+      return;
+    }
     await new Promise(r=>setTimeout(r,25));
   }
+  // Wait up to 6 s for all 24 BS params
+  const deadline=Date.now()+6000;
+  while (Date.now()<deadline) {
+    await new Promise(r=>setTimeout(r,300));
+    if (Object.keys(_lhPCache).filter(k=>k.startsWith('LH2_BS')).length>=24) return; // _onLhParam set status
+  }
+  const got=Object.keys(_lhPCache).filter(k=>k.startsWith('LH2_BS')).length;
+  if (got===0)  _lhSetStatus('ERROR: FC not responding — is lh2_bs_params.lua deployed on SD card?', 'err');
+  else          _lhSetStatus(`ERROR: only ${got}/24 params received — FC may be busy`, 'err');
 }
 
 // ─── FC R ↔ euler (local-to-world convention, col0 = boresight) ──────────────
@@ -663,7 +685,7 @@ function _resetFlightState() {
   _prevArmed=null; _prevCmode=null; _prevEkfOk=null; _prevWP=null;
   _fcSysId=1; _fcCompId=1;
   Object.keys(_lhPCache).forEach(k=>delete _lhPCache[k]);
-  const st=G('lh-modal-status'); if(st){st.textContent='Connect to load FC values';st.style.color='';}
+  _lhSetStatus('Connect to load FC values', '');
 }
 
 function setConnType(type) {
@@ -1109,13 +1131,14 @@ function openLhEditor(){
     sel.appendChild(b);
   });
   _lhLoad(_lhSelIdx);
-  // Update status based on param state
+  // Sync status — don't overwrite an error already set by _fetchLhParams
   const n=Object.keys(_lhPCache).filter(k=>k.startsWith('LH2_BS')).length;
-  const st=G('lh-modal-status');
-  if(st){
-    if(n>=24){st.textContent='Loaded from FC ✓';st.style.color='#4adf8c';}
-    else if(serialOk){st.textContent='Loading from FC…';st.style.color='#ffa040';}
-    else{st.textContent='Connect to load FC values';st.style.color='#555';}
+  const stEl=G('lh-modal-status');
+  const curTxt=stEl?.textContent??'';
+  if (!curTxt.startsWith('ERROR')) {
+    if(n>=24)      _lhSetStatus('Loaded from FC ✓','ok');
+    else if(serialOk) _lhSetStatus('Loading from FC…','warn');
+    else           _lhSetStatus('Connect to load FC values','');
   }
   G('lh-modal').classList.add('open');
 }
@@ -1131,19 +1154,22 @@ function applyLhPose(){
   const i=_lhSelIdx;
   const params={[`LH2_BS${i}_X`]:x,[`LH2_BS${i}_Y`]:y,[`LH2_BS${i}_Z`]:z};
   for(let r=0;r<3;r++) for(let c=0;c<3;c++) params[`LH2_BS${i}_R${r}${c}`]=R[r][c];
-  const st=G('lh-modal-status');
+  const total=Object.keys(params).length;
   (async()=>{
-    let sent=0;
+    let sent=0, failed=0;
     for(const[n,v] of Object.entries(params)){
       if(await _mavWrite(_buildParamSet(n,v))) sent++;
+      else failed++;
       await new Promise(r=>setTimeout(r,15));
     }
-    if(st) st.textContent=sent?`Saved to FC ✓ (${sent} params)`:'Applied (not connected to FC)';
-    if(st) st.style.color=sent?'#4adf8c':'#555';
+    if(failed===total)    _lhSetStatus('ERROR: not connected — changes applied locally only','err');
+    else if(failed>0)     _lhSetStatus(`ERROR: only ${sent}/${total} params sent (${failed} write errors)`,'err');
+    else                  _lhSetStatus(`Saved to FC ✓ (${sent} params)`,'ok');
   })();
   closeLhEditor();
 }
 G('lh-modal').addEventListener('click',e=>{ if(e.target===G('lh-modal')) closeLhEditor(); });
+window.reloadLhParams=()=>{ Object.keys(_lhPCache).forEach(k=>delete _lhPCache[k]); _fetchLhParams(); };
 window.openLhEditor=openLhEditor; window.closeLhEditor=closeLhEditor; window.applyLhPose=applyLhPose;
 
 // ─── Animation loop ───────────────────────────────────────────────────────────
@@ -1173,7 +1199,10 @@ animate();
       <span class="modal-title">LIGHTHOUSE POSE</span>
       <button style="width:auto;padding:3px 8px;font-size:13px;line-height:1" onclick="closeLhEditor()">✕</button>
     </div>
-    <div id="lh-modal-status" style="font-size:10px;color:#555;min-height:14px">Connect to load FC values</div>
+    <div style="display:flex;align-items:center;gap:8px;min-height:16px">
+      <div id="lh-modal-status" style="font-size:10px;color:#555;flex:1">Connect to load FC values</div>
+      <button id="lh-reload-btn" onclick="reloadLhParams()" style="display:none;width:auto;padding:2px 8px;font-size:10px;flex:none">RELOAD</button>
+    </div>
     <div id="lh-sel"></div>
     <div>
       <div class="lbl" style="margin-bottom:5px">POSITION (m) — Z = height above floor</div>
