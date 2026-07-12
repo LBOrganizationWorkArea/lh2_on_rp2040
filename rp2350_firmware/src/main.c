@@ -242,6 +242,20 @@ static void core1_entry(void)
 // Helpers
 // ---------------------------------------------------------------------------
 
+/* Position variance [m²] — GDOP model grounded in Taffanel et al. ICRA 2021
+ * (LH2 crossing-beam, Table III / Fig. 6).
+ * σ_base = 2 cm (paper: ~1 cm flight avg, inflated for conservatism).
+ * GDOP factors × {∞, 5, 3, 1.5, 1} for 0–4 active sensors.
+ * 4 sensors: DLT has 16 eqs / 3 unknowns → GDOP ≈ 1.
+ * 1 sensor:  DLT has  4 eqs / 3 unknowns → no redundancy → GDOP × 5. */
+static const float POS_VAR_TABLE[5] = {
+    0.09f,    /* 0 sensors — σ = 30 cm (no data) */
+    0.0100f,  /* 1 sensor  — σ = 10 cm (GDOP × 5) */
+    0.0036f,  /* 2 sensors — σ =  6 cm (GDOP × 3) */
+    0.0009f,  /* 3 sensors — σ =  3 cm (GDOP × 1.5) */
+    0.0004f,  /* 4 sensors — σ =  2 cm (GDOP × 1, baseline) */
+};
+
 static inline float _rad2deg(float rad)
 {
     return rad * (180.0f / 3.14159265358979323846f);
@@ -314,6 +328,7 @@ int main(void)
     /* ⑤ Compute loop */
     uint64_t last_print_us = 0;
     float    last_cx = 0.0f, last_cy = 0.0f, last_cz = 0.0f;
+    int      last_na = 0;   /* number of fresh sensors in last solve */
 
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
@@ -352,6 +367,7 @@ int main(void)
                     last_cx = sx / na;
                     last_cy = sy / na;
                     last_cz = sz / na;
+                    last_na = na;
                 }
             }
         }
@@ -364,8 +380,12 @@ int main(void)
         mavlink_get_bs_poses(BS_POSES);
 
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
+            int     idx     = last_na < 4 ? last_na : 4;
+            float   pos_var = POS_VAR_TABLE[idx];
+            uint8_t quality = (uint8_t)(last_na * 25);
             mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
-                                  last_cx, last_cy, -last_cz);
+                                  last_cx, last_cy, -last_cz,
+                                  pos_var, quality);
         }
 
         if (!g_home_set && mavlink_is_ekf_healthy()) {

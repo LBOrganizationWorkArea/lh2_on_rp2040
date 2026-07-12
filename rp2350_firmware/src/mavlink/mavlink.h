@@ -11,7 +11,8 @@
 
 void mavlink_init(void);
 void mavlink_send_heartbeat(void);
-void mavlink_send_odometry(uint64_t usec, float x, float y, float z);
+void mavlink_send_odometry(uint64_t usec, float x, float y, float z,
+                           float pos_var, uint8_t quality);
 
 /* RX — call every main-loop iteration to drain UART FIFO */
 void mavlink_rx_update(void);

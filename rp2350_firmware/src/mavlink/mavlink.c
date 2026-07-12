@@ -80,8 +80,6 @@
 #define FRAME_LEN        245u
 #define MAV_CRC_EXTRA    91u
 
-/** Position variance sent in pose_covariance diagonal [m²]. ~10 cm σ. */
-#define POS_VAR  0.01f
 
 /* ---- RX constants --------------------------------------------------------- */
 
@@ -507,7 +505,8 @@ void mavlink_init(void)
     gpio_set_function(MAV_RX_PIN, GPIO_FUNC_UART);
 }
 
-void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
+void mavlink_send_odometry(uint64_t usec, float x, float y, float z,
+                           float pos_var, uint8_t quality)
 {
     uint8_t frame[FRAME_LEN];
     memset(frame, 0, sizeof(frame));
@@ -542,9 +541,9 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
     /* pose_covariance[21]: upper triangle of 6×6 (pos xyz + att rpy).
      * AP uses indices [0],[6],[11] for x,y,z position variance to compute
      * posErr. All other elements stay 0. */
-    write_f32(&frame[70],  POS_VAR);        /* cov[0]  = x variance  */
-    write_f32(&frame[94],  POS_VAR);        /* cov[6]  = y variance  */
-    write_f32(&frame[114], POS_VAR);        /* cov[11] = z variance  */
+    write_f32(&frame[70],  pos_var);        /* cov[0]  = x variance  */
+    write_f32(&frame[94],  pos_var);        /* cov[6]  = y variance  */
+    write_f32(&frame[114], pos_var);        /* cov[11] = z variance  */
 
     /* velocity_covariance[21]: unused by AP — NaN throughout */
     for (int i = 0; i < 21; i++)
@@ -554,7 +553,7 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
     frame[239] = 12u;   /* child_frame_id = MAV_FRAME_BODY_FRD   */
     frame[240] = 0u;    /* reset_counter  */
     frame[241] = 0u;    /* estimator_type = MAV_ESTIMATOR_TYPE_UNKNOWN */
-    frame[242] = 100;   /* quality        */
+    frame[242] = quality;
 
     /* ---- CRC ------------------------------------------------------------- */
     uint16_t crc = 0xFFFFu;
