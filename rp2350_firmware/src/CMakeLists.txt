@@ -37,6 +37,7 @@ add_executable(crossing_beams
     cv/cv.c
     solve3d/solve3d.c
     mavlink/mavlink.c
+    yaw/yaw.c
 )
 
 pico_generate_pio_header(crossing_beams
@@ -79,6 +80,7 @@ add_executable(crossing_beams_synthetic
     cv/cv.c
     solve3d/solve3d.c
     mavlink/mavlink.c
+    yaw/yaw.c
 )
 
 target_compile_definitions(crossing_beams_synthetic PRIVATE SYNTHETIC_CAPTURE)
