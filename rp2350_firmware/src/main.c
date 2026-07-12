@@ -49,6 +49,7 @@
 #include "angle_decoder/angle_decoder.h"
 #include "solve3d/solve3d.h"
 #include "mavlink/mavlink.h"
+#include "yaw/yaw.h"
 
 // ---------------------------------------------------------------------------
 // GPIO pin assignments
@@ -140,7 +141,8 @@ static const float SYN_CORNERS[4][3] = {
     {1.00f, 1.00f, 2.00f}, {0.00f, 1.00f, 2.00f},
 };
 
-/** Sensor offsets on the rigid body [x, y] metres (flat 5×5 cm square). */
+/** Sensor offsets on the rigid body [x, y] metres (flat 5×5 cm square).
+ *  Must stay in sync with SENSOR_BASELINE / PAIRS in yaw/yaw.c. */
 static const float SYN_SENSOR_OFF[NUM_SENSORS][2] = {
     {0.000f, 0.000f}, {0.050f, 0.000f}, {0.050f, 0.050f}, {0.000f, 0.050f},
 };
@@ -206,9 +208,16 @@ static void core1_entry(void)
         float by  = SYN_CORNERS[seg][1] + t * (SYN_CORNERS[nxt][1] - SYN_CORNERS[seg][1]);
         float bz  = 2.00f;
 
+        /* Rotate sensor offsets so the body faces the next waypoint. */
+        float dx = SYN_CORNERS[nxt][0] - SYN_CORNERS[seg][0];
+        float dy = SYN_CORNERS[nxt][1] - SYN_CORNERS[seg][1];
+        float heading = atan2f(dy, dx);
+        float ch = cosf(heading), sh = sinf(heading);
+
         for (int s = 0; s < NUM_SENSORS; s++) {
-            float w[3] = { bx + SYN_SENSOR_OFF[s][0],
-                           by + SYN_SENSOR_OFF[s][1],
+            float ox = SYN_SENSOR_OFF[s][0], oy = SYN_SENSOR_OFF[s][1];
+            float w[3] = { bx + ch * ox - sh * oy,
+                           by + sh * ox + ch * oy,
                            bz };
             float h0, v0, h1, v1;
             syn_world_to_angles(&BS_POSES[0], w, &h0, &v0);
@@ -238,6 +247,7 @@ static void core1_entry(void)
 
 #endif /* SYNTHETIC_CAPTURE */
 
+// ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -329,6 +339,13 @@ int main(void)
     float    last_cx = 0.0f, last_cy = 0.0f, last_cz = 0.0f;
     int      last_na = 0;   /* number of fresh sensors in last solve */
 
+    /* Snapshot of solve output kept for the 10 Hz yaw block. */
+    lh2_point3d_t last_pts[NUM_SENSORS];
+    int           last_n = 0;
+
+    yaw_vel_state_t vel_state = { .yaw=0.0f, .var=9.87f,
+                                   .prev_cx=0.0f, .prev_cy=0.0f, .prev_us=0 };
+
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
 
@@ -367,6 +384,8 @@ int main(void)
                     last_cy = sy / na;
                     last_cz = sz / na;
                     last_na = na;
+                    last_n  = n;
+                    memcpy(last_pts, pts, (size_t)n * sizeof(pts[0]));
                 }
             }
         }
@@ -379,12 +398,18 @@ int main(void)
         mavlink_get_bs_poses(BS_POSES);
 
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
-            int     idx     = last_na < 4 ? last_na : 4;
-            float   pos_var = POS_VAR_TABLE[idx];
+            float   pos_var = POS_VAR_TABLE[last_na < 4 ? last_na : 4];
             uint8_t quality = (uint8_t)(last_na * 25);
+            float yaw, yaw_var;
+            float q[4];
+            yaw_fuse(last_pts, last_n,
+                     last_cx, last_cy, now_us,
+                     pos_var, &vel_state,
+                     &yaw, &yaw_var, q);
+
             mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
                                   last_cx, last_cy, -last_cz,
-                                  pos_var, quality);
+                                  q, pos_var, yaw_var, quality);
         }
 
         if (!g_home_set && mavlink_is_ekf_healthy()) {

@@ -11,8 +11,11 @@
 
 void mavlink_init(void);
 void mavlink_send_heartbeat(void);
+/* q = quaternion [w,x,y,z]; pos_var [m²]; yaw_var [rad²] (9.87=unknown);
+ * quality = 0–100 (0/25/50/75/100 for 0–4 active sensors). */
 void mavlink_send_odometry(uint64_t usec, float x, float y, float z,
-                           float pos_var, uint8_t quality);
+                           const float q[4], float pos_var, float yaw_var,
+                           uint8_t quality);
 
 /* RX — call every main-loop iteration to drain UART FIFO */
 void mavlink_rx_update(void);
