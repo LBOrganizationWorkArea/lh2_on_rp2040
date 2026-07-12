@@ -305,7 +305,7 @@ button.active { background: #3a1a1a; color: #FF6666; border-color: #FF6666; }
   <div id="webserial-warn">WebSerial not supported — use Chrome or Edge</div>
 </div>
 
-<div style="position:fixed;bottom:8px;right:10px;z-index:50;font-size:9px;color:#2a2a2a;letter-spacing:1px;pointer-events:none">v2.3.7</div>
+<div style="position:fixed;bottom:8px;right:10px;z-index:50;font-size:9px;color:#2a2a2a;letter-spacing:1px;pointer-events:none">v2.3.8</div>
 
 <script type="importmap">
 {
@@ -1044,8 +1044,9 @@ function drawLighthouses(){
 }
 drawLighthouses();
 
-const droneMesh=new THREE.Mesh(
-  new THREE.SphereGeometry(0.018,16,16),new THREE.MeshBasicMaterial({color:0xFF3333}));
+const _coneGeo=new THREE.ConeGeometry(0.025,0.08,12);
+_coneGeo.rotateZ(-Math.PI/2);  /* tip → +X (NED North = forward at yaw 0) */
+const droneMesh=new THREE.Mesh(_coneGeo,new THREE.MeshBasicMaterial({color:0xFF3333}));
 droneMesh.visible=false; scene.add(droneMesh);
 
 const MAX_T=2400;
@@ -1178,7 +1179,11 @@ function animate(){
   requestAnimationFrame(animate);
   const now=Date.now();
   if(now-lastTrailTick>50){lastTrailTick=now;updateTrail(droneTrail.filter(p=>p.t>=now/1000-30));}
-  if(droneX!=null){droneMesh.position.copy(tv(droneX,droneY,droneZ));droneMesh.visible=true;}
+  if(droneX!=null){
+    droneMesh.position.copy(tv(droneX,droneY,droneZ));
+    droneMesh.rotation.set(0, droneYaw!==null ? -droneYaw : 0, 0);
+    droneMesh.visible=true;
+  }
   updatePanel(); controls.update();
   renderer.render(scene,camera); labelRend.render(scene,camera);
   updateScaleBar();
