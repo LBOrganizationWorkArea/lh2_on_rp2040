@@ -271,7 +271,6 @@ int main(void)
     set_sys_clock_khz(128000, true);
     stdio_init_all();
     mavlink_init();          /* UART0 GPIO 0/1 @ 115200 → Pixhawk TELEM2 */
-    while (!stdio_usb_connected()) { sleep_ms(10); }
 
 #ifdef SYNTHETIC_CAPTURE
     printf("=== LH2 Crossing-Beams 3D Solver (dual-core, SYNTHETIC) ===\n");
