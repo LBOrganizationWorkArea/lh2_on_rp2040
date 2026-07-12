@@ -889,8 +889,10 @@ const SSTEPS = [.02,.05,.1,.2,.5,1,2,5,10,20];
 const _s0=new THREE.Vector3(), _s1=new THREE.Vector3();
 function updateScaleBar() {
   const W2 = W()/2;
+  const right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld,0);
   for (const d of SSTEPS) {
-    _s0.set(0,0,0).project(camera); _s1.set(d,0,0).project(camera);
+    _s0.copy(controls.target).project(camera);
+    _s1.copy(controls.target).addScaledVector(right,d).project(camera);
     const px = Math.abs(_s1.x-_s0.x)*W2;
     if (px>=50 && px<=220) {
       G('scale-line').style.width = px.toFixed(1)+'px';
