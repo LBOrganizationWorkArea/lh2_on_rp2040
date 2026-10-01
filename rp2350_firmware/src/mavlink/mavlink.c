@@ -80,6 +80,14 @@
 #define FRAME_LEN        245u
 #define MAV_CRC_EXTRA    91u
 
+#define MSGID_TUNNEL     385u
+#define CRC_EXTRA_TUNNEL 147u
+#define TUNNEL_TYPE_LH2  0x4C48u
+#define TUNNEL_DATA_LEN  94u
+#define TUNNEL_FRAME_LEN (10u + 133u + 2u)
+#define MAV_GCS_SYSID    255u
+#define MAV_GCS_COMPID   190u
+
 /** Position variance sent in pose_covariance diagonal [m²]. ~10 cm σ. */
 #define POS_VAR  0.01f
 
@@ -115,6 +123,7 @@ static const uint8_t k_nan[4] = { 0x00u, 0x00u, 0xC0u, 0x7Fu };
 /* ---- State ---------------------------------------------------------------- */
 
 static uint8_t s_seq = 0u;
+static uint16_t s_lh2_seq = 0u;
 
 /* ---- RX parser state ------------------------------------------------------ */
 
@@ -165,6 +174,12 @@ static void write_u64_le(uint8_t *dst, uint64_t v)
 static void write_f32(uint8_t *dst, float v)
 {
     memcpy(dst, &v, 4u);
+}
+
+static void write_u16_le(uint8_t *dst, uint16_t v)
+{
+    dst[0] = (uint8_t)(v & 0xFFu);
+    dst[1] = (uint8_t)(v >> 8u);
 }
 
 static void write_i64_le(uint8_t *dst, int64_t v)
@@ -423,6 +438,54 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
     frame[244] = (uint8_t)(crc >> 8u);
 
     uart_write_blocking(MAV_UART, frame, FRAME_LEN);
+}
+
+void mavlink_send_lh2_angles(uint64_t usec,
+                             const float angles[4][2][2],
+                             const uint16_t angle_age_ms[4][2],
+                             uint8_t valid_mask)
+{
+    uint8_t frame[TUNNEL_FRAME_LEN];
+    memset(frame, 0, sizeof(frame));
+    frame[0] = MAV_STX;
+    frame[1] = 133u;
+    frame[4] = s_seq++;
+    frame[5] = MAV_SYSID;
+    frame[6] = MAV_COMPID;
+    frame[7] = (uint8_t)(MSGID_TUNNEL & 0xFFu);
+    frame[8] = (uint8_t)((MSGID_TUNNEL >> 8u) & 0xFFu);
+
+    /* TUNNEL wire order: payload_type, target_system, target_component,
+     * payload_length, then payload[128]. */
+    uint8_t *p = &frame[10];
+    write_u16_le(&p[0], TUNNEL_TYPE_LH2);
+    p[2] = MAV_GCS_SYSID;
+    p[3] = MAV_GCS_COMPID;
+    p[4] = TUNNEL_DATA_LEN;
+    p[5] = 'L';
+    p[6] = 'H';
+    p[7] = 2u;
+    write_u16_le(&p[8], s_lh2_seq++);
+    write_u64_le(&p[10], usec);
+    p[18] = valid_mask;
+    uint8_t *data = &p[19];
+    for (int sensor = 0; sensor < 4; sensor++) {
+        for (int bs = 0; bs < 2; bs++) {
+            int index = sensor * 2 + bs;
+            write_f32(data + index * 8, angles[sensor][bs][0]);
+            write_f32(data + index * 8 + 4, angles[sensor][bs][1]);
+            write_u16_le(&p[83 + index * 2], angle_age_ms[sensor][bs]);
+        }
+    }
+    p[132] = 0xA5u;  /* Keep MAVLink 2 from trimming the unused TUNNEL tail. */
+
+    uint16_t crc = 0xFFFFu;
+    for (int i = 1; i <= 9 + 133; i++)
+        crc = crc_accumulate(frame[i], crc);
+    crc = crc_accumulate(CRC_EXTRA_TUNNEL, crc);
+    frame[143] = (uint8_t)(crc & 0xFFu);
+    frame[144] = (uint8_t)(crc >> 8u);
+    uart_write_blocking(MAV_UART, frame, 145u);
 }
 
 void mavlink_rx_update(void)

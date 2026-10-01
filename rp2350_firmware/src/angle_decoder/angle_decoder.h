@@ -52,6 +52,8 @@ typedef struct {
     float    ema_el;             ///< EMA-smoothed elevation [degrees] (legacy solve3d path)
     float    ema_horiz;          ///< EMA-smoothed Bitcraze horizontal angle [radians] (solver)
     float    ema_vert;           ///< EMA-smoothed Bitcraze vertical   angle [radians] (solver)
+    float    raw_horiz;          ///< Instantaneous horizontal angle [radians]
+    float    raw_vert;           ///< Instantaneous vertical angle [radians]
     bool     valid;              ///< true once at least one complete pair has been decoded
     uint64_t last_update_us;     ///< timestamp of last successful decode [µs since boot]
 } lh2_angles_t;

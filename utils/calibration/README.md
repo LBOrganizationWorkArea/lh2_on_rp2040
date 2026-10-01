@@ -35,23 +35,98 @@ The calibration scripts use only the existing lighthouse modules in this directo
 **Requirements:**
 - numpy
 - scipy
-- pyyaml (for saving configuration)
-- cflib (for geometry and calibration types)
+- PyYAML (for configuration output)
+- pymavlink (for TUNNEL capture)
+
+The geometry types and IPPE implementation used by this standalone pipeline are
+included in this repository; `cflib` is not required.
 
 ## Usage
 
-### CLI: Basic Calibration
+### Live capture over MavESP8266 Wi-Fi
 
-The simplest way to run calibration:
+The firmware sends complete raw-angle snapshots in MAVLink `TUNNEL` messages.
+The TUNNEL v2 payload also carries the age of each of the eight sensor/base-station
+angles. Flash the current `rp2350_firmware/src/build/crossing_beams.uf2` before
+capturing; older firmware does not include this timing metadata and its JSON
+cannot be used by the age-filtered solver.
+MavESP8266 sends telemetry to UDP port 14550 and learns the calibration
+computer's address from its GCS heartbeat. In AP mode, capture with:
 
 ```bash
-./calibrate_lighthouse_cli.py measurements.json -o lighthouse_config.yaml
+py -3.11 utils/calibration/calibrate_lighthouse.py \
+  --udp 0.0.0.0:14550 --heartbeat-to 192.168.4.1:14555 \
+  -o measurements.json
 ```
 
-This will:
-1. Load angle measurements from `measurements.json`
-2. Run the full calibration pipeline
-3. Save the result to `lighthouse_config.yaml`
+Move the four-sensor wand through the calibration volume and press Ctrl-C when
+enough samples have been collected. The resulting JSON is the same input used
+by the existing geometry solver. For station mode, replace `192.168.4.1` with
+the MavESP8266 IP. Adjust UDP ports if its `WIFI_UDP_HPORT` or
+`WIFI_UDP_CPORT` parameters differ from the defaults. The stream contains
+instantaneous angles, not the EMA-filtered angles used for runtime position
+solving.
+
+### Solve lighthouse geometry
+
+`wand_sensors.json` contains the measured 4 × 4 cm sensor layout in
+**S0, S1, S2, S3 order**. From the component side, the current PCB maps S0 to
+the upper-left sensor (D1/E1), S1 to upper-right (D2/E2), S2 to lower-right
+(D3/E3), and S3 to lower-left (D4/E4). Coordinates are in metres relative to
+S0; X points right and Y down in that view. Verify that this matches the
+assembled board before solving.
+
+```powershell
+Copy-Item utils/calibration/wand_sensors.example.json utils/calibration/wand_sensors.json
+```
+
+Capture a broad set of wand positions and moderate orientations, keeping all
+four sensors visible to both stations whenever possible. Then solve:
+
+```bash
+py -3.11 utils/calibration/calibrate_lighthouse.py \
+  --solve measurements.json \
+  --sensor-positions utils/calibration/wand_sensors.json \
+  --height 3.45 \
+  --geometry-output lighthouse_geometry_candidate.yaml
+```
+
+`--baseline` is optional. Without it, the script initializes from the baseline
+estimated from the angle data and reports the final estimate. To check only the
+distance, without fitting/exporting lighthouse poses or supplying a height, use:
+
+```bash
+py -3.11 utils/calibration/calibrate_lighthouse.py \
+  --baseline-only measurements.json \
+  --sensor-positions utils/calibration/wand_sensors.json
+```
+
+For a comparison against a tape-measured baseline, add `--baseline 2.26`; this
+is a reference value, not a required calibration input.
+
+The solver uses only timestamps containing complete measurements from both
+base stations whose eight angles are each no older than 100 ms and whose age
+spread is no more than 50 ms. These limits can be changed with
+`--max-angle-age-ms` and `--max-angle-skew-ms`. The solver triangulates the wand
+sensors, builds rigid wand poses, then refines lighthouse and wand poses with
+the Bitcraze least-squares solver. A measured baseline, if supplied, is only an
+initial reference; the estimated baseline is reported separately. BS4 is placed
+at `(0, 0, height)` and the boresights define world up.
+
+The output is a candidate only. Check that the synchronized sample count is
+large enough, the estimated baseline is close to the physically measured value,
+the residual is low, and the reported poses match the actual mounting. To make
+a candidate firmware header without replacing the active one:
+
+```bash
+py -3.11 utils/calibration/calibrate_export.py \
+  --yaml lighthouse_geometry_candidate.yaml \
+  -o bs_poses_cal_candidate.h
+```
+
+Do not flash that header until its positions and boresight directions have been
+checked against physical measurements. The legacy `calibrate_cli.py` acquires
+data through Crazyflie and is not the JSON solver for this Wi-Fi capture path.
 
 ### CLI: With Custom World Frame
 

@@ -12,6 +12,12 @@
 void mavlink_init(void);
 void mavlink_send_odometry(uint64_t usec, float x, float y, float z);
 
+/* Send one complete, instantaneous LH2 angle snapshot in MAVLink TUNNEL. */
+void mavlink_send_lh2_angles(uint64_t usec,
+							 const float angles[4][2][2],
+							 const uint16_t angle_age_ms[4][2],
+							 uint8_t valid_mask);
+
 /* RX — call every main-loop iteration to drain UART FIFO */
 void mavlink_rx_update(void);
 

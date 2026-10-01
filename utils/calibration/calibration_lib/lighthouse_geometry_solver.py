@@ -136,7 +136,7 @@ class LighthouseGeometrySolver:
 
     @classmethod
     def solve(cls, initial_guess: LhBsCfPoses, matched_samples: list[LhCfPoseSample],
-              sensor_positions: npt.ArrayLike) -> LighthouseGeometrySolution:
+              sensor_positions: npt.ArrayLike, max_nr_iter: int = 100) -> LighthouseGeometrySolution:
         """
         Solve for the pose of base stations and CF samples.
         The pose of the CF in sample 0 defines the global reference frame.
@@ -150,6 +150,7 @@ class LighthouseGeometrySolver:
         :return: an instance of LighthouseGeometrySolution
         """
         solution = LighthouseGeometrySolution()
+        solution.max_nr_iter = max_nr_iter
 
         solution.n_bss = len(initial_guess.bs_poses)
         solution.n_cfs = len(matched_samples)
@@ -420,7 +421,9 @@ class LighthouseGeometrySolver:
         for sample in matched_samples:
             sample_errors = {}
             for bs_id in sorted(sample.angles_calibrated.keys()):
-                sample_errors[bs_id] = np.linalg.norm(residuals[i:i + 2])
+                sensor_residuals = residuals[i:i + solution.n_sensors * 2].reshape(solution.n_sensors, 2)
+                per_sensor_error = np.linalg.norm(sensor_residuals, axis=1)
+                sample_errors[bs_id] = np.sqrt(np.mean(per_sensor_error ** 2))
                 i += solution.n_sensors * 2
             solution.estimated_errors.append(sample_errors)
 

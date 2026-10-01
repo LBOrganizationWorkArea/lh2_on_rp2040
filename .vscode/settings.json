@@ -1,0 +1,4 @@
+{
+    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "cmake.sourceDirectory": "/home/davide/lh2_on_rp2040/pico-sdk"
+}

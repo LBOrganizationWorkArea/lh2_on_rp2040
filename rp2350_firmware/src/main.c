@@ -24,7 +24,7 @@
  *   mavlink/         — ODOMETRY (msg #331) over UART0               [core 0]
  *
  * Serial output (USB, 115200):
- *   A,<sensor>,<bs>,<az_deg>,<el_deg>   angle update
+ *   A,<sensor>,0,<az_deg>,<el_deg>      angle update for lighthouse 0
  *   P,<sensor>,<x>,<y>,<z>              3D point
  *   C,<n>,<cx>,<cy>,<cz>                centroid (also sent as VPE)
  *
@@ -36,6 +36,7 @@
  */
 
 #include <stdio.h>
+#include <stdint.h>
 #include <math.h>
 #include <string.h>
 
@@ -340,8 +341,13 @@ int main(void)
     /* ① Clock + peripherals */
     set_sys_clock_khz(128000, true);
     stdio_init_all();
+    printf("DBG1: stdio initialized\n");
+    stdio_flush();
+    printf("BOOT: LH2 firmware started\n");
+    stdio_flush();
     mavlink_init();          /* UART0 GPIO 0/1 @ 115200 → Pixhawk TELEM2 */
-    sleep_ms(2000);          /* let USB enumerate */
+    printf("DBG2: MAVLink initialized\n");
+    stdio_flush();
     mavlink_request_ekf_stream();  /* ask FC to stream EKF_STATUS_REPORT @ 1 Hz */
     printf("=== LH2 Crossing-Beams 3D Solver (dual-core) ===\n");
 #ifdef SYNTHETIC_CAPTURE
@@ -351,18 +357,17 @@ int main(void)
 #endif
 
     printf("BS poses: %s\n", BS_POSE_SOURCE);
-    printf("Legend: ANG S<sensor> BS<n> h=horiz v=vert [deg]; "
+    printf("Legend: ANG S<sensor> BS<id> h=horiz v=vert [deg]; "
            "P,<sensor>,x,y,z [m]; C,<n>,cx,cy,cz [m]\n");
 
     /* ② Compute-side init (no sensor I/O here — that lives on core 1) */
     angle_decoder_init(g_angles, CAL);
 
-    /* ③ Launch capture core and wait for it to finish initialising sensors */
+    /* ③ Launch capture core without blocking the USB diagnostic loop. */
     multicore_launch_core1(core1_entry);
-    while (!g_capture_ready) {
-        tight_loop_contents();
-    }
-    printf("Capture core ready.\n");
+    uint64_t last_debug_us = to_us_since_boot(get_absolute_time());
+    printf("Capture core launched.\n");
+    stdio_flush();
 
     /* ④ Compute loop */
     uint64_t last_print_us = 0;
@@ -371,15 +376,23 @@ int main(void)
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
 
+        if (now_us - last_debug_us >= 1000000ULL) {
+            printf("RUN: main loop\n");
+            stdio_flush();
+            last_debug_us = now_us;
+        }
+
         /* Drain UART RX every iteration — EKF_STATUS_REPORT arrives at 1 Hz
          * (34-byte frames) so calling this at full loop rate keeps the FIFO empty. */
         mavlink_rx_update();
 
-        /* Decode whatever core 1 has produced since last pass */
-        angle_decoder_update(g_lh2, g_angles, CAL, now_us);
+        /* Decode whatever core 1 has produced since last pass. */
+        if (g_capture_ready) {
+            angle_decoder_update(g_lh2, g_angles, CAL, now_us);
+        }
 
         /* ── Event-driven: solve + cache centroid, only when fresh data exists ── */
-        {
+        if (g_capture_ready) {
             lh2_point3d_t pts[NUM_SENSORS];
             int n = solve3d_calib_run(BS_POSES, g_angles, now_us, pts);
 
@@ -418,6 +431,28 @@ int main(void)
         }
         last_print_us = now_us;
 
+        uint8_t angle_valid_mask = 0u;
+        float raw_angles[NUM_SENSORS][NUM_BS][2] = {{{0.0f}}};
+        uint16_t angle_age_ms[NUM_SENSORS][NUM_BS];
+        for (int s = 0; s < NUM_SENSORS; s++) {
+            for (int bs = 0; bs < NUM_BS; bs++) {
+            angle_age_ms[s][bs] = UINT16_MAX;
+                if (!g_angles[s][bs].valid ||
+                    (now_us - g_angles[s][bs].last_update_us) > FRESHNESS_US) {
+                    continue;
+                }
+                angle_valid_mask |= (uint8_t)(1u << (s * NUM_BS + bs));
+                raw_angles[s][bs][0] = g_angles[s][bs].raw_horiz;
+                raw_angles[s][bs][1] = g_angles[s][bs].raw_vert;
+                uint64_t age_ms = (now_us - g_angles[s][bs].last_update_us) / 1000ULL;
+                angle_age_ms[s][bs] = (age_ms > UINT16_MAX) ? UINT16_MAX : (uint16_t)age_ms;
+            }
+        }
+        if (angle_valid_mask != 0u) {
+            mavlink_send_lh2_angles(mavlink_timesync_corrected_us(now_us),
+                                    raw_angles, angle_age_ms, angle_valid_mask);
+        }
+
         /* Send ODOMETRY at 10 Hz with timestamp corrected to FC timebase. */
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
             mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
@@ -433,19 +468,19 @@ int main(void)
             printf("EKF healthy — home set\n");
         }
 
-        /* Diagnostic angle output (Bitcraze horiz/vert, degrees). */
+        /* Diagnostic angle output for every detected lighthouse. */
         for (int s = 0; s < NUM_SENSORS; s++) {
             if (!angle_decoder_is_fresh(g_angles, s, now_us)) continue;
 
-            float h0 = _rad2deg(g_angles[s][0].ema_horiz);
-            float v0 = _rad2deg(g_angles[s][0].ema_vert);
-            float h1 = _rad2deg(g_angles[s][1].ema_horiz);
-            float v1 = _rad2deg(g_angles[s][1].ema_vert);
+            for (int bs = 0; bs < NUM_BS; bs++) {
+                float horiz = _rad2deg(g_angles[s][bs].ema_horiz);
+                float vert = _rad2deg(g_angles[s][bs].ema_vert);
 
-            printf("A,%d,0,%.2f,%.2f\n", s, (double)h0, (double)v0);
-            printf("A,%d,1,%.2f,%.2f\n", s, (double)h1, (double)v1);
-            printf("ANG S%d | BS0 h=%+7.2f v=%+7.2f deg | BS1 h=%+7.2f v=%+7.2f deg\n",
-                   s, (double)h0, (double)v0, (double)h1, (double)v1);
+                printf("A,%d,%d,%.2f,%.2f\n", s, bs,
+                       (double)horiz, (double)vert);
+                printf("ANG S%d | BS%d h=%+7.2f v=%+7.2f deg\n",
+                       s, bs, (double)horiz, (double)vert);
+            }
         }
 
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {

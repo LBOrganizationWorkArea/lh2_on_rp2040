@@ -75,6 +75,9 @@ static void _finalize_angles(lh2_angles_t *slot,
     float vert_rad  = atan2f(sinf(s1c_rad - s0c_rad),
                              TAN_30 * (cosf(s0c_rad) + cosf(s1c_rad)));
 
+    slot->raw_horiz = horiz_rad;
+    slot->raw_vert  = vert_rad;
+
     /* EMA update */
     if (!slot->valid) {
         slot->ema_az    = az_raw;
@@ -113,6 +116,8 @@ void angle_decoder_init(lh2_angles_t out[NUM_SENSORS][NUM_BS],
             out[s][b].ema_el       = 0.0f;
             out[s][b].ema_horiz    = 0.0f;
             out[s][b].ema_vert     = 0.0f;
+            out[s][b].raw_horiz    = 0.0f;
+            out[s][b].raw_vert     = 0.0f;
             out[s][b].valid        = false;
             out[s][b].last_update_us = 0;
         }
