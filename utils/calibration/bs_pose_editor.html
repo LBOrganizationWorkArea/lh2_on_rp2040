@@ -52,6 +52,18 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 #coverage-btn:hover, #apply-layout-btn:hover:not(:disabled) { background: #214653; }
 #apply-layout-btn:disabled { opacity: 0.4; cursor: default; }
 #coverage-info { font-size: 10px; color: #a9c9d0; line-height: 1.5; white-space: pre-line; }
+#tracking-card input, #tracking-card select {
+  min-width: 0; flex: 1; background: #141414; border: 1px solid #444;
+  border-radius: 3px; color: #fff; font: 11px 'Courier New', monospace; padding: 4px;
+}
+#tracking-card button {
+  background: #18313a; border: 1px solid #2c5968; color: #8adcf0;
+  border-radius: 4px; font: 11px 'Courier New', monospace; padding: 7px; cursor: pointer;
+}
+#tracking-card button.active { background: #382d1b; border-color: #7a6a38; color: #dfc17a; }
+#tracking-status { font-size: 10px; color: #888; }
+#tracking-position { font-size: 10px; color: #8adcf0; font-variant-numeric: tabular-nums; }
+#tracking-card .tracking-field { width: 68px; flex: none; }
 #meas-info { font-size: 11px; color: #dfc17a; background: #252218; border: 1px solid #3d3520; padding: 5px; border-radius: 3px; display: none; }
 #code-wrap { flex: none; display: flex; flex-direction: column; gap: 4px; }
 #code-out {
@@ -81,6 +93,37 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     Position en mètres (repère monde, Z-up). Yaw/Pitch/Roll en degrés.<br>
     <b>Pitch</b> 0&deg;=horizontal, 90&deg;=pointe droit vers le bas.<br>
     Convention : <code>.claude/rules/solve3d_rotation.md</code>.
+  </div>
+
+  <div class="bs-card" id="tracking-card">
+    <div class="grp-lbl">DRONE · MAVLINK ODOMETRY</div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Link</div>
+      <select id="track-mode">
+        <option value="udp">UDP relay</option>
+        <option value="db">DroneBridge WS</option>
+      </select>
+    </div>
+    <div class="row" id="relay-row">
+      <div class="lbl" style="width:38px;">API</div>
+      <input id="relay-url" type="text" value="http://127.0.0.1:8051/api/odometry" spellcheck="false">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">IP</div>
+      <input id="track-host" type="text" value="192.168.4.1" spellcheck="false">
+      <div class="lbl" style="width:22px;">Port</div>
+      <input id="track-port" class="tracking-field" type="number" value="14550" min="1" max="65535">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:64px;">Traccia</div>
+      <input id="trail-seconds" class="tracking-field" type="number" value="10" min="1" max="120" step="1">
+      <div class="lbl" style="width:12px;">s</div>
+    </div>
+    <div class="row">
+      <button id="track-connect-btn" type="button">Connetti</button>
+      <span id="tracking-status">Disconnesso</span>
+    </div>
+    <div id="tracking-position">ODOMETRY: in attesa</div>
   </div>
 
   <!-- Global FOV Settings Card -->
@@ -154,6 +197,61 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 import * as THREE        from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const ODOMETRY_ID = 331;
+const ODOMETRY_CRC_EXTRA = 91;
+let trackingSocket = null;
+let trackingTimer = null;
+let trackingPolling = false;
+let relayConnected = false;
+let lastOdomAt = 0;
+let odometryCount = 0;
+
+function mavlinkCrc(bytes) {
+  let crc = 0xffff;
+  for (const value of bytes) {
+    let tmp = (value ^ (crc & 0xff)) & 0xff;
+    tmp ^= (tmp << 4) & 0xff;
+    crc = ((crc >>> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >>> 4)) & 0xffff;
+  }
+  return crc;
+}
+
+class OdomTelemetryParser {
+  constructor(onOdometry) { this.bytes = []; this.onOdometry = onOdometry; }
+
+  feed(data) {
+    for (const byte of data) this.bytes.push(byte);
+    while (this.bytes.length >= 12) {
+      const start = this.bytes.indexOf(0xfd);
+      if (start < 0) { this.bytes.length = 0; return; }
+      if (start > 0) this.bytes.splice(0, start);
+      if (this.bytes.length < 10) return;
+
+      const payloadLength = this.bytes[1];
+      const signed = (this.bytes[2] & 0x01) !== 0;
+      const frameLength = 12 + payloadLength + (signed ? 13 : 0);
+      if (this.bytes.length < frameLength) return;
+      const frame = this.bytes.splice(0, frameLength);
+      const messageId = frame[7] | (frame[8] << 8) | (frame[9] << 16);
+      if (messageId !== ODOMETRY_ID || payloadLength < 230) continue;
+
+      const crcOffset = 10 + payloadLength;
+      const checksum = frame[crcOffset] | (frame[crcOffset + 1] << 8);
+      const checksumInput = frame.slice(1, crcOffset).concat(ODOMETRY_CRC_EXTRA);
+      if (mavlinkCrc(checksumInput) !== checksum) continue;
+
+      const payload = new DataView(new Uint8Array(frame.slice(10, crcOffset)).buffer);
+      if (payload.getUint8(228) !== 20 || payload.getUint8(229) !== 12) continue;
+
+      const x = payload.getFloat32(8, true);
+      const y = payload.getFloat32(12, true);
+      const z = -payload.getFloat32(16, true);
+      if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z))
+        this.onOdometry({ x, y, z });
+    }
+  }
+}
 
 // ─── State ──────────────────────────────────────────────────────────────────
 const PALETTE = [0xFF66FF, 0x66FFFF, 0xFFCC44, 0x88FF66, 0xFF6666, 0x6699FF];
@@ -353,6 +451,183 @@ function addLabel(txt, x, y, z, col) {
   return o;
 }
 
+const droneMarker = new THREE.Mesh(
+  new THREE.OctahedronGeometry(0.09),
+  new THREE.MeshBasicMaterial({ color: 0xffb347 })
+);
+droneMarker.visible = false;
+scene.add(droneMarker);
+const droneLabel = addLabel('DRONE', 0, 0, 0, '#ffb347');
+droneLabel.visible = false;
+const droneTrailSamples = [];
+const trailSecondsInput = document.getElementById('trail-seconds');
+const trailOldColor = new THREE.Color(0x38bec1);
+const trailNewColor = new THREE.Color(0xffb347);
+const droneTrailLine = new THREE.Line(
+  new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9 })
+);
+scene.add(droneTrailLine);
+
+function refreshDroneTrail(now = Date.now()) {
+  const durationMs = Math.max(1, Math.min(120, Number(trailSecondsInput.value) || 10)) * 1000;
+  const cutoff = now - durationMs;
+  while (droneTrailSamples.length && droneTrailSamples[0].timestamp < cutoff)
+    droneTrailSamples.shift();
+
+  const geometry = new THREE.BufferGeometry().setFromPoints(
+    droneTrailSamples.map(sample => sample.point)
+  );
+  const colors = new Float32Array(droneTrailSamples.length * 3);
+  const firstTimestamp = droneTrailSamples[0]?.timestamp ?? now;
+  const lastTimestamp = droneTrailSamples.at(-1)?.timestamp ?? now;
+  const timeSpan = Math.max(1, lastTimestamp - firstTimestamp);
+  droneTrailSamples.forEach((sample, index) => {
+    const recency = Math.max(0, Math.min(1, (sample.timestamp - firstTimestamp) / timeSpan));
+    const age = Math.max(0, Math.min(1, (now - sample.timestamp) / durationMs));
+    const color = trailOldColor.clone().lerp(trailNewColor, recency);
+    color.multiplyScalar(1 - 0.65 * age);
+    color.toArray(colors, index * 3);
+  });
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  droneTrailLine.geometry.dispose();
+  droneTrailLine.geometry = geometry;
+  droneTrailLine.visible = droneTrailSamples.length > 1;
+}
+
+trailSecondsInput.addEventListener('input', () => refreshDroneTrail());
+
+function updateDronePosition(position) {
+  const point = tv(position.x, position.y, position.z);
+  droneMarker.position.copy(point);
+  droneMarker.visible = true;
+  droneLabel.position.copy(point).add(new THREE.Vector3(0, 0.14, 0));
+  droneLabel.visible = true;
+
+  const timestamp = Date.now();
+  droneTrailSamples.push({ point: point.clone(), timestamp });
+  refreshDroneTrail(timestamp);
+
+  lastOdomAt = timestamp;
+  odometryCount++;
+  document.getElementById('tracking-position').textContent =
+    `X ${position.x.toFixed(3)} · Y ${position.y.toFixed(3)} · Z ${position.z.toFixed(3)} m`;
+  document.getElementById('tracking-status').textContent = `ODOMETRY live · ${odometryCount}`;
+}
+
+const trackMode = document.getElementById('track-mode');
+const relayRow = document.getElementById('relay-row');
+const trackConnectButton = document.getElementById('track-connect-btn');
+const trackingStatus = document.getElementById('tracking-status');
+
+trackMode.addEventListener('change', () => {
+  relayRow.style.display = trackMode.value === 'udp' ? '' : 'none';
+});
+
+function disconnectTracking() {
+  if (trackingSocket) {
+    const socket = trackingSocket;
+    trackingSocket = null;
+    socket.close();
+  }
+  if (trackingTimer) clearInterval(trackingTimer);
+  trackingTimer = null;
+  trackingPolling = false;
+  relayConnected = false;
+  trackConnectButton.textContent = 'Connetti';
+  trackConnectButton.classList.remove('active');
+  trackingStatus.textContent = 'Disconnesso';
+}
+
+trackConnectButton.addEventListener('click', () => {
+  if (trackingSocket || trackingPolling) {
+    disconnectTracking();
+    return;
+  }
+
+  const mode = trackMode.value;
+  const host = document.getElementById('track-host').value.trim();
+  const port = Number(document.getElementById('track-port').value) || 14550;
+  let url;
+  try {
+    if (mode === 'udp') {
+      const api = new URL(document.getElementById('relay-url').value.trim());
+      if (api.protocol !== 'http:' && api.protocol !== 'https:')
+        throw new Error('L’API locale deve usare http:// o https://');
+      if (host) api.searchParams.set('host', host);
+      else api.searchParams.delete('host');
+      api.searchParams.set('port', String(port));
+
+      trackingPolling = true;
+      relayConnected = false;
+      trackConnectButton.textContent = 'Disconnetti';
+      trackConnectButton.classList.add('active');
+      trackingStatus.textContent = 'Connessione al relay…';
+      let lastSequence = 0;
+      let requestPending = false;
+      const poll = async () => {
+        if (!trackingPolling || requestPending) return;
+        requestPending = true;
+        try {
+          const response = await fetch(api, { cache: 'no-store' });
+          if (!response.ok) throw new Error('Relay non disponibile');
+          const state = await response.json();
+          if (!trackingPolling) return;
+          relayConnected = true;
+          if (state.odometry && state.sequence !== lastSequence) {
+            lastSequence = state.sequence;
+            updateDronePosition(state.odometry);
+          }
+        } catch (_error) {
+          if (trackingPolling) {
+            relayConnected = false;
+            trackingStatus.textContent = 'Relay non raggiungibile';
+          }
+        } finally {
+          requestPending = false;
+        }
+      };
+      poll();
+      trackingTimer = setInterval(poll, 100);
+      return;
+    } else {
+      if (!host) throw new Error('Inserisci l’indirizzo IP DroneBridge');
+      const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      url = `${scheme}//${host}:${port}/mavlink`;
+    }
+  } catch (error) {
+    trackingStatus.textContent = error.message;
+    return;
+  }
+
+  trackingStatus.textContent = 'Connessione…';
+  const socket = new WebSocket(url);
+  trackingSocket = socket;
+  socket.binaryType = 'arraybuffer';
+  const parser = new OdomTelemetryParser(updateDronePosition);
+  socket.onopen = () => {
+    if (trackingSocket !== socket) return;
+    trackConnectButton.textContent = 'Disconnetti';
+    trackConnectButton.classList.add('active');
+    trackingStatus.textContent = 'Connesso · attendo ODOMETRY';
+  };
+  socket.onmessage = event => {
+    if (typeof event.data === 'string') {
+      trackingStatus.textContent = event.data;
+      return;
+    }
+    parser.feed(new Uint8Array(event.data));
+  };
+  socket.onerror = () => { trackingStatus.textContent = 'Errore connessione MAVLink'; };
+  socket.onclose = () => {
+    if (trackingSocket !== socket) return;
+    trackingSocket = null;
+    trackConnectButton.textContent = 'Connetti';
+    trackConnectButton.classList.remove('active');
+    trackingStatus.textContent = 'Disconnesso';
+  };
+});
+
 addLine(0,0,0, 0.5,0,0, 0xFF3333, 4); addLabel('X', 0.58,0,0, '#FF5555');
 addLine(0,0,0, 0,0.5,0, 0x33FF33, 4); addLabel('Y', 0,0.58,0, '#55FF55');
 addLine(0,0,0, 0,0,0.5, 0x3388FF, 4); addLabel('Z', 0,0,0.58, '#5588FF');
@@ -435,8 +710,11 @@ function drawBasestations() {
 function clearCoverageOverlay() {
   if (!coverageOverlay) return;
   scene.remove(coverageOverlay);
-  coverageOverlay.geometry.dispose();
-  coverageOverlay.material.dispose();
+  coverageOverlay.traverse(object => {
+    if (object.geometry) object.geometry.dispose();
+    if (Array.isArray(object.material)) object.material.forEach(material => material.dispose());
+    else if (object.material) object.material.dispose();
+  });
   coverageOverlay = null;
 }
 
@@ -449,8 +727,10 @@ function resetCoverageDisplay() {
 
 function makeCoverageGrid(roomX, roomY, zMin, zMax, step) {
   const points = [];
-  for (let x = step / 2; x < roomX; x += step) {
-    for (let y = step / 2; y < roomY; y += step) {
+  const minX = -roomX / 2, maxX = roomX / 2;
+  const minY = -roomY / 2, maxY = roomY / 2;
+  for (let x = minX + step / 2; x < maxX; x += step) {
+    for (let y = minY + step / 2; y < maxY; y += step) {
       for (let z = zMin + step / 2; z < zMax; z += step) points.push([x, y, z]);
     }
   }
@@ -532,14 +812,16 @@ function layoutIsBetter(candidate, current) {
 
 function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
   const roomX = parseFloat(roomXInp.value), roomY = parseFloat(roomYInp.value);
+  const minX = -roomX / 2, maxX = roomX / 2;
+  const minY = -roomY / 2, maxY = roomY / 2;
   const centerX = currentLayout.reduce((sum, bs) => sum + bs.x, 0) / currentLayout.length;
   const centerY = currentLayout.reduce((sum, bs) => sum + bs.y, 0) / currentLayout.length;
   const offsets = currentLayout.map(bs => [bs.x - centerX, bs.y - centerY]);
   const centerStep = Math.max(0.5, candidateStep);
   const angleStep = 30;
   const centers = [];
-  for (let x = 0; x <= roomX + 1e-9; x += centerStep) {
-    for (let y = 0; y <= roomY + 1e-9; y += centerStep) centers.push([x, y]);
+  for (let x = minX; x <= maxX + 1e-9; x += centerStep) {
+    for (let y = minY; y <= maxY + 1e-9; y += centerStep) centers.push([x, y]);
   }
   if (centers.length * (360 / angleStep) > 2500) {
     throw new Error('Ricerca troppo fitta; aumenta il passo di griglia o riduci il volume.');
@@ -559,7 +841,7 @@ function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
         y: cy + rotatedOffsets[index][1],
         ...colsToYpr(rotateColsAroundZ(computeCols(bs.yaw, bs.pitch, bs.roll), angle)),
       }));
-      if (candidate.some(bs => bs.x < 0 || bs.x > roomX || bs.y < 0 || bs.y > roomY)) continue;
+      if (candidate.some(bs => bs.x < minX || bs.x > maxX || bs.y < minY || bs.y > maxY)) continue;
       let spacingValid = true;
       for (let a = 0; a < candidate.length && spacingValid; a++) {
         for (let b = a + 1; b < candidate.length; b++) {
@@ -589,13 +871,89 @@ function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
   return { layout: bestLayout, score: bestScore, rotationDegrees: bestLayout[0].yaw - currentLayout[0].yaw };
 }
 
-function showOverlapPoints(points) {
+function showOverlapPoints(points, step) {
   clearCoverageOverlay();
   if (!points.length) return;
-  const geometry = new THREE.BufferGeometry().setFromPoints(points.map(p => tv(...p)));
-  coverageOverlay = new THREE.Points(geometry, new THREE.PointsMaterial({
-    color: 0x55e6a5, size: 0.055, sizeAttenuation: true, transparent: true, opacity: 0.55,
+
+  const half = step / 2;
+  const zMin = parseFloat(roomZMinInp.value);
+  const zOrigin = zMin + half;
+  const footprint = new Map();
+  const cells = new Map();
+  points.forEach(point => {
+    const i = Math.round((point[0] - half) / step);
+    const j = Math.round((point[1] - half) / step);
+    const k = Math.round((point[2] - zOrigin) / step);
+    footprint.set(`${i},${j}`, [point[0], point[1]]);
+    cells.set(`${i},${j},${k}`, { i, j, k, point });
+  });
+
+  const footprintVertices = [];
+  const volumeEdges = [];
+  const edgeSet = new Set();
+  const addFootprintQuad = corners => {
+    const transformed = corners.map(point => tv(...point).toArray());
+    footprintVertices.push(...transformed[0], ...transformed[1], ...transformed[2]);
+    footprintVertices.push(...transformed[0], ...transformed[2], ...transformed[3]);
+  };
+  const addVolumeQuadEdges = corners => {
+    for (let index = 0; index < corners.length; index++) {
+      const start = corners[index];
+      const end = corners[(index + 1) % corners.length];
+      const startKey = start.map(value => value.toFixed(6)).join(',');
+      const endKey = end.map(value => value.toFixed(6)).join(',');
+      const edgeKey = startKey < endKey ? `${startKey}|${endKey}` : `${endKey}|${startKey}`;
+      if (edgeSet.has(edgeKey)) continue;
+      edgeSet.add(edgeKey);
+      volumeEdges.push(...tv(...start).toArray(), ...tv(...end).toArray());
+    }
+  };
+
+  footprint.forEach(([x, y]) => {
+    addFootprintQuad([
+      [x - half, y - half, 0.02],
+      [x + half, y - half, 0.02],
+      [x + half, y + half, 0.02],
+      [x - half, y + half, 0.02],
+    ]);
+  });
+
+  const faces = [
+    { offset: [1, 0, 0], corners: [[1,-1,-1], [1,1,-1], [1,1,1], [1,-1,1]] },
+    { offset: [-1, 0, 0], corners: [[-1,-1,1], [-1,1,1], [-1,1,-1], [-1,-1,-1]] },
+    { offset: [0, 1, 0], corners: [[-1,1,-1], [-1,1,1], [1,1,1], [1,1,-1]] },
+    { offset: [0, -1, 0], corners: [[-1,-1,1], [-1,-1,-1], [1,-1,-1], [1,-1,1]] },
+    { offset: [0, 0, 1], corners: [[-1,-1,1], [1,-1,1], [1,1,1], [-1,1,1]] },
+    { offset: [0, 0, -1], corners: [[-1,1,-1], [1,1,-1], [1,-1,-1], [-1,-1,-1]] },
+  ];
+  cells.forEach(cell => {
+    const [x, y, z] = cell.point;
+    faces.forEach(face => {
+      const neighbor = `${cell.i + face.offset[0]},${cell.j + face.offset[1]},${cell.k + face.offset[2]}`;
+      if (cells.has(neighbor)) return;
+      if (face.offset[2] === -1 && Math.abs(zMin) < 1e-6 && cell.k === 0) return;
+      addVolumeQuadEdges(face.corners.map(([dx, dy, dz]) => [
+        x + dx * half, y + dy * half, z + dz * half,
+      ]));
+    });
+  });
+
+  coverageOverlay = new THREE.Group();
+  const footprintGeometry = new THREE.BufferGeometry();
+  footprintGeometry.setAttribute('position', new THREE.Float32BufferAttribute(footprintVertices, 3));
+  const footprintMesh = new THREE.Mesh(footprintGeometry, new THREE.MeshBasicMaterial({
+    color: 0x55e6a5, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false,
   }));
+  footprintMesh.renderOrder = 1;
+  coverageOverlay.add(footprintMesh);
+
+  const volumeGeometry = new THREE.BufferGeometry();
+  volumeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(volumeEdges, 3));
+  const volumeOutline = new THREE.LineSegments(volumeGeometry, new THREE.LineBasicMaterial({
+    color: 0x55e6a5, transparent: true, opacity: 0.72,
+  }));
+  volumeOutline.renderOrder = 2;
+  coverageOverlay.add(volumeOutline);
   scene.add(coverageOverlay);
 }
 
@@ -626,9 +984,10 @@ document.getElementById('coverage-btn').addEventListener('click', () => {
     const suggestion = findSuggestedLayout(bsList, points, minSpacing, candidateStep);
     suggestedLayout = suggestion.layout;
     applyLayoutBtn.disabled = false;
-    showOverlapPoints(currentScore.overlapPoints);
+    showOverlapPoints(currentScore.overlapPoints, step);
     coverageInfo.textContent =
-      `Volume: ${points.length} punti (${roomX} × ${roomY} m, Z ${zMin}…${zMax} m, passo ${step} m)\n` +
+      `Volume: ${points.length} punti (X ${(-roomX / 2).toFixed(2)}…${(roomX / 2).toFixed(2)} m, ` +
+      `Y ${(-roomY / 2).toFixed(2)}…${(roomY / 2).toFixed(2)} m, Z ${zMin}…${zMax} m, passo ${step} m)\n` +
       `Attuale: ${formatCoverage(currentScore)}\n` +
       `Suggerito (+${suggestion.rotationDegrees.toFixed(0)}°): ${formatCoverage(suggestion.score)}\n` +
       `Layout rigido: distanze relative fra le ancore conservate\n` +
@@ -733,6 +1092,16 @@ window.addEventListener('resize', onResize);
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  const trailDurationMs = Math.max(1, Math.min(120, Number(trailSecondsInput.value) || 10)) * 1000;
+  if (droneTrailSamples.length && droneTrailSamples[0].timestamp < Date.now() - trailDurationMs)
+    refreshDroneTrail();
+  const socketConnected = trackingSocket && trackingSocket.readyState === WebSocket.OPEN;
+  if ((trackingPolling && relayConnected) || socketConnected) {
+    const status = lastOdomAt && Date.now() - lastOdomAt > 2000
+      ? `Telemetria ferma · ${odometryCount} ODOMETRY`
+      : lastOdomAt ? `ODOMETRY live · ${odometryCount}` : 'Connesso · attendo ODOMETRY';
+    if (trackingStatus.textContent !== status) trackingStatus.textContent = status;
+  }
   renderer.render(scene, camera);
   labelRend.render(scene, camera);
 }

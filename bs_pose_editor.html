@@ -52,6 +52,18 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 #coverage-btn:hover, #apply-layout-btn:hover:not(:disabled) { background: #214653; }
 #apply-layout-btn:disabled { opacity: 0.4; cursor: default; }
 #coverage-info { font-size: 10px; color: #a9c9d0; line-height: 1.5; white-space: pre-line; }
+#tracking-card input, #tracking-card select {
+  min-width: 0; flex: 1; background: #141414; border: 1px solid #444;
+  border-radius: 3px; color: #fff; font: 11px 'Courier New', monospace; padding: 4px;
+}
+#tracking-card button {
+  background: #18313a; border: 1px solid #2c5968; color: #8adcf0;
+  border-radius: 4px; font: 11px 'Courier New', monospace; padding: 7px; cursor: pointer;
+}
+#tracking-card button.active { background: #382d1b; border-color: #7a6a38; color: #dfc17a; }
+#tracking-status { font-size: 10px; color: #888; }
+#tracking-position { font-size: 10px; color: #8adcf0; font-variant-numeric: tabular-nums; }
+#tracking-card .tracking-field { width: 68px; flex: none; }
 #meas-info { font-size: 11px; color: #dfc17a; background: #252218; border: 1px solid #3d3520; padding: 5px; border-radius: 3px; display: none; }
 #code-wrap { flex: none; display: flex; flex-direction: column; gap: 4px; }
 #code-out {
@@ -81,6 +93,32 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     Position en mètres (repère monde, Z-up). Yaw/Pitch/Roll en degrés.<br>
     <b>Pitch</b> 0&deg;=horizontal, 90&deg;=pointe droit vers le bas.<br>
     Convention : <code>.claude/rules/solve3d_rotation.md</code>.
+  </div>
+
+  <div class="bs-card" id="tracking-card">
+    <div class="grp-lbl">DRONE · MAVLINK ODOMETRY</div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Link</div>
+      <select id="track-mode">
+        <option value="udp">UDP relay</option>
+        <option value="db">DroneBridge WS</option>
+      </select>
+    </div>
+    <div class="row" id="relay-row">
+      <div class="lbl" style="width:38px;">Relay</div>
+      <input id="relay-url" type="text" value="ws://127.0.0.1:8050/ws/udp" spellcheck="false">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">IP</div>
+      <input id="track-host" type="text" value="192.168.4.1" spellcheck="false">
+      <div class="lbl" style="width:22px;">Port</div>
+      <input id="track-port" class="tracking-field" type="number" value="14550" min="1" max="65535">
+    </div>
+    <div class="row">
+      <button id="track-connect-btn" type="button">Connetti</button>
+      <span id="tracking-status">Disconnesso</span>
+    </div>
+    <div id="tracking-position">ODOMETRY: in attesa</div>
   </div>
 
   <!-- Global FOV Settings Card -->
@@ -154,6 +192,61 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 import * as THREE        from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const ODOMETRY_ID = 331;
+const ODOMETRY_CRC_EXTRA = 91;
+const ODOMETRY_FULL_LEN = 233;
+let trackingSocket = null;
+let lastOdomAt = 0;
+let odometryCount = 0;
+
+function mavlinkCrc(bytes) {
+  let crc = 0xffff;
+  for (const value of bytes) {
+    let tmp = (value ^ (crc & 0xff)) & 0xff;
+    tmp ^= (tmp << 4) & 0xff;
+    crc = ((crc >>> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >>> 4)) & 0xffff;
+  }
+  return crc;
+}
+
+class OdomTelemetryParser {
+  constructor(onOdometry) { this.bytes = []; this.onOdometry = onOdometry; }
+
+  feed(data) {
+    for (const byte of data) this.bytes.push(byte);
+    while (this.bytes.length >= 12) {
+      const start = this.bytes.indexOf(0xfd);
+      if (start < 0) { this.bytes.length = 0; return; }
+      if (start > 0) this.bytes.splice(0, start);
+      if (this.bytes.length < 10) return;
+
+      const payloadLength = this.bytes[1];
+      const signed = (this.bytes[2] & 0x01) !== 0;
+      const frameLength = 12 + payloadLength + (signed ? 13 : 0);
+      if (this.bytes.length < frameLength) return;
+      const frame = this.bytes.splice(0, frameLength);
+      const messageId = frame[7] | (frame[8] << 8) | (frame[9] << 16);
+      if (messageId !== ODOMETRY_ID || payloadLength < 230) continue;
+
+      const crcOffset = 10 + payloadLength;
+      const checksum = frame[crcOffset] | (frame[crcOffset + 1] << 8);
+      const checksumInput = frame.slice(1, crcOffset).concat(ODOMETRY_CRC_EXTRA);
+      if (mavlinkCrc(checksumInput) !== checksum) continue;
+
+      const payload = new DataView(new Uint8Array(frame.slice(10, crcOffset)).buffer);
+      const frameId = payload.getUint8(228);
+      const childFrameId = payload.getUint8(229);
+      if (frameId !== 20 || childFrameId !== 12) continue;
+
+      const x = payload.getFloat32(8, true);
+      const y = payload.getFloat32(12, true);
+      const z = -payload.getFloat32(16, true);
+      if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z))
+        this.onOdometry({ x, y, z });
+    }
+  }
+}
 
 // ─── State ──────────────────────────────────────────────────────────────────
 const PALETTE = [0xFF66FF, 0x66FFFF, 0xFFCC44, 0x88FF66, 0xFF6666, 0x6699FF];
@@ -350,6 +443,117 @@ function addLabel(txt, x, y, z, col) {
   const o = new CSS2DObject(d); o.position.copy(tv(x, y, z)); scene.add(o);
   return o;
 }
+
+const droneMarker = new THREE.Mesh(
+  new THREE.OctahedronGeometry(0.09),
+  new THREE.MeshBasicMaterial({ color: 0xffb347 })
+);
+droneMarker.visible = false;
+scene.add(droneMarker);
+const droneLabel = addLabel('DRONE', 0, 0, 0, '#ffb347');
+droneLabel.visible = false;
+const droneTrailPoints = [];
+const droneTrailLine = new THREE.Line(
+  new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.7 })
+);
+scene.add(droneTrailLine);
+
+function updateDronePosition(position) {
+  const point = tv(position.x, position.y, position.z);
+  droneMarker.position.copy(point);
+  droneMarker.visible = true;
+  droneLabel.position.copy(point).add(new THREE.Vector3(0, 0.14, 0));
+  droneLabel.visible = true;
+
+  droneTrailPoints.push(point.clone());
+  if (droneTrailPoints.length > 600) droneTrailPoints.shift();
+  droneTrailLine.geometry.dispose();
+  droneTrailLine.geometry = new THREE.BufferGeometry().setFromPoints(droneTrailPoints);
+
+  lastOdomAt = Date.now();
+  odometryCount++;
+  document.getElementById('tracking-position').textContent =
+    `X ${position.x.toFixed(3)} · Y ${position.y.toFixed(3)} · Z ${position.z.toFixed(3)} m`;
+  document.getElementById('tracking-status').textContent = `ODOMETRY live · ${odometryCount}`;
+}
+
+const trackMode = document.getElementById('track-mode');
+const relayRow = document.getElementById('relay-row');
+const trackConnectButton = document.getElementById('track-connect-btn');
+const trackingStatus = document.getElementById('tracking-status');
+const trackingPosition = document.getElementById('tracking-position');
+
+trackMode.addEventListener('change', () => {
+  relayRow.style.display = trackMode.value === 'udp' ? '' : 'none';
+});
+
+function disconnectTracking() {
+  if (!trackingSocket) return;
+  const socket = trackingSocket;
+  trackingSocket = null;
+  socket.close();
+  trackConnectButton.textContent = 'Connetti';
+  trackConnectButton.classList.remove('active');
+  trackingStatus.textContent = 'Disconnesso';
+}
+
+trackConnectButton.addEventListener('click', () => {
+  if (trackingSocket) {
+    disconnectTracking();
+    return;
+  }
+
+  const mode = trackMode.value;
+  const host = document.getElementById('track-host').value.trim();
+  const port = Number(document.getElementById('track-port').value) || 14550;
+  let url;
+  try {
+    if (mode === 'udp') {
+      const relay = new URL(document.getElementById('relay-url').value.trim());
+      if (relay.protocol !== 'ws:' && relay.protocol !== 'wss:')
+        throw new Error('Il relay deve usare ws:// o wss://');
+      if (host) relay.searchParams.set('host', host);
+      else relay.searchParams.delete('host');
+      relay.searchParams.set('port', String(port));
+      url = relay.toString();
+    } else {
+      if (!host) throw new Error('Inserisci l’indirizzo IP DroneBridge');
+      const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      url = `${scheme}//${host}:${port}/mavlink`;
+    }
+  } catch (error) {
+    trackingStatus.textContent = error.message;
+    return;
+  }
+
+  trackingStatus.textContent = 'Connessione…';
+  const socket = new WebSocket(url);
+  trackingSocket = socket;
+  socket.binaryType = 'arraybuffer';
+  const parser = new OdomTelemetryParser(updateDronePosition);
+  socket.onopen = () => {
+    if (trackingSocket !== socket) return;
+    trackConnectButton.textContent = 'Disconnetti';
+    trackConnectButton.classList.add('active');
+    trackingStatus.textContent = 'Connesso · attendo ODOMETRY';
+  };
+  socket.onmessage = event => {
+    if (typeof event.data === 'string') {
+      trackingStatus.textContent = event.data;
+      return;
+    }
+    parser.feed(new Uint8Array(event.data));
+  };
+  socket.onerror = () => { trackingStatus.textContent = 'Errore connessione MAVLink'; };
+  socket.onclose = () => {
+    if (trackingSocket !== socket) return;
+    trackingSocket = null;
+    trackConnectButton.textContent = 'Connetti';
+    trackConnectButton.classList.remove('active');
+    trackingStatus.textContent = 'Disconnesso';
+  };
+});
 
 addLine(0,0,0, 0.5,0,0, 0xFF3333, 4); addLabel('X', 0.58,0,0, '#FF5555');
 addLine(0,0,0, 0,0.5,0, 0x33FF33, 4); addLabel('Y', 0,0.58,0, '#55FF55');
@@ -731,6 +935,12 @@ window.addEventListener('resize', onResize);
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  if (trackingSocket && trackingSocket.readyState === WebSocket.OPEN) {
+    const status = lastOdomAt && Date.now() - lastOdomAt > 2000
+      ? `Telemetria ferma · ${odometryCount} ODOMETRY`
+      : lastOdomAt ? `ODOMETRY live · ${odometryCount}` : 'Connesso · attendo ODOMETRY';
+    if (trackingStatus.textContent !== status) trackingStatus.textContent = status;
+  }
   renderer.render(scene, camera);
   labelRend.render(scene, camera);
 }
