@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BS Pose Editor</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #181818; color: #ddd;
+  font-family: 'Courier New', monospace;
+  display: flex; height: 100vh; overflow: hidden;
+}
+#panel {
+  width: 380px; min-width: 380px; background: #1e1e1e;
+  border-right: 1px solid #333; padding: 10px;
+  display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+}
+h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
+.hint { font-size: 10px; color: #888; line-height: 1.5; }
+.bs-card {
+  background: #252525; border: 1px solid #383838; border-radius: 5px;
+  padding: 8px; display: flex; flex-direction: column; gap: 5px;
+}
+.bs-head { display: flex; justify-content: space-between; align-items: center; }
+.bs-head input[type=text] {
+  background: transparent; border: none; color: #fff; font-family: inherit;
+  font-size: 12px; font-weight: bold; width: 220px;
+}
+.bs-swatch { width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; flex: none; }
+.row { display: flex; gap: 5px; align-items: center; }
+.row .lbl { font-size: 10px; color: #888; width: 14px; flex: none; }
+.row input[type=number] {
+  background: #141414; border: 1px solid #444; border-radius: 3px;
+  color: #fff; font-family: inherit; font-size: 11px; padding: 3px 4px; width: 100%;
+}
+.grp-lbl { font-size: 9px; color: #666; letter-spacing: 1px; margin-top: 2px; }
+.rm-btn {
+  background: #3a1c1c; border: 1px solid #5a2c2c; color: #f48a8a;
+  border-radius: 3px; font-size: 10px; padding: 2px 7px; cursor: pointer;
+}
+.rm-btn:hover { background: #4a2222; }
+#add-btn, #copy-btn, #meas-btn {
+  background: #1b3824; border: 1px solid #2d5a3c; color: #7adf9c;
+  border-radius: 4px; font-size: 11px; padding: 7px; cursor: pointer; text-align: center;
+}
+#add-btn:hover, #copy-btn:hover, #meas-btn:hover { background: #23472e; }
+#meas-btn.active { background: #382d1b; border-color: #7a6a38; color: #dfc17a; }
+#coverage-btn, #apply-layout-btn {
+  background: #18313a; border: 1px solid #2c5968; color: #8adcf0;
+  border-radius: 4px; font: inherit; font-size: 11px; padding: 7px; cursor: pointer; text-align: center;
+}
+#coverage-btn:hover, #apply-layout-btn:hover:not(:disabled) { background: #214653; }
+#apply-layout-btn:disabled { opacity: 0.4; cursor: default; }
+#coverage-info { font-size: 10px; color: #a9c9d0; line-height: 1.5; white-space: pre-line; }
+#tracking-card input, #tracking-card select {
+  min-width: 0; flex: 1; background: #141414; border: 1px solid #444;
+  border-radius: 3px; color: #fff; font: 11px 'Courier New', monospace; padding: 4px;
+}
+#tracking-card button {
+  background: #18313a; border: 1px solid #2c5968; color: #8adcf0;
+  border-radius: 4px; font: 11px 'Courier New', monospace; padding: 7px; cursor: pointer;
+}
+#tracking-card button.active { background: #382d1b; border-color: #7a6a38; color: #dfc17a; }
+#tracking-status { font-size: 10px; color: #888; }
+#tracking-position { font-size: 10px; color: #8adcf0; font-variant-numeric: tabular-nums; }
+#tracking-card .tracking-field { width: 68px; flex: none; }
+#meas-info { font-size: 11px; color: #dfc17a; background: #252218; border: 1px solid #3d3520; padding: 5px; border-radius: 3px; display: none; }
+#code-wrap { flex: none; display: flex; flex-direction: column; gap: 4px; }
+#code-out {
+  background: #121212; border: 1px solid #2a2a2a; border-radius: 3px;
+  color: #9ffd90; font-family: inherit; font-size: 10px; padding: 6px;
+  width: 100%; height: 200px; resize: vertical; white-space: pre; overflow: auto;
+}
+#warn { font-size: 10px; color: #e4b960; display: none; }
+#scene-container { flex: 1; position: relative; background: #161616; }
+#scene-container canvas { display: block; }
+.label3d { font-size: 12px; font-family: monospace; font-weight: bold; pointer-events: none; user-select: none; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+@media (max-width: 760px) {
+  body { width: 100vw; height: 100vh; flex-direction: column; }
+  #panel {
+    width: 100%; min-width: 0; height: 48vh; max-height: 54vh; flex: none;
+    border-right: 0; border-bottom: 1px solid #333;
+  }
+  #scene-container { width: 100%; min-height: 46vh; }
+}
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <h1>BS Pose Editor</h1>
+  <div class="hint">
+    Position en mètres (repère monde, Z-up). Yaw/Pitch/Roll en degrés.<br>
+    <b>Pitch</b> 0&deg;=horizontal, 90&deg;=pointe droit vers le bas.<br>
+    Convention : <code>.claude/rules/solve3d_rotation.md</code>.
+  </div>
+
+  <div class="bs-card" id="tracking-card">
+    <div class="grp-lbl">DRONE · MAVLINK ODOMETRY</div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Link</div>
+      <select id="track-mode">
+        <option value="udp">UDP relay</option>
+        <option value="db">DroneBridge WS</option>
+      </select>
+    </div>
+    <div class="row" id="relay-row">
+      <div class="lbl" style="width:38px;">API</div>
+      <input id="relay-url" type="text" value="http://127.0.0.1:8051/api/odometry" spellcheck="false">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">IP</div>
+      <input id="track-host" type="text" value="192.168.4.1" spellcheck="false">
+      <div class="lbl" style="width:22px;">Port</div>
+      <input id="track-port" class="tracking-field" type="number" value="14550" min="1" max="65535">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:64px;">Traccia</div>
+      <input id="trail-seconds" class="tracking-field" type="number" value="10" min="1" max="120" step="1">
+      <div class="lbl" style="width:12px;">s</div>
+    </div>
+    <div class="row">
+      <button id="track-connect-btn" type="button">Connetti</button>
+      <span id="tracking-status">Disconnesso</span>
+    </div>
+    <div id="tracking-position">ODOMETRY: in attesa</div>
+  </div>
+
+  <!-- Global FOV Settings Card -->
+  <div class="bs-card">
+    <div class="grp-lbl">FIELD OF VIEW (FOV) & PORTÉES</div>
+    <div class="row">
+      <div class="lbl" style="width:24px;">H (&deg;)</div>
+      <input type="number" id="fov-h" value="150" step="1">
+      <div class="lbl" style="width:24px;">V (&deg;)</div>
+      <input type="number" id="fov-v" value="110" step="1">
+    </div>
+    <div class="row" style="margin-top:4px;">
+      <div class="lbl" style="width:72px;" title="Distanza massima dalla lighthouse">Portata max</div>
+      <input type="number" id="fov-range" value="5.2" step="0.1">
+    </div>
+  </div>
+
+  <div class="bs-card">
+    <div class="grp-lbl">OVERLAP / POSIZIONAMENTO</div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Area X</div>
+      <input type="number" id="room-x" min="0.5" step="0.1" value="4.0">
+      <div class="lbl" style="width:38px;">Area Y</div>
+      <input type="number" id="room-y" min="0.5" step="0.1" value="4.0">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Z min</div>
+      <input type="number" id="room-z-min" step="0.1" value="0">
+      <div class="lbl" style="width:38px;">Z max</div>
+      <input type="number" id="room-z-max" step="0.1" value="2.5">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Passo</div>
+      <input type="number" id="grid-step" min="0.1" step="0.05" value="0.25">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:70px;">Distanza min.</div>
+      <input type="number" id="min-spacing" min="0.1" step="0.1" value="1.0">
+    </div>
+    <button id="coverage-btn">Analizza overlap e suggerisci</button>
+    <button id="apply-layout-btn" disabled>Applica posizioni suggerite</button>
+    <div id="coverage-info">Definisci il volume utile e analizza la copertura comune.</div>
+  </div>
+
+  <button id="meas-btn">📏 Strumento Misura: OFF</button>
+  <div id="meas-info">Clicca due punti nel 3D per misurare.</div>
+
+  <div id="bs-list"></div>
+  <button id="add-btn">+ Ajouter une basestation</button>
+
+  <div id="code-wrap">
+    <div class="grp-lbl">CODE C — bs_poses_cal.h</div>
+    <div id="warn">Il firmware usa 4 ancore: inserisci tutte e quattro le pose prima di copiare il codice.</div>
+    <textarea id="code-out" readonly spellcheck="false"></textarea>
+    <button id="copy-btn">Copier</button>
+  </div>
+</div>
+
+<div id="scene-container"></div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three":         "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE        from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+
+const ODOMETRY_ID = 331;
+const ODOMETRY_CRC_EXTRA = 91;
+let trackingSocket = null;
+let trackingTimer = null;
+let trackingPolling = false;
+let relayConnected = false;
+let lastOdomAt = 0;
+let odometryCount = 0;
+
+function mavlinkCrc(bytes) {
+  let crc = 0xffff;
+  for (const value of bytes) {
+    let tmp = (value ^ (crc & 0xff)) & 0xff;
+    tmp ^= (tmp << 4) & 0xff;
+    crc = ((crc >>> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >>> 4)) & 0xffff;
+  }
+  return crc;
+}
+
+class OdomTelemetryParser {
+  constructor(onOdometry) { this.bytes = []; this.onOdometry = onOdometry; }
+
+  feed(data) {
+    for (const byte of data) this.bytes.push(byte);
+    while (this.bytes.length >= 12) {
+      const start = this.bytes.indexOf(0xfd);
+      if (start < 0) { this.bytes.length = 0; return; }
+      if (start > 0) this.bytes.splice(0, start);
+      if (this.bytes.length < 10) return;
+
+      const payloadLength = this.bytes[1];
+      const signed = (this.bytes[2] & 0x01) !== 0;
+      const frameLength = 12 + payloadLength + (signed ? 13 : 0);
+      if (this.bytes.length < frameLength) return;
+      const frame = this.bytes.splice(0, frameLength);
+      const messageId = frame[7] | (frame[8] << 8) | (frame[9] << 16);
+      if (messageId !== ODOMETRY_ID || payloadLength < 230) continue;
+
+      const crcOffset = 10 + payloadLength;
+      const checksum = frame[crcOffset] | (frame[crcOffset + 1] << 8);
+      const checksumInput = frame.slice(1, crcOffset).concat(ODOMETRY_CRC_EXTRA);
+      if (mavlinkCrc(checksumInput) !== checksum) continue;
+
+      const payload = new DataView(new Uint8Array(frame.slice(10, crcOffset)).buffer);
+      if (payload.getUint8(228) !== 20 || payload.getUint8(229) !== 12) continue;
+
+      const x = payload.getFloat32(8, true);
+      const y = payload.getFloat32(12, true);
+      const z = -payload.getFloat32(16, true);
+      if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z))
+        this.onOdometry({ x, y, z });
+    }
+  }
+}
+
+// ─── State ──────────────────────────────────────────────────────────────────
+const PALETTE = [0xFF66FF, 0x66FFFF, 0xFFCC44, 0x88FF66, 0xFF6666, 0x6699FF];
+let uid = 0;
+const bsList = [
+  { id: uid++, name: 'BS0 (poly 8/9, BS4)',   x: 0,    y: 0, z: 3.45, yaw: 0, pitch: 90, roll: 0 },
+  { id: uid++, name: 'BS1 (poly 20/21, BS10)', x: 2.26, y: 0, z: 3.45, yaw: 0, pitch: 90, roll: 0 },
+];
+
+const fovHInp = document.getElementById('fov-h');
+const fovVInp = document.getElementById('fov-v');
+const fovRangeInp = document.getElementById('fov-range');
+const roomXInp = document.getElementById('room-x');
+const roomYInp = document.getElementById('room-y');
+const roomZMinInp = document.getElementById('room-z-min');
+const roomZMaxInp = document.getElementById('room-z-max');
+const gridStepInp = document.getElementById('grid-step');
+const minSpacingInp = document.getElementById('min-spacing');
+const coverageInfo = document.getElementById('coverage-info');
+const applyLayoutBtn = document.getElementById('apply-layout-btn');
+let suggestedLayout = null;
+
+[fovHInp, fovVInp, fovRangeInp].forEach(inp => inp.addEventListener('input', () => rebuild()));
+[roomXInp, roomYInp, roomZMinInp, roomZMaxInp, gridStepInp, minSpacingInp].forEach(inp =>
+  inp.addEventListener('input', () => resetCoverageDisplay()));
+
+// ─── Math: yaw/pitch/roll -> R ──────────────────────────────────────────────
+function cross(a, b) {
+  return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+}
+function norm(v) {
+  const l = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0]/l, v[1]/l, v[2]/l];
+}
+function computeCols(yawDeg, pitchDeg, rollDeg) {
+  const d2r = Math.PI / 180;
+  const yaw = yawDeg*d2r, pitch = pitchDeg*d2r, roll = rollDeg*d2r;
+  const col0 = [Math.cos(pitch)*Math.cos(yaw), Math.cos(pitch)*Math.sin(yaw), -Math.sin(pitch)];
+  const aux = Math.abs(col0[2]) > 0.999 ? [1,0,0] : [0,0,1];
+  const dot = aux[0]*col0[0] + aux[1]*col0[1] + aux[2]*col0[2];
+  const ref = norm([aux[0]-dot*col0[0], aux[1]-dot*col0[1], aux[2]-dot*col0[2]]);
+  const c0xr = cross(col0, ref);
+  const cr = Math.cos(roll), sr = Math.sin(roll);
+  const col1 = [ref[0]*cr + c0xr[0]*sr, ref[1]*cr + c0xr[1]*sr, ref[2]*cr + c0xr[2]*sr];
+  const col2 = cross(col0, col1);
+  return { col0, col1, col2 };
+}
+function colsToR(cols) {
+  const { col0, col1, col2 } = cols;
+  return [
+    [col0[0], col1[0], col2[0]],
+    [col0[1], col1[1], col2[1]],
+    [col0[2], col1[2], col2[2]],
+  ];
+}
+function rotateColsAroundZ(cols, angle) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  const rotate = v => [c * v[0] - s * v[1], s * v[0] + c * v[1], v[2]];
+  return { col0: rotate(cols.col0), col1: rotate(cols.col1), col2: rotate(cols.col2) };
+}
+function colsToYpr(cols) {
+  const { col0, col1 } = cols;
+  const horizontal = Math.hypot(col0[0], col0[1]);
+  const yaw = horizontal > 1e-8 ? Math.atan2(col0[1], col0[0]) : 0;
+  const pitch = Math.atan2(-col0[2], horizontal);
+  const aux = Math.abs(col0[2]) > 0.999 ? [1, 0, 0] : [0, 0, 1];
+  const dot = aux[0] * col0[0] + aux[1] * col0[1] + aux[2] * col0[2];
+  const ref = norm([aux[0] - dot * col0[0], aux[1] - dot * col0[1], aux[2] - dot * col0[2]]);
+  const c0xr = cross(col0, ref);
+  const roll = Math.atan2(
+    col1[0] * c0xr[0] + col1[1] * c0xr[1] + col1[2] * c0xr[2],
+    col1[0] * ref[0] + col1[1] * ref[1] + col1[2] * ref[2]
+  );
+  const toDeg = value => ((value * 180 / Math.PI + 540) % 360) - 180;
+  return { yaw: toDeg(yaw), pitch: toDeg(pitch), roll: toDeg(roll) };
+}
+
+// ─── UI: BS cards ───────────────────────────────────────────────────────────
+const listEl = document.getElementById('bs-list');
+
+function fieldRow(lbl, obj, key, step) {
+  const row = document.createElement('div'); row.className = 'row';
+  const l = document.createElement('div'); l.className = 'lbl'; l.textContent = lbl;
+  const inp = document.createElement('input');
+  inp.type = 'number'; inp.step = step; inp.value = obj[key];
+  inp.addEventListener('input', () => { obj[key] = parseFloat(inp.value) || 0; rebuild(); });
+  row.appendChild(l); row.appendChild(inp);
+  return row;
+}
+
+function renderList() {
+  listEl.innerHTML = '';
+  bsList.forEach((bs, i) => {
+    const card = document.createElement('div'); card.className = 'bs-card';
+    const head = document.createElement('div'); head.className = 'bs-head';
+    const nameWrap = document.createElement('div'); nameWrap.style.display = 'flex'; nameWrap.style.alignItems = 'center';
+    const sw = document.createElement('div'); sw.className = 'bs-swatch';
+    sw.style.background = '#' + PALETTE[i % PALETTE.length].toString(16).padStart(6, '0');
+    const nameInp = document.createElement('input'); nameInp.type = 'text'; nameInp.value = bs.name;
+    nameInp.addEventListener('input', () => { bs.name = nameInp.value; rebuild(); });
+    nameWrap.appendChild(sw); nameWrap.appendChild(nameInp);
+    const rm = document.createElement('button'); rm.className = 'rm-btn'; rm.textContent = 'suppr.';
+    rm.addEventListener('click', () => { bsList.splice(i, 1); renderList(); rebuild(); });
+    head.appendChild(nameWrap); head.appendChild(rm);
+    card.appendChild(head);
+
+    const posLbl = document.createElement('div'); posLbl.className = 'grp-lbl'; posLbl.textContent = 'POSITION (m)';
+    card.appendChild(posLbl);
+    const posRow = document.createElement('div'); posRow.style.display = 'flex'; posRow.style.gap = '5px';
+    posRow.appendChild(fieldRow('X', bs, 'x', 0.01));
+    posRow.appendChild(fieldRow('Y', bs, 'y', 0.01));
+    posRow.appendChild(fieldRow('Z', bs, 'z', 0.01));
+    card.appendChild(posRow);
+
+    const oriLbl = document.createElement('div'); oriLbl.className = 'grp-lbl'; oriLbl.textContent = 'ORIENTATION (deg)';
+    card.appendChild(oriLbl);
+    const oriRow = document.createElement('div'); oriRow.style.display = 'flex'; oriRow.style.gap = '5px';
+    oriRow.appendChild(fieldRow('Yaw', bs, 'yaw', 0.5));
+    oriRow.appendChild(fieldRow('Pit', bs, 'pitch', 0.5));
+    oriRow.appendChild(fieldRow('Rol', bs, 'roll', 0.5));
+    card.appendChild(oriRow);
+
+    listEl.appendChild(card);
+  });
+}
+
+document.getElementById('add-btn').addEventListener('click', () => {
+  const defaults = { 2: 'BS0 (poly 0/1)', 3: 'BS1 (poly 2/3)' };
+  const index = bsList.length;
+  bsList.push({ id: uid++, name: defaults[index] || `BS${index}`, x: 0, y: 0, z: 3.45, yaw: 0, pitch: 90, roll: 0 });
+  renderList(); rebuild();
+});
+
+// ─── C code generation ────────────────────────────────────────────────────────
+const codeOut = document.getElementById('code-out');
+const warnEl = document.getElementById('warn');
+function fmt(v) { return v.toFixed(6) + 'f'; }
+
+function generateCode() {
+  warnEl.style.display = bsList.length === 4 ? 'none' : 'block';
+  const entries = bsList.map(bs => {
+    const R = colsToR(computeCols(bs.yaw, bs.pitch, bs.roll));
+    return `    {  /* ${bs.name} */\n` +
+      `        .origin = {${fmt(bs.x)}, ${fmt(bs.y)}, ${fmt(bs.z)}},\n` +
+      `        .R = { {${fmt(R[0][0])}, ${fmt(R[0][1])}, ${fmt(R[0][2])}},\n` +
+      `               {${fmt(R[1][0])}, ${fmt(R[1][1])}, ${fmt(R[1][2])}},\n` +
+      `               {${fmt(R[2][0])}, ${fmt(R[2][1])}, ${fmt(R[2][2])}} },\n` +
+      `    },`;
+  }).join('\n');
+  codeOut.value =
+`/* bs_poses_cal.h */
+#ifndef BS_POSES_CAL_H
+#define BS_POSES_CAL_H
+#include "solve3d/solve3d.h"
+#define BS_POSE_SOURCE "bs_pose_editor"
+static const lh2_bs_pose_t BS_POSES[NUM_BS] = {\n${entries}\n};
+#endif
+`;
+}
+document.getElementById('copy-btn').addEventListener('click', () => navigator.clipboard.writeText(codeOut.value));
+
+// ─── Three.js scene ───────────────────────────────────────────────────────────
+const container = document.getElementById('scene-container');
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x181818);
+const W = () => container.clientWidth, H = () => container.clientHeight;
+
+const camera = new THREE.PerspectiveCamera(45, W()/H(), 0.01, 200);
+camera.position.set(3.0, 2.5, 3.0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio); renderer.setSize(W(), H());
+container.appendChild(renderer.domElement);
+
+const labelRend = new CSS2DRenderer();
+labelRend.setSize(W(), H()); labelRend.domElement.style.position = 'absolute';
+labelRend.domElement.style.top = '0'; labelRend.domElement.style.pointerEvents = 'none';
+container.appendChild(labelRend.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(1.0, 0.0, 1.7); controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.update();
+
+const tv = (x, y, z) => new THREE.Vector3(x, z, y);
+const revTv = (v) => [v.x, v.z, v.y];
+
+function addLine(ax, ay, az, bx, by, bz, col, w = 2) {
+  const l = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([tv(ax, ay, az), tv(bx, by, bz)]),
+    new THREE.LineBasicMaterial({ color: col, linewidth: w }));
+  scene.add(l);
+  return l;
+}
+function addLabel(txt, x, y, z, col) {
+  const d = document.createElement('div');
+  d.className = 'label3d'; d.textContent = txt; d.style.color = col;
+  const o = new CSS2DObject(d); o.position.copy(tv(x, y, z)); scene.add(o);
+  return o;
+}
+
+const droneMarker = new THREE.Mesh(
+  new THREE.OctahedronGeometry(0.09),
+  new THREE.MeshBasicMaterial({ color: 0xffb347 })
+);
+droneMarker.visible = false;
+scene.add(droneMarker);
+const droneLabel = addLabel('DRONE', 0, 0, 0, '#ffb347');
+droneLabel.visible = false;
+const droneTrailSamples = [];
+const trailSecondsInput = document.getElementById('trail-seconds');
+const trailOldColor = new THREE.Color(0x38bec1);
+const trailNewColor = new THREE.Color(0xffb347);
+const droneTrailLine = new THREE.Line(
+  new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.9 })
+);
+scene.add(droneTrailLine);
+
+function refreshDroneTrail(now = Date.now()) {
+  const durationMs = Math.max(1, Math.min(120, Number(trailSecondsInput.value) || 10)) * 1000;
+  const cutoff = now - durationMs;
+  while (droneTrailSamples.length && droneTrailSamples[0].timestamp < cutoff)
+    droneTrailSamples.shift();
+
+  const geometry = new THREE.BufferGeometry().setFromPoints(
+    droneTrailSamples.map(sample => sample.point)
+  );
+  const colors = new Float32Array(droneTrailSamples.length * 3);
+  const firstTimestamp = droneTrailSamples[0]?.timestamp ?? now;
+  const lastTimestamp = droneTrailSamples.at(-1)?.timestamp ?? now;
+  const timeSpan = Math.max(1, lastTimestamp - firstTimestamp);
+  droneTrailSamples.forEach((sample, index) => {
+    const recency = Math.max(0, Math.min(1, (sample.timestamp - firstTimestamp) / timeSpan));
+    const age = Math.max(0, Math.min(1, (now - sample.timestamp) / durationMs));
+    const color = trailOldColor.clone().lerp(trailNewColor, recency);
+    color.multiplyScalar(1 - 0.65 * age);
+    color.toArray(colors, index * 3);
+  });
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  droneTrailLine.geometry.dispose();
+  droneTrailLine.geometry = geometry;
+  droneTrailLine.visible = droneTrailSamples.length > 1;
+}
+
+trailSecondsInput.addEventListener('input', () => refreshDroneTrail());
+
+function updateDronePosition(position) {
+  const point = tv(position.x, position.y, position.z);
+  droneMarker.position.copy(point);
+  droneMarker.visible = true;
+  droneLabel.position.copy(point).add(new THREE.Vector3(0, 0.14, 0));
+  droneLabel.visible = true;
+
+  const timestamp = Date.now();
+  droneTrailSamples.push({ point: point.clone(), timestamp });
+  refreshDroneTrail(timestamp);
+
+  lastOdomAt = timestamp;
+  odometryCount++;
+  document.getElementById('tracking-position').textContent =
+    `X ${position.x.toFixed(3)} · Y ${position.y.toFixed(3)} · Z ${position.z.toFixed(3)} m`;
+  document.getElementById('tracking-status').textContent = `ODOMETRY live · ${odometryCount}`;
+}
+
+const trackMode = document.getElementById('track-mode');
+const relayRow = document.getElementById('relay-row');
+const trackConnectButton = document.getElementById('track-connect-btn');
+const trackingStatus = document.getElementById('tracking-status');
+
+trackMode.addEventListener('change', () => {
+  relayRow.style.display = trackMode.value === 'udp' ? '' : 'none';
+});
+
+function disconnectTracking() {
+  if (trackingSocket) {
+    const socket = trackingSocket;
+    trackingSocket = null;
+    socket.close();
+  }
+  if (trackingTimer) clearInterval(trackingTimer);
+  trackingTimer = null;
+  trackingPolling = false;
+  relayConnected = false;
+  trackConnectButton.textContent = 'Connetti';
+  trackConnectButton.classList.remove('active');
+  trackingStatus.textContent = 'Disconnesso';
+}
+
+trackConnectButton.addEventListener('click', () => {
+  if (trackingSocket || trackingPolling) {
+    disconnectTracking();
+    return;
+  }
+
+  const mode = trackMode.value;
+  const host = document.getElementById('track-host').value.trim();
+  const port = Number(document.getElementById('track-port').value) || 14550;
+  let url;
+  try {
+    if (mode === 'udp') {
+      const api = new URL(document.getElementById('relay-url').value.trim());
+      if (api.protocol !== 'http:' && api.protocol !== 'https:')
+        throw new Error('L’API locale deve usare http:// o https://');
+      if (host) api.searchParams.set('host', host);
+      else api.searchParams.delete('host');
+      api.searchParams.set('port', String(port));
+
+      trackingPolling = true;
+      relayConnected = false;
+      trackConnectButton.textContent = 'Disconnetti';
+      trackConnectButton.classList.add('active');
+      trackingStatus.textContent = 'Connessione al relay…';
+      let lastSequence = 0;
+      let requestPending = false;
+      const poll = async () => {
+        if (!trackingPolling || requestPending) return;
+        requestPending = true;
+        try {
+          const response = await fetch(api, { cache: 'no-store' });
+          if (!response.ok) throw new Error('Relay non disponibile');
+          const state = await response.json();
+          if (!trackingPolling) return;
+          relayConnected = true;
+          if (state.odometry && state.sequence !== lastSequence) {
+            lastSequence = state.sequence;
+            updateDronePosition(state.odometry);
+          }
+        } catch (_error) {
+          if (trackingPolling) {
+            relayConnected = false;
+            trackingStatus.textContent = 'Relay non raggiungibile';
+          }
+        } finally {
+          requestPending = false;
+        }
+      };
+      poll();
+      trackingTimer = setInterval(poll, 100);
+      return;
+    } else {
+      if (!host) throw new Error('Inserisci l’indirizzo IP DroneBridge');
+      const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      url = `${scheme}//${host}:${port}/mavlink`;
+    }
+  } catch (error) {
+    trackingStatus.textContent = error.message;
+    return;
+  }
+
+  trackingStatus.textContent = 'Connessione…';
+  const socket = new WebSocket(url);
+  trackingSocket = socket;
+  socket.binaryType = 'arraybuffer';
+  const parser = new OdomTelemetryParser(updateDronePosition);
+  socket.onopen = () => {
+    if (trackingSocket !== socket) return;
+    trackConnectButton.textContent = 'Disconnetti';
+    trackConnectButton.classList.add('active');
+    trackingStatus.textContent = 'Connesso · attendo ODOMETRY';
+  };
+  socket.onmessage = event => {
+    if (typeof event.data === 'string') {
+      trackingStatus.textContent = event.data;
+      return;
+    }
+    parser.feed(new Uint8Array(event.data));
+  };
+  socket.onerror = () => { trackingStatus.textContent = 'Errore connessione MAVLink'; };
+  socket.onclose = () => {
+    if (trackingSocket !== socket) return;
+    trackingSocket = null;
+    trackConnectButton.textContent = 'Connetti';
+    trackConnectButton.classList.remove('active');
+    trackingStatus.textContent = 'Disconnesso';
+  };
+});
+
+addLine(0,0,0, 0.5,0,0, 0xFF3333, 4); addLabel('X', 0.58,0,0, '#FF5555');
+addLine(0,0,0, 0,0.5,0, 0x33FF33, 4); addLabel('Y', 0,0.58,0, '#55FF55');
+addLine(0,0,0, 0,0,0.5, 0x3388FF, 4); addLabel('Z', 0,0,0.58, '#5588FF');
+scene.add(new THREE.GridHelper(20, 20, 0x444444, 0x282828));
+
+let bsSceneObjs = [];
+let coverageOverlay = null;
+
+function drawBasestations() {
+  bsSceneObjs.forEach(o => { scene.remove(o); if (o.geometry) o.geometry.dispose(); });
+  bsSceneObjs = [];
+  const push = o => { scene.add(o); bsSceneObjs.push(o); };
+
+  const fovHVal = parseFloat(fovHInp.value) || 150;
+  const fovVVal = parseFloat(fovVInp.value) || 110;
+  const maxRange = parseFloat(fovRangeInp.value) || 5.2;
+
+  bsList.forEach((bs, i) => {
+    const col = PALETTE[i % PALETTE.length];
+    const { col0, col1, col2 } = computeCols(bs.yaw, bs.pitch, bs.roll);
+    const [px, py, pz] = [bs.x, bs.y, bs.z];
+
+    const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.08), new THREE.MeshBasicMaterial({ color: col }));
+    m.position.copy(tv(px, py, pz)); push(m);
+
+    const d = document.createElement('div');
+    d.className = 'label3d'; d.textContent = bs.name;
+    d.style.color = '#' + col.toString(16).padStart(6, '0');
+    const lo = new CSS2DObject(d); lo.position.copy(tv(px, py, pz + 0.2)); push(lo);
+
+    const halfH = (fovHVal / 2) * (Math.PI / 180);
+    const halfV = (fovVVal / 2) * (Math.PI / 180);
+
+    const getDir = (ah, av) => {
+      const x = col0[0] * Math.cos(ah) * Math.cos(av) + col1[0] * Math.sin(ah) + col2[0] * Math.sin(av);
+      const y = col0[1] * Math.cos(ah) * Math.cos(av) + col1[1] * Math.sin(ah) + col2[1] * Math.sin(av);
+      const z = col0[2] * Math.cos(ah) * Math.cos(av) + col1[2] * Math.sin(ah) + col2[2] * Math.sin(av);
+      const len = Math.hypot(x, y, z) || 1;
+      return [x/len, y/len, z/len];
+    };
+
+    const fovMat = new THREE.LineDashedMaterial({ color: col, transparent: true, opacity: 0.6, dashSize: 0.1, gapSize: 0.05 });
+
+    // Ellisse di contorno basata sul raggio calcolato
+    const segs = 40;
+    const ellipsePoints = [];
+    const cardinalPts = [];
+    for (let s = 0; s <= segs; s++) {
+      const theta = (s / segs) * Math.PI * 2;
+      const ah = halfH * Math.cos(theta);
+      const av = halfV * Math.sin(theta);
+      const dir = getDir(ah, av);
+      const pt = [px + dir[0]*maxRange, py + dir[1]*maxRange, pz + dir[2]*maxRange];
+      ellipsePoints.push(tv(...pt));
+
+      if (s % (segs / 4) === 0 && s < segs) {
+        cardinalPts.push(pt);
+      }
+    }
+
+    const perimGeom = new THREE.BufferGeometry().setFromPoints(ellipsePoints);
+    push(new THREE.Line(perimGeom, fovMat));
+
+    // Raggi dai vertici cardinali dell'ellisse al sensore e montanti a terra
+    cardinalPts.forEach(pt => {
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(px, py, pz), tv(...pt)]), fovMat);
+      line.computeLineDistances(); push(line);
+
+      const leg = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(...pt), tv(pt[0], pt[1], 0)]), fovMat);
+      leg.computeLineDistances(); push(leg);
+    });
+
+    // Asse centrale verticale di riferimento
+    const dashLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(px, py, pz), tv(px, py, 0)]),
+      new THREE.LineDashedMaterial({ color: 0x666666, dashSize: 0.08, gapSize: 0.04 }));
+    dashLine.computeLineDistances(); push(dashLine);
+  });
+}
+
+function clearCoverageOverlay() {
+  if (!coverageOverlay) return;
+  scene.remove(coverageOverlay);
+  coverageOverlay.traverse(object => {
+    if (object.geometry) object.geometry.dispose();
+    if (Array.isArray(object.material)) object.material.forEach(material => material.dispose());
+    else if (object.material) object.material.dispose();
+  });
+  coverageOverlay = null;
+}
+
+function resetCoverageDisplay() {
+  suggestedLayout = null;
+  applyLayoutBtn.disabled = true;
+  coverageInfo.textContent = 'Parametri modificati: ricalcola la copertura.';
+  clearCoverageOverlay();
+}
+
+function makeCoverageGrid(roomX, roomY, zMin, zMax, step) {
+  const points = [];
+  const minX = -roomX / 2, maxX = roomX / 2;
+  const minY = -roomY / 2, maxY = roomY / 2;
+  for (let x = minX + step / 2; x < maxX; x += step) {
+    for (let y = minY + step / 2; y < maxY; y += step) {
+      for (let z = zMin + step / 2; z < zMax; z += step) points.push([x, y, z]);
+    }
+  }
+  return points;
+}
+
+function evaluateCoverage(poses, points, keepOverlapPoints = false) {
+  const halfH = (parseFloat(fovHInp.value) || 150) * Math.PI / 360;
+  const halfV = (parseFloat(fovVInp.value) || 110) * Math.PI / 360;
+  const maxRange = parseFloat(fovRangeInp.value) || 5.2;
+  const basis = poses.map(bs => computeCols(bs.yaw, bs.pitch, bs.roll));
+  let overlapCount = 0;
+  let tripleCount = 0;
+  let fullCount = 0;
+  let goodGeometryCount = 0;
+  let qualitySum = 0;
+  const overlapPoints = keepOverlapPoints ? [] : null;
+
+  for (const point of points) {
+    const visibleDirections = [];
+    for (let i = 0; i < poses.length; i++) {
+      const bs = poses[i];
+      const dx = point[0] - bs.x, dy = point[1] - bs.y, dz = point[2] - bs.z;
+      if (Math.hypot(dx, dy, dz) > maxRange) continue;
+      const { col0, col1, col2 } = basis[i];
+      const forward = dx * col0[0] + dy * col0[1] + dz * col0[2];
+      if (forward <= 0) continue;
+      const horizontal = Math.atan2(dx * col1[0] + dy * col1[1] + dz * col1[2], forward);
+      const vertical = Math.atan2(dx * col2[0] + dy * col2[1] + dz * col2[2], forward);
+      if (Math.abs(horizontal) > halfH || Math.abs(vertical) > halfV) continue;
+      const distance = Math.hypot(dx, dy, dz);
+      visibleDirections.push([dx / distance, dy / distance, dz / distance]);
+    }
+
+    if (visibleDirections.length < 2) continue;
+    overlapCount++;
+    if (visibleDirections.length >= 3) tripleCount++;
+    if (visibleDirections.length === poses.length) fullCount++;
+    let bestParallax = 0;
+    for (let a = 0; a < visibleDirections.length; a++) {
+      for (let b = a + 1; b < visibleDirections.length; b++) {
+        const da = visibleDirections[a], db = visibleDirections[b];
+        bestParallax = Math.max(bestParallax, Math.hypot(
+          da[1] * db[2] - da[2] * db[1],
+          da[2] * db[0] - da[0] * db[2],
+          da[0] * db[1] - da[1] * db[0]
+        ));
+      }
+    }
+    const parallaxQuality = Math.min(bestParallax / Math.sin(Math.PI / 6), 1);
+    const anchorCountQuality = Math.min(1, (visibleDirections.length - 1) / Math.max(poses.length - 1, 1));
+    const quality = parallaxQuality * anchorCountQuality;
+    qualitySum += quality;
+    if (bestParallax >= Math.sin(Math.PI / 12)) goodGeometryCount++;
+    if (overlapPoints) overlapPoints.push(point);
+  }
+
+  return {
+    overlapCount,
+    tripleCount,
+    fullCount,
+    overlapRatio: overlapCount / Math.max(points.length, 1),
+    tripleRatio: tripleCount / Math.max(points.length, 1),
+    fullRatio: fullCount / Math.max(points.length, 1),
+    goodGeometryRatio: goodGeometryCount / Math.max(points.length, 1),
+    quality: qualitySum / Math.max(points.length, 1),
+    overlapPoints,
+  };
+}
+
+function layoutIsBetter(candidate, current) {
+  if (!current) return true;
+  if (candidate.quality > current.quality + 1e-9) return true;
+  if (Math.abs(candidate.quality - current.quality) > 1e-9) return false;
+  if (candidate.fullCount !== current.fullCount) return candidate.fullCount > current.fullCount;
+  if (candidate.tripleCount !== current.tripleCount) return candidate.tripleCount > current.tripleCount;
+  return candidate.overlapCount > current.overlapCount;
+}
+
+function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
+  const roomX = parseFloat(roomXInp.value), roomY = parseFloat(roomYInp.value);
+  const minX = -roomX / 2, maxX = roomX / 2;
+  const minY = -roomY / 2, maxY = roomY / 2;
+  const centerX = currentLayout.reduce((sum, bs) => sum + bs.x, 0) / currentLayout.length;
+  const centerY = currentLayout.reduce((sum, bs) => sum + bs.y, 0) / currentLayout.length;
+  const offsets = currentLayout.map(bs => [bs.x - centerX, bs.y - centerY]);
+  const centerStep = Math.max(0.5, candidateStep);
+  const angleStep = 30;
+  const centers = [];
+  for (let x = minX; x <= maxX + 1e-9; x += centerStep) {
+    for (let y = minY; y <= maxY + 1e-9; y += centerStep) centers.push([x, y]);
+  }
+  if (centers.length * (360 / angleStep) > 2500) {
+    throw new Error('Ricerca troppo fitta; aumenta il passo di griglia o riduci il volume.');
+  }
+
+  let bestLayout = null;
+  let bestScore = null;
+  let bestMove = Infinity;
+  for (let degrees = 0; degrees < 360; degrees += angleStep) {
+    const angle = degrees * Math.PI / 180;
+    const c = Math.cos(angle), s = Math.sin(angle);
+    const rotatedOffsets = offsets.map(([x, y]) => [x * c - y * s, x * s + y * c]);
+    for (const [cx, cy] of centers) {
+      const candidate = currentLayout.map((bs, index) => ({
+        ...bs,
+        x: cx + rotatedOffsets[index][0],
+        y: cy + rotatedOffsets[index][1],
+        ...colsToYpr(rotateColsAroundZ(computeCols(bs.yaw, bs.pitch, bs.roll), angle)),
+      }));
+      if (candidate.some(bs => bs.x < minX || bs.x > maxX || bs.y < minY || bs.y > maxY)) continue;
+      let spacingValid = true;
+      for (let a = 0; a < candidate.length && spacingValid; a++) {
+        for (let b = a + 1; b < candidate.length; b++) {
+          if (Math.hypot(candidate[a].x - candidate[b].x, candidate[a].y - candidate[b].y) < minSpacing) {
+            spacingValid = false;
+            break;
+          }
+        }
+      }
+      if (!spacingValid) continue;
+
+      const score = evaluateCoverage(candidate, points);
+      const move = candidate.reduce((sum, bs, index) =>
+        sum + (bs.x - currentLayout[index].x) ** 2 + (bs.y - currentLayout[index].y) ** 2, 0);
+      if (layoutIsBetter(score, bestScore) ||
+          (bestScore && !layoutIsBetter(bestScore, score) && move < bestMove)) {
+        bestLayout = candidate;
+        bestScore = score;
+        bestMove = move;
+      }
+    }
+  }
+  if (!bestLayout) throw new Error('Nessun layout rigido entra nel volume con la distanza minima richiesta.');
+  if (bestScore.overlapCount === 0) {
+    throw new Error('Nessun overlap nel volume selezionato: controlla Z min/max, FOV e orientamento delle lighthouse.');
+  }
+  return { layout: bestLayout, score: bestScore, rotationDegrees: bestLayout[0].yaw - currentLayout[0].yaw };
+}
+
+function showOverlapPoints(points, step) {
+  clearCoverageOverlay();
+  if (!points.length) return;
+
+  const half = step / 2;
+  const zMin = parseFloat(roomZMinInp.value);
+  const zOrigin = zMin + half;
+  const footprint = new Map();
+  const cells = new Map();
+  points.forEach(point => {
+    const i = Math.round((point[0] - half) / step);
+    const j = Math.round((point[1] - half) / step);
+    const k = Math.round((point[2] - zOrigin) / step);
+    footprint.set(`${i},${j}`, [point[0], point[1]]);
+    cells.set(`${i},${j},${k}`, { i, j, k, point });
+  });
+
+  const footprintVertices = [];
+  const volumeEdges = [];
+  const edgeSet = new Set();
+  const addFootprintQuad = corners => {
+    const transformed = corners.map(point => tv(...point).toArray());
+    footprintVertices.push(...transformed[0], ...transformed[1], ...transformed[2]);
+    footprintVertices.push(...transformed[0], ...transformed[2], ...transformed[3]);
+  };
+  const addVolumeQuadEdges = corners => {
+    for (let index = 0; index < corners.length; index++) {
+      const start = corners[index];
+      const end = corners[(index + 1) % corners.length];
+      const startKey = start.map(value => value.toFixed(6)).join(',');
+      const endKey = end.map(value => value.toFixed(6)).join(',');
+      const edgeKey = startKey < endKey ? `${startKey}|${endKey}` : `${endKey}|${startKey}`;
+      if (edgeSet.has(edgeKey)) continue;
+      edgeSet.add(edgeKey);
+      volumeEdges.push(...tv(...start).toArray(), ...tv(...end).toArray());
+    }
+  };
+
+  footprint.forEach(([x, y]) => {
+    addFootprintQuad([
+      [x - half, y - half, 0.02],
+      [x + half, y - half, 0.02],
+      [x + half, y + half, 0.02],
+      [x - half, y + half, 0.02],
+    ]);
+  });
+
+  const faces = [
+    { offset: [1, 0, 0], corners: [[1,-1,-1], [1,1,-1], [1,1,1], [1,-1,1]] },
+    { offset: [-1, 0, 0], corners: [[-1,-1,1], [-1,1,1], [-1,1,-1], [-1,-1,-1]] },
+    { offset: [0, 1, 0], corners: [[-1,1,-1], [-1,1,1], [1,1,1], [1,1,-1]] },
+    { offset: [0, -1, 0], corners: [[-1,-1,1], [-1,-1,-1], [1,-1,-1], [1,-1,1]] },
+    { offset: [0, 0, 1], corners: [[-1,-1,1], [1,-1,1], [1,1,1], [-1,1,1]] },
+    { offset: [0, 0, -1], corners: [[-1,1,-1], [1,1,-1], [1,-1,-1], [-1,-1,-1]] },
+  ];
+  cells.forEach(cell => {
+    const [x, y, z] = cell.point;
+    faces.forEach(face => {
+      const neighbor = `${cell.i + face.offset[0]},${cell.j + face.offset[1]},${cell.k + face.offset[2]}`;
+      if (cells.has(neighbor)) return;
+      if (face.offset[2] === -1 && Math.abs(zMin) < 1e-6 && cell.k === 0) return;
+      addVolumeQuadEdges(face.corners.map(([dx, dy, dz]) => [
+        x + dx * half, y + dy * half, z + dz * half,
+      ]));
+    });
+  });
+
+  coverageOverlay = new THREE.Group();
+  const footprintGeometry = new THREE.BufferGeometry();
+  footprintGeometry.setAttribute('position', new THREE.Float32BufferAttribute(footprintVertices, 3));
+  const footprintMesh = new THREE.Mesh(footprintGeometry, new THREE.MeshBasicMaterial({
+    color: 0x55e6a5, transparent: true, opacity: 0.18, side: THREE.DoubleSide, depthWrite: false,
+  }));
+  footprintMesh.renderOrder = 1;
+  coverageOverlay.add(footprintMesh);
+
+  const volumeGeometry = new THREE.BufferGeometry();
+  volumeGeometry.setAttribute('position', new THREE.Float32BufferAttribute(volumeEdges, 3));
+  const volumeOutline = new THREE.LineSegments(volumeGeometry, new THREE.LineBasicMaterial({
+    color: 0x55e6a5, transparent: true, opacity: 0.72,
+  }));
+  volumeOutline.renderOrder = 2;
+  coverageOverlay.add(volumeOutline);
+  scene.add(coverageOverlay);
+}
+
+function formatCoverage(score) {
+  return `≥2 ancore ${(score.overlapRatio * 100).toFixed(1)}% · ≥3 ${(score.tripleRatio * 100).toFixed(1)}% · tutte ${(score.fullRatio * 100).toFixed(1)}% · parallasse ≥15° ${(score.goodGeometryRatio * 100).toFixed(1)}%`;
+}
+
+document.getElementById('coverage-btn').addEventListener('click', () => {
+  if (bsList.length < 2) {
+    coverageInfo.textContent = 'Servono almeno due lighthouse per calcolare l’overlap.';
+    return;
+  }
+  const roomX = parseFloat(roomXInp.value), roomY = parseFloat(roomYInp.value);
+  const zMin = parseFloat(roomZMinInp.value), zMax = parseFloat(roomZMaxInp.value);
+  const step = parseFloat(gridStepInp.value);
+  const minSpacing = parseFloat(minSpacingInp.value);
+  if (![roomX, roomY, zMin, zMax, step, minSpacing].every(Number.isFinite) ||
+      roomX <= 0 || roomY <= 0 || zMax <= zMin || step <= 0 || minSpacing < 0) {
+    coverageInfo.textContent = 'Inserisci limiti X/Y/Z validi, Z max > Z min e un passo positivo.';
+    return;
+  }
+
+  try {
+    const points = makeCoverageGrid(roomX, roomY, zMin, zMax, step);
+    if (points.length > 30000) throw new Error('Troppi punti di griglia; aumenta il passo.');
+    const currentScore = evaluateCoverage(bsList, points, true);
+    const candidateStep = Math.max(0.5, step * 2);
+    const suggestion = findSuggestedLayout(bsList, points, minSpacing, candidateStep);
+    suggestedLayout = suggestion.layout;
+    applyLayoutBtn.disabled = false;
+    showOverlapPoints(currentScore.overlapPoints, step);
+    coverageInfo.textContent =
+      `Volume: ${points.length} punti (X ${(-roomX / 2).toFixed(2)}…${(roomX / 2).toFixed(2)} m, ` +
+      `Y ${(-roomY / 2).toFixed(2)}…${(roomY / 2).toFixed(2)} m, Z ${zMin}…${zMax} m, passo ${step} m)\n` +
+      `Attuale: ${formatCoverage(currentScore)}\n` +
+      `Suggerito (+${suggestion.rotationDegrees.toFixed(0)}°): ${formatCoverage(suggestion.score)}\n` +
+      `Layout rigido: distanze relative fra le ancore conservate\n` +
+      suggestion.layout.map((bs, i) => `${bs.name}: X ${bs.x.toFixed(2)} · Y ${bs.y.toFixed(2)} · Z ${bs.z.toFixed(2)} m`).join('\n');
+  } catch (error) {
+    coverageInfo.textContent = error.message;
+  }
+});
+
+applyLayoutBtn.addEventListener('click', () => {
+  if (!suggestedLayout) return;
+  suggestedLayout.forEach((suggestion, index) => {
+    bsList[index].x = suggestion.x;
+    bsList[index].y = suggestion.y;
+  });
+  renderList();
+  rebuild();
+});
+
+// ─── Measurement Tool Logic ───────────────────────────────────────────────────
+let measuringActive = false;
+let measPointA = null;
+let measPointB = null;
+let measObjects = [];
+
+const measBtn = document.getElementById('meas-btn');
+const measInfo = document.getElementById('meas-info');
+
+measBtn.addEventListener('click', () => {
+  measuringActive = !measuringActive;
+  measBtn.classList.toggle('active', measuringActive);
+  measBtn.textContent = measuringActive ? '📏 Strumento Misura: ON (Clicca)' : '📏 Strumento Misura: OFF';
+  measInfo.style.display = measuringActive ? 'block' : 'none';
+  if (!measuringActive) clearMeasurement();
+});
+
+function clearMeasurement() {
+  measPointA = null; measPointB = null;
+  measObjects.forEach(o => { scene.remove(o); if(o.geometry) o.geometry.dispose(); });
+  measObjects = [];
+  measInfo.textContent = 'Clicca due punti nel 3D per misurare.';
+}
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const planeZ0 = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (!measuringActive) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const target = new THREE.Vector3();
+  raycaster.ray.intersectPlane(planeZ0, target);
+
+  if (!measPointA) {
+    measPointA = revTv(target);
+    measInfo.textContent = `Punto A impostato (${measPointA[0].toFixed(2)}, ${measPointA[1].toFixed(2)}, ${measPointA[2].toFixed(2)}). Clicca Punto B.`;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.05), new THREE.MeshBasicMaterial({color: 0xdfc17a}));
+    m.position.copy(target); scene.add(m); measObjects.push(m);
+  } else if (!measPointB) {
+    measPointB = revTv(target);
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.05), new THREE.MeshBasicMaterial({color: 0xdfc17a}));
+    m.position.copy(target); scene.add(m); measObjects.push(m);
+
+    const dist = Math.hypot(measPointB[0]-measPointA[0], measPointB[1]-measPointA[1], measPointB[2]-measPointA[2]);
+    measInfo.textContent = `Distanza: ${dist.toFixed(3)} m (A -> B)`;
+
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([tv(...measPointA), tv(...measPointB)]),
+      new THREE.LineBasicMaterial({color: 0xdfc17a, linewidth: 3})
+    );
+    scene.add(line); measObjects.push(line);
+
+    const mid = [(measPointA[0]+measPointB[0])/2, (measPointA[1]+measPointB[1])/2, (measPointA[2]+measPointB[2])/2];
+    const lbl = addLabel(`${dist.toFixed(2)}m`, mid[0], mid[1], mid[2] + 0.1, '#dfc17a');
+    measObjects.push(lbl);
+
+    measPointA = null; measPointB = null;
+  }
+});
+
+function rebuild() {
+  suggestedLayout = null;
+  applyLayoutBtn.disabled = true;
+  coverageInfo.textContent = 'Parametri modificati: ricalcola la copertura.';
+  clearCoverageOverlay();
+  drawBasestations();
+  generateCode();
+}
+renderList();
+rebuild();
+
+function onResize() {
+  camera.aspect = W() / H(); camera.updateProjectionMatrix();
+  renderer.setSize(W(), H()); labelRend.setSize(W(), H());
+}
+window.addEventListener('resize', onResize);
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  const trailDurationMs = Math.max(1, Math.min(120, Number(trailSecondsInput.value) || 10)) * 1000;
+  if (droneTrailSamples.length && droneTrailSamples[0].timestamp < Date.now() - trailDurationMs)
+    refreshDroneTrail();
+  const socketConnected = trackingSocket && trackingSocket.readyState === WebSocket.OPEN;
+  if ((trackingPolling && relayConnected) || socketConnected) {
+    const status = lastOdomAt && Date.now() - lastOdomAt > 2000
+      ? `Telemetria ferma · ${odometryCount} ODOMETRY`
+      : lastOdomAt ? `ODOMETRY live · ${odometryCount}` : 'Connesso · attendo ODOMETRY';
+    if (trackingStatus.textContent !== status) trackingStatus.textContent = status;
+  }
+  renderer.render(scene, camera);
+  labelRend.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
