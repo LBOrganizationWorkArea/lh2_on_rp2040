@@ -19,7 +19,12 @@
 #endif
 
 #include <math.h>
+#include <stdio.h>
 #include <string.h>
+
+#define LFSR_LOG_INTERVAL_US 250000ULL
+
+static uint64_t s_last_lfsr_log_us[NUM_SENSORS][LH2_BASESTATION_COUNT][LH2_SWEEP_COUNT];
 
 // ---------------------------------------------------------------------------
 // Private helpers
@@ -140,9 +145,18 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
                 uint8_t  poly = lh2[s].locations[sweep][slot].selected_polynomial;
                 uint32_t lfsr = lh2[s].locations[sweep][slot].lfsr_location;
                 int bs_idx    = _poly_to_bs(poly);
+                uint8_t physical_bs = poly >> 1;
 
                 /* Mark slot consumed regardless of whether we use the data */
                 lh2[s].data_ready[sweep][slot] = DB_LH2_NO_NEW_DATA;
+
+                if ((physical_bs == 0 || physical_bs == 1) &&
+                    (s_last_lfsr_log_us[s][slot][sweep] == 0 ||
+                     now_us - s_last_lfsr_log_us[s][slot][sweep] >= LFSR_LOG_INTERVAL_US)) {
+                    printf("L,%d,%u,%d,%u,%lu,%llu\n", s, physical_bs, sweep, poly,
+                           (unsigned long)lfsr, (unsigned long long)now_us);
+                    s_last_lfsr_log_us[s][slot][sweep] = now_us;
+                }
 
                 if (bs_idx < 0) {
                     continue;  /* unknown polynomial — skip */

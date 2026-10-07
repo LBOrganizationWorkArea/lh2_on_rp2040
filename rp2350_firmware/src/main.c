@@ -71,6 +71,9 @@
 /** Diagnostic print interval [µs] — 10 Hz */
 #define PRINT_INTERVAL_US  100000ULL
 
+#define Z_OUTPUT_SCALE       0.776446f
+#define Z_OUTPUT_OFFSET_M    0.591149f
+
 // ---------------------------------------------------------------------------
 // Calibration constants
 // (from utils/user_interface/tools/history_calibration.txt, most recent)
@@ -281,6 +284,11 @@ static inline float _rad2deg(float rad)
     return rad * (180.0f / 3.14159265358979323846f);
 }
 
+static inline float _correct_z_for_test(float z)
+{
+    return (z - Z_OUTPUT_OFFSET_M) / Z_OUTPUT_SCALE;
+}
+
 /**
  * @brief  Print per-sensor 3D points + centroid, and return the centroid.
  *
@@ -372,6 +380,10 @@ int main(void)
     /* ④ Compute loop */
     uint64_t last_print_us = 0;
     float    last_cx = 0.0f, last_cy = 0.0f, last_cz = 0.0f;
+    float    last_sensor_xyz[NUM_SENSORS][3] = {{0.0f}};
+    bool     last_sensor_valid[NUM_SENSORS] = {false};
+    uint64_t last_sensor_update_us[NUM_SENSORS] = {0};
+    uint64_t last_sensor_log_us[NUM_SENSORS] = {0};
 
     while (true) {
         uint64_t now_us = to_us_since_boot(get_absolute_time());
@@ -395,6 +407,7 @@ int main(void)
         if (g_capture_ready) {
             lh2_point3d_t pts[NUM_SENSORS];
             int n = solve3d_calib_run(BS_POSES, g_angles, now_us, pts);
+            for (int s = 0; s < NUM_SENSORS; s++) last_sensor_valid[s] = false;
 
             if (n > 0) {
                 float sx = 0.0f, sy = 0.0f, sz = 0.0f;
@@ -412,9 +425,14 @@ int main(void)
                 }
                 for (int s = 0; s < NUM_SENSORS; s++) {
                     if (!cnt[s]) continue;
-                    sx += acc_x[s] / cnt[s];
-                    sy += acc_y[s] / cnt[s];
-                    sz += acc_z[s] / cnt[s];
+                    last_sensor_xyz[s][0] = acc_x[s] / cnt[s];
+                    last_sensor_xyz[s][1] = acc_y[s] / cnt[s];
+                    last_sensor_xyz[s][2] = acc_z[s] / cnt[s];
+                    last_sensor_valid[s] = true;
+                    last_sensor_update_us[s] = now_us;
+                    sx += last_sensor_xyz[s][0];
+                    sy += last_sensor_xyz[s][1];
+                    sz += last_sensor_xyz[s][2];
                     na++;
                 }
                 if (na > 0) {
@@ -430,6 +448,17 @@ int main(void)
             continue;
         }
         last_print_us = now_us;
+
+        for (int s = 0; s < NUM_SENSORS; s++) {
+            if (!last_sensor_valid[s] || last_sensor_update_us[s] == last_sensor_log_us[s] ||
+                now_us - last_sensor_update_us[s] > FRESHNESS_US) continue;
+            printf("Q,%llu,%d,%.5f,%.5f,%.5f\n",
+                   (unsigned long long)last_sensor_update_us[s], s,
+                   (double)last_sensor_xyz[s][0],
+                   (double)last_sensor_xyz[s][1],
+                   (double)last_sensor_xyz[s][2]);
+            last_sensor_log_us[s] = last_sensor_update_us[s];
+        }
 
         uint8_t angle_valid_mask = 0u;
         float raw_angles[NUM_SENSORS][NUM_BS][2] = {{{0.0f}}};
@@ -456,7 +485,7 @@ int main(void)
         /* Send ODOMETRY at 10 Hz with timestamp corrected to FC timebase. */
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
             mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
-                                  last_cx, last_cy, -last_cz);
+                                  last_cx, last_cy, -_correct_z_for_test(last_cz));
         }
 
         /* Send DO_SET_HOME exactly once — the first time EKF reports healthy.
@@ -484,8 +513,11 @@ int main(void)
         }
 
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
+             printf("C_RAW,%.4f,%.4f,%.4f\n",
+                 (double)last_cx, (double)last_cy, (double)last_cz);
             printf("C,%.4f,%.4f,%.4f\n",
-                   (double)last_cx, (double)last_cy, (double)last_cz);
+                 (double)last_cx, (double)last_cy,
+                 (double)_correct_z_for_test(last_cz));
         }
     }
 
