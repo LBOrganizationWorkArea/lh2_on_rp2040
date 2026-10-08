@@ -128,6 +128,66 @@ Do not flash that header until its positions and boresight directions have been
 checked against physical measurements. The legacy `calibrate_cli.py` acquires
 data through Crazyflie and is not the JSON solver for this Wi-Fi capture path.
 
+### Bitcraze pipeline solver (`calibrate_bitcraze.py`)
+
+Same input JSON, but nothing about the stations is assumed: the initial guess
+comes from Bitcraze's IPPE estimator (per-sample planar wand pose, mirror
+ambiguity resolved by clustering), followed by their sparse least-squares
+solver. Every sample is then re-admitted with a wand pose triangulated from the
+solved stations, and the solve is repeated. That step matters for stations pointing straight
+down, where IPPE alone rejects most samples.
+
+```bash
+python utils/calibration/calibrate_bitcraze.py measurements.json \
+  --sensor-positions utils/calibration/wand_sensors.json \
+  --baseline 2.26 --height 3.45 -o lighthouse_geometry_candidate.yaml
+```
+
+World frame: by default BS0 is placed at `(0, 0, --height)`, +X points toward BS1,
+and up is the negated mean boresight. To use the Bitcraze wizard frame instead,
+pass static captures (wand held still, both stations visible):
+`--origin o.json --x-axis x.json --xy-plane p1.json p2.json p3.json`, plus
+`--x-axis-dist 1.0` if you want to rescale to a known x-axis distance as Bitcraze does.
+
+Check it against a known geometry first:
+
+```bash
+python utils/calibration/make_synthetic_measurements.py -o synth.json --truth truth.json
+python utils/calibration/calibrate_bitcraze.py synth.json \
+  --sensor-positions utils/calibration/wand_sensors.json --baseline 2.26 --truth truth.json
+```
+
+#### Sensor geometry
+
+`--sensor-positions` is the **only metric reference** in the whole solve.
+
+- **Scale.** Any error in the sensor spacing scales every station position by the same
+  factor, and the residual stays just as low. A 5 cm wand entered as 4 cm shrinks a
+  2.26 m baseline to 1.80 m. Always pass a tape-measured `--baseline`: the script
+  then prints the spacing correction the data implies. Note that
+  `wand_sensors.json` says 40 mm, while `yaw/yaw.c` (`SENSOR_BASELINE`) and the
+  synthetic firmware assume 50 mm. Only one of them can be right.
+- **Order.** Rows must follow firmware sensor order S0..S3. Any rotation or mirror image
+  of the square fits equally well. A non-cyclic order, such as S2 and S3 swapped,
+  fails the "wand shape check" (median rigid-fit error in the centimetres).
+- **Planarity.** IPPE is a planar estimator. The file must be coplanar to within 2 mm.
+- **Centring.** Upstream Bitcraze `_ippe.py` centred 3D models with a scalar
+  (`np.mean(U[:1])`) and did not guard against reflections. That worked for the
+  Crazyflie deck, which is centred on its origin, but returned det = −1 "rotations"
+  for this wand, whose S0 is at (0, 0, 0). Both bugs are fixed in `calibration_lib/_ippe.py`.
+
+#### Data quality gate
+
+Records whose 4 sensors span more angle than the wand can subtend at
+`--min-wand-distance` (default 0.5 m) are dropped, since at least one angle in them is corrupt.
+In the current captures (`measurements*.json`), **95–99.9 % of snapshots fail
+this gate**. When the wand is held still, the angles repeat to about 0.01°, but individual
+sensors' *vertical* angles sit ±4–12° away from the others, while the horizontal
+angles agree to within about 1°. A 4 cm wand at about 3 m spans about 0.8°. The vertical angle comes
+from the difference between the two sweeps, so this points to a per-sensor sweep pairing or decode
+problem in the firmware. No solver can calibrate from that data; fix the decoder
+and recapture.
+
 ### CLI: With Custom World Frame
 
 Define your own world frame using reference points:

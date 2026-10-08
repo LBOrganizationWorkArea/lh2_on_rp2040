@@ -75,12 +75,20 @@ def mat_run(U, Q, hEstMethod='DLT'):
         U[1, :] = U[1, :]-Pbar[1]
     else:
         # Rotate the model points onto the plane z=0 and zero center them
-        Pbar = np.mean(U[:1])
+        # Centre on the true centroid (upstream used np.mean(U[:1]), a scalar
+        # mean of the first row, which only works when the model is already
+        # centred on the origin — true for the Crazyflie deck, not for a wand
+        # whose S0 is at (0, 0, 0)).
+        Pbar = np.mean(U, axis=1)
         MCenter = np.eye(4)
         MCenter[0:3, -1] = -Pbar
         U_ = MCenter[0:3, :].dot(np.vstack((U, np.ones((1, U.shape[1])))))
         modelRotation, sigs, _ = np.linalg.svd(U_.dot(U_.T))
         modelRotation = modelRotation.T
+        # SVD may return a reflection; the recovered pose would then have
+        # det(R) = -1. Flip the plane normal to keep it a proper rotation.
+        if np.linalg.det(modelRotation) < 0:
+            modelRotation[2, :] = -modelRotation[2, :]
 
         modelRotation = np.hstack((np.vstack((modelRotation, np.array([0, 0, 0]))), np.array([[0], [0], [0], [1]])))
         Mcorrective = modelRotation.dot(MCenter)
