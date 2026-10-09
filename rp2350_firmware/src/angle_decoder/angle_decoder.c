@@ -41,6 +41,44 @@ static inline int _poly_to_bs(uint8_t poly) {
 }
 
 /**
+ * @brief  Measured beam angle of one light plane for the ideal ray (1, y, z).
+ *
+ * Base-station factory model (OOTX calibration data, as used by the Crazyflie):
+ * the plane is tilted by (nominal - tilt), offset by phase, and wobbles by
+ * gibmag * cos(azimuth + gibphase). Curve / ogee terms are not used.
+ */
+static float _distorted_beam(float y, float z, float nominal_tilt, const lh2_plane_cal_t *p)
+{
+    float azimuth = atanf(y);
+    float s = z * tanf(nominal_tilt - p->tilt) / sqrtf(1.0f + y * y);
+    s = fminf(1.0f, fmaxf(-1.0f, s));
+    return azimuth + asinf(s) - p->phase + p->gibmag * cosf(azimuth + p->gibphase);
+}
+
+/**
+ * @brief  Remove the factory distortion from both beam angles [rad], in place.
+ *
+ * The model maps ideal to measured angles, so it is inverted by fixed-point
+ * iteration starting from the measured angles (converges in 2-3 steps).
+ */
+static void _apply_factory_cal(const lh2_cal_t *cal, float *beam0, float *beam1)
+{
+    const float measured0 = *beam0, measured1 = *beam1;
+    float ideal0 = measured0, ideal1 = measured1;
+    for (int i = 0; i < 5; i++) {
+        float y = tanf(0.5f * (ideal0 + ideal1));
+        float z = sinf(ideal1 - ideal0) / (TAN_30 * (cosf(ideal0) + cosf(ideal1)));
+        float error0 = measured0 - _distorted_beam(y, z, -(float)M_PI / 6.0f, &cal->plane[0]);
+        float error1 = measured1 - _distorted_beam(y, z, (float)M_PI / 6.0f, &cal->plane[1]);
+        ideal0 += error0;
+        ideal1 += error1;
+        if (fabsf(error0) < 1e-6f && fabsf(error1) < 1e-6f) break;
+    }
+    *beam0 = ideal0;
+    *beam1 = ideal1;
+}
+
+/**
  * @brief  Attempt to compute azimuth + elevation from two accumulated sweeps.
  *
  * Called whenever both has_sweep[0] and has_sweep[1] are true.
@@ -63,6 +101,13 @@ static void _finalize_angles(lh2_angles_t *slot,
         a0 = cal->A0 * (float)slot->raw_lfsr[1] + cal->B0;
         a1 = cal->A1 * (float)slot->raw_lfsr[0] + cal->B1;
     }
+
+    /* Base-station factory calibration (lh2_factory_cal.h), on the plane angles. */
+    float beam0 = a0 * ((float)M_PI / 180.0f);
+    float beam1 = a1 * ((float)M_PI / 180.0f);
+    _apply_factory_cal(cal, &beam0, &beam1);
+    a0 = beam0 * (180.0f / (float)M_PI);
+    a1 = beam1 * (180.0f / (float)M_PI);
 
     float az_raw = (a0 + a1) * 0.5f;
     float diff   = a0 - a1;

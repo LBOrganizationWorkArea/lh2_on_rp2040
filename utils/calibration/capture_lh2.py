@@ -9,7 +9,7 @@ receives it over ANY MAVLink link pymavlink understands, so it works however
 the drone is connected:
 
   Wi-Fi (MavESP8266 / DroneBridge), what AUTO-CALIB-EXP uses (default):
-      python capture_lh2.py              (defaults: this link, calib_runs/run_<date>, solve + factory re-conversion)
+      python capture_lh2.py              (defaults: this link, calib_runs/run_<date>, solve)
   Telemetry radio (SiK) or FC USB, routed through the flight controller:
       python capture_lh2.py --connect /dev/ttyUSB0 --baud 57600        (Windows: COM5)
       python capture_lh2.py --connect /dev/ttyACM0 --baud 115200
@@ -66,11 +66,11 @@ DEFAULT_SENSORS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wand
 DEFAULT_RUNS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "calib_runs")
 DEFAULT_CONNECT = "udpin:0.0.0.0:14550"
 DEFAULT_ESP_HEARTBEAT = "192.168.4.1:14555"  # MavESP8266 / DroneBridge learns the GCS from it
-# Lab defaults (see calib_runs/RESULTS.md): tape BS0-BS1 distance, and the angle model the
-# current firmware's CAL_BS* recordings need. Set DEFAULT_RECONVERT = None once main.c uses
-# the period + factory conversion itself, or the angles would be converted twice.
+# Lab defaults (see calib_runs/RESULTS.md): tape BS0-BS1 distance. The firmware converts
+# angles with the period + factory model itself, so no re-conversion by default; --reconvert
+# is only for sessions recorded with the old fitted CAL_BS* firmware (run1, run2).
 DEFAULT_BASELINE_M = 2.26
-DEFAULT_RECONVERT = "factory"
+DEFAULT_RECONVERT = None
 
 
 class _Tee:

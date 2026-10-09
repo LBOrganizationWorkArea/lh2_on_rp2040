@@ -30,7 +30,9 @@ from pathlib import Path
 
 TAN_30 = math.tan(math.pi / 6)
 
-# Constants the recording was made with (rp2350_firmware/src/main.c, CAL_BS*): A0, B0, A1, B1 [deg].
+# Fitted CAL_BS* constants of the firmware the recording was made with: A0, B0, A1, B1 [deg].
+# These are the OLD constants (firmware before the period + factory conversion, i.e. run1 / run2).
+# Sessions recorded with the current firmware already have correct angles: do not re-convert them.
 FIRMWARE_CAL = {0: (0.00315641, -121.7511, 0.00307607, -234.6501),
                 1: (0.00327992, -126.1425, 0.00317364, -236.6446)}
 # Rotor period in 48 MHz ticks (DotBots LH_PERIODS): BS0 poly 8/9 = mode 5, BS1 poly 20/21 = mode 11.

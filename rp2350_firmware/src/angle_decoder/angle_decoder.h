@@ -38,8 +38,16 @@
  *   sweep 1 angle [deg] = A1 * lfsr + B1
  */
 typedef struct {
+    float phase;     ///< plane offset error [rad]
+    float tilt;      ///< plane tilt error vs the nominal ±30° [rad]
+    float gibmag;    ///< gibbous (azimuth wobble) magnitude [rad]
+    float gibphase;  ///< gibbous phase [rad]
+} lh2_plane_cal_t;
+
+typedef struct {
     float A0, B0;   ///< sweep-0 coefficients
     float A1, B1;   ///< sweep-1 coefficients
+    lh2_plane_cal_t plane[2];  ///< base-station factory calibration of plane 0 / 1 (all zero: none)
 } lh2_cal_t;
 
 /**
