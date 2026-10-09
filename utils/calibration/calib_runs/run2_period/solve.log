@@ -1,0 +1,32 @@
+Wand layout (/home/eduardo/Repositories/lh2_on_rp2040/utils/calibration/wand_sensors.json): S0-S1   40.0 mm, S0-S2   56.6 mm, S0-S3   40.0 mm, S1-S2   40.0 mm, S1-S3   56.6 mm, S2-S3   40.0 mm
+Wand-span filter dropped 42/747 snapshots whose sensors spread wider than the wand can at 0.5 m
+Sweep samples with both stations: 705 (age filter dropped 1008)
+Warning: utils/calibration/calib_runs/run2_period/origin.json BS1 angle spread 7.60 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run2_period/x_axis.json BS0 angle spread 13.10 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run2_period/x_axis.json BS1 angle spread 13.31 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run2_period/xy_plane_1.json BS0 angle spread 12.12 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run2_period/xy_plane_1.json BS1 angle spread 7.10 deg — was the wand held still?
+IPPE seed kept 166/710; final solve used 708 (2 residual outliers dropped)
+Residual: mean 5.17 mm, max 19.34 mm
+Wand shape check: median rigid-fit error 4.89 mm
+Wizard frame: x-axis capture is 0.9849 m from the origin by the sensor-spacing scale (marked at 1.0000 m)
+Rescaled by 1.0154 to put the x-axis capture at 1.0000 m (Bitcraze)
+
+Precision (1 sigma, statistical only; residual sigma 5.15 mm per angle):
+  in sensor-spacing units (metres if the board size is right):
+    BS0-BS1 baseline           2.1801 +- 0.0067 m
+    origin -> x-axis capture   0.9849 +- 0.0043 m
+    BS0 in capture frame       [-1.202, +0.863, +2.685] +- [0.013, 0.023, 0.013] m, tilt 25.65 +- 0.47 deg
+    BS1 in capture frame       [+0.978, +0.910, +2.690] +- [0.013, 0.023, 0.012] m, tilt 30.60 +- 0.47 deg
+  scaled by the x-axis mark (1 m): baseline 2.2136 +- 0.0079 m
+Estimated baseline: 2.2136 m
+Tape baseline 2.2600 m -> ratio tape/estimate = 1.0210
+BS0: origin [-1.2200, +0.8758, +2.7244] m   boresight tilt-down  64.3 deg, heading  -87.1 deg
+       R[0] = [+0.022157, +0.999229, +0.032407]
+       R[1] = [-0.432365, +0.038804, -0.900863]
+       R[2] = [-0.901426, +0.005949, +0.432892]
+BS1: origin [+0.9930, +0.9243, +2.7304] m   boresight tilt-down  59.4 deg, heading  -76.5 deg
+       R[0] = [+0.118891, +0.992736, -0.018454]
+       R[1] = [-0.494990, +0.043149, -0.867827]
+       R[2] = [-0.860726, +0.112311, +0.496524]
+Wrote candidate geometry: utils/calibration/calib_runs/run2_period/geometry.yaml

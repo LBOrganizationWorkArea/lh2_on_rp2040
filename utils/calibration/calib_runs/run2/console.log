@@ -1,0 +1,131 @@
+Connecting to udpin:0.0.0.0:14550 ...
+Bitcraze calibration wizard -> utils/calibration/calib_runs/run2/
+Place the CENTRE of the four sensors on each mark, drone flat on the floor, sensors facing up.
+
+Step 1/4  ORIGIN: put the drone on the point that will become (0, 0, 0).
+  Press Enter when the drone is in place and still ...  [origin    2s] snapshots 20, both stations 20, physically plausible 19 (last 2 s: 95 %)
+  [origin    4s] snapshots 40, both stations 40, physically plausible 39 (last 2 s: 100 %)
+  OK: 50 snapshots (49 plausible) -> origin.json
+
+Step 2/4  X-AXIS: put the drone on the floor 1 m from the origin along the direction that will become +X.
+  Press Enter when the drone is in place and still ...  [x-axis    2s] snapshots 20, both stations 20, physically plausible 18 (last 2 s: 90 %)
+  [x-axis    4s] snapshots 40, both stations 38, physically plausible 35 (last 2 s: 94 %)
+  OK: 48 snapshots (44 plausible) -> x_axis.json
+
+Step 3/4  FLOOR 1/3: put the drone somewhere else on the floor, spread out from the other points (not on the X axis).
+  Press Enter when the drone is in place and still ...  [floor 1    2s] snapshots 20, both stations 20, physically plausible 20 (last 2 s: 100 %)
+  [floor 1    4s] snapshots 40, both stations 40, physically plausible 39 (last 2 s: 95 %)
+  OK: 50 snapshots (47 plausible) -> xy_plane_1.json
+
+Step 3/4  FLOOR 2/3: put the drone somewhere else on the floor, spread out from the other points (not on the X axis).
+  Press Enter when the drone is in place and still ...  [floor 2    2s] snapshots 20, both stations 0, physically plausible 0 (last 2 s: 0 %)
+  [floor 2    4s] snapshots 40, both stations 5, physically plausible 5 (last 2 s: 100 %)
+  Not usable: 5 snapshots with both stations, 5 plausible (need >= 10, mostly plausible). Check that both stations see all four sensors and retry.
+
+Step 3/4  FLOOR 2/3: put the drone somewhere else on the floor, spread out from the other points (not on the X axis).
+  Press Enter when the drone is in place and still ...  [floor 2    2s] snapshots 21, both stations 21, physically plausible 21 (last 2 s: 100 %)
+  [floor 2    4s] snapshots 41, both stations 41, physically plausible 41 (last 2 s: 100 %)
+  OK: 51 snapshots (51 plausible) -> xy_plane_2.json
+
+Step 3/4  FLOOR 3/3: put the drone somewhere else on the floor, spread out from the other points (not on the X axis).
+  Press Enter when the drone is in place and still ...  [floor 3    2s] snapshots 21, both stations 21, physically plausible 21 (last 2 s: 100 %)
+  [floor 3    4s] snapshots 41, both stations 41, physically plausible 41 (last 2 s: 100 %)
+  OK: 50 snapshots (50 plausible) -> xy_plane_3.json
+
+Step 4/4  SWEEP: pick up the drone. Press Enter, then walk it slowly through the whole flight volume — low/middle/high, tilted up to ~30 deg, many headings, all four sensors visible to both stations. Press Ctrl-C when done (2-3 minutes) ...  [sweep    2s] snapshots 20, both stations 20, physically plausible 20 (last 2 s: 100 %)
+  [sweep    4s] snapshots 38, both stations 38, physically plausible 38 (last 2 s: 100 %)
+  [sweep    6s] snapshots 47, both stations 47, physically plausible 47 (last 2 s: 100 %)
+  [sweep    8s] snapshots 67, both stations 67, physically plausible 67 (last 2 s: 100 %)
+  [sweep   10s] snapshots 87, both stations 87, physically plausible 87 (last 2 s: 100 %)
+  [sweep   12s] snapshots 107, both stations 107, physically plausible 107 (last 2 s: 100 %)
+  [sweep   14s] snapshots 127, both stations 125, physically plausible 125 (last 2 s: 100 %)
+  [sweep   16s] snapshots 147, both stations 129, physically plausible 129 (last 2 s: 100 %)
+  [sweep   18s] snapshots 167, both stations 129, physically plausible 129 (last 2 s: 0 %)
+  [sweep   20s] snapshots 187, both stations 143, physically plausible 142 (last 2 s: 93 %)
+  [sweep   22s] snapshots 207, both stations 163, physically plausible 158 (last 2 s: 80 %)
+  [sweep   24s] snapshots 227, both stations 183, physically plausible 175 (last 2 s: 85 %)
+  [sweep   26s] snapshots 248, both stations 192, physically plausible 183 (last 2 s: 89 %)
+  [sweep   28s] snapshots 268, both stations 194, physically plausible 183 (last 2 s: 0 %)
+  [sweep   30s] snapshots 288, both stations 194, physically plausible 183 (last 2 s: 0 %)
+  [sweep   32s] snapshots 308, both stations 205, physically plausible 194 (last 2 s: 100 %)
+  [sweep   34s] snapshots 328, both stations 225, physically plausible 213 (last 2 s: 95 %)
+  [sweep   36s] snapshots 348, both stations 226, physically plausible 214 (last 2 s: 100 %)
+  [sweep   38s] snapshots 368, both stations 233, physically plausible 217 (last 2 s: 43 %)
+  [sweep   40s] snapshots 388, both stations 253, physically plausible 232 (last 2 s: 75 %)
+  [sweep   42s] snapshots 408, both stations 273, physically plausible 250 (last 2 s: 90 %)
+  [sweep   44s] snapshots 428, both stations 293, physically plausible 270 (last 2 s: 100 %)
+  [sweep   46s] snapshots 448, both stations 313, physically plausible 290 (last 2 s: 100 %)
+  [sweep   48s] snapshots 468, both stations 333, physically plausible 310 (last 2 s: 100 %)
+  [sweep   50s] snapshots 488, both stations 353, physically plausible 330 (last 2 s: 100 %)
+  [sweep   52s] snapshots 508, both stations 373, physically plausible 350 (last 2 s: 100 %)
+  [sweep   54s] snapshots 528, both stations 393, physically plausible 370 (last 2 s: 100 %)
+  [sweep   56s] snapshots 548, both stations 413, physically plausible 383 (last 2 s: 65 %)
+  [sweep   58s] snapshots 568, both stations 433, physically plausible 397 (last 2 s: 70 %)
+  [sweep   60s] snapshots 588, both stations 453, physically plausible 417 (last 2 s: 100 %)
+  [sweep   62s] snapshots 608, both stations 473, physically plausible 437 (last 2 s: 100 %)
+  [sweep   64s] snapshots 628, both stations 493, physically plausible 457 (last 2 s: 100 %)
+  [sweep   66s] snapshots 648, both stations 513, physically plausible 469 (last 2 s: 60 %)
+  [sweep   68s] snapshots 668, both stations 533, physically plausible 482 (last 2 s: 65 %)
+  [sweep   70s] snapshots 688, both stations 553, physically plausible 501 (last 2 s: 95 %)
+  [sweep   72s] snapshots 708, both stations 573, physically plausible 521 (last 2 s: 100 %)
+  [sweep   74s] snapshots 728, both stations 593, physically plausible 540 (last 2 s: 95 %)
+  [sweep   76s] snapshots 748, both stations 613, physically plausible 558 (last 2 s: 90 %)
+  [sweep   78s] snapshots 768, both stations 633, physically plausible 575 (last 2 s: 85 %)
+  [sweep   80s] snapshots 788, both stations 653, physically plausible 594 (last 2 s: 95 %)
+  [sweep   82s] snapshots 808, both stations 673, physically plausible 610 (last 2 s: 80 %)
+  [sweep   84s] snapshots 828, both stations 693, physically plausible 628 (last 2 s: 90 %)
+  [sweep   86s] snapshots 848, both stations 713, physically plausible 648 (last 2 s: 100 %)
+  [sweep   88s] snapshots 868, both stations 733, physically plausible 668 (last 2 s: 100 %)
+  [sweep   90s] snapshots 888, both stations 753, physically plausible 688 (last 2 s: 100 %)
+  [sweep   92s] snapshots 908, both stations 773, physically plausible 708 (last 2 s: 100 %)
+  [sweep   94s] snapshots 928, both stations 793, physically plausible 726 (last 2 s: 90 %)
+  [sweep   96s] snapshots 948, both stations 813, physically plausible 745 (last 2 s: 95 %)
+  [sweep   98s] snapshots 968, both stations 833, physically plausible 764 (last 2 s: 95 %)
+  [sweep  100s] snapshots 988, both stations 853, physically plausible 782 (last 2 s: 90 %)
+  [sweep  102s] snapshots 1008, both stations 873, physically plausible 798 (last 2 s: 80 %)
+  [sweep  104s] snapshots 1028, both stations 893, physically plausible 818 (last 2 s: 100 %)
+  [sweep  106s] snapshots 1048, both stations 913, physically plausible 838 (last 2 s: 100 %)
+  [sweep  108s] snapshots 1068, both stations 933, physically plausible 858 (last 2 s: 100 %)
+  [sweep  110s] snapshots 1089, both stations 954, physically plausible 879 (last 2 s: 100 %)
+  [sweep  112s] snapshots 1109, both stations 974, physically plausible 899 (last 2 s: 100 %)
+  [sweep  114s] snapshots 1129, both stations 994, physically plausible 919 (last 2 s: 100 %)
+  [sweep  116s] snapshots 1143, both stations 1008, physically plausible 928 (last 2 s: 64 %)
+  [sweep  118s] snapshots 1161, both stations 1024, physically plausible 944 (last 2 s: 100 %)
+  [sweep  120s] snapshots 1181, both stations 1044, physically plausible 962 (last 2 s: 90 %)
+  [sweep  122s] snapshots 1197, both stations 1060, physically plausible 977 (last 2 s: 94 %)
+  [sweep  124s] snapshots 1215, both stations 1078, physically plausible 993 (last 2 s: 89 %)
+  [sweep  126s] snapshots 1235, both stations 1098, physically plausible 1013 (last 2 s: 100 %)
+  [sweep  128s] snapshots 1255, both stations 1118, physically plausible 1033 (last 2 s: 100 %)
+  [sweep  130s] snapshots 1275, both stations 1137, physically plausible 1052 (last 2 s: 100 %)
+  [sweep  132s] snapshots 1295, both stations 1157, physically plausible 1070 (last 2 s: 90 %)
+  [sweep  134s] snapshots 1313, both stations 1175, physically plausible 1084 (last 2 s: 78 %)
+  [sweep  136s] snapshots 1333, both stations 1195, physically plausible 1097 (last 2 s: 65 %)
+  [sweep  138s] snapshots 1353, both stations 1215, physically plausible 1116 (last 2 s: 95 %)
+  [sweep  140s] snapshots 1373, both stations 1235, physically plausible 1135 (last 2 s: 95 %)
+  [sweep  142s] snapshots 1393, both stations 1255, physically plausible 1155 (last 2 s: 100 %)
+  [sweep  144s] snapshots 1413, both stations 1273, physically plausible 1173 (last 2 s: 100 %)
+  [sweep  146s] snapshots 1433, both stations 1282, physically plausible 1179 (last 2 s: 67 %)
+  [sweep  148s] snapshots 1453, both stations 1295, physically plausible 1192 (last 2 s: 100 %)
+  [sweep  150s] snapshots 1473, both stations 1315, physically plausible 1212 (last 2 s: 100 %)
+  [sweep  152s] snapshots 1493, both stations 1335, physically plausible 1230 (last 2 s: 90 %)
+  [sweep  154s] snapshots 1513, both stations 1355, physically plausible 1250 (last 2 s: 100 %)
+  [sweep  156s] snapshots 1533, both stations 1375, physically plausible 1270 (last 2 s: 100 %)
+  [sweep  158s] snapshots 1553, both stations 1380, physically plausible 1275 (last 2 s: 100 %)
+  [sweep  160s] snapshots 1573, both stations 1398, physically plausible 1293 (last 2 s: 100 %)
+  [sweep  163s] snapshots 1593, both stations 1418, physically plausible 1313 (last 2 s: 100 %)
+  [sweep  165s] snapshots 1613, both stations 1424, physically plausible 1319 (last 2 s: 100 %)
+  [sweep  167s] snapshots 1633, both stations 1425, physically plausible 1320 (last 2 s: 100 %)
+  [sweep  169s] snapshots 1645, both stations 1437, physically plausible 1330 (last 2 s: 83 %)
+  [sweep  171s] snapshots 1657, both stations 1449, physically plausible 1341 (last 2 s: 92 %)
+  [sweep  173s] snapshots 1677, both stations 1469, physically plausible 1360 (last 2 s: 95 %)
+  [sweep  175s] snapshots 1687, both stations 1479, physically plausible 1370 (last 2 s: 100 %)
+  [sweep  177s] snapshots 1694, both stations 1486, physically plausible 1377 (last 2 s: 100 %)
+  [sweep  179s] snapshots 1714, both stations 1506, physically plausible 1397 (last 2 s: 100 %)
+  [sweep  181s] snapshots 1733, both stations 1525, physically plausible 1416 (last 2 s: 100 %)
+  [sweep  183s] snapshots 1748, both stations 1540, physically plausible 1431 (last 2 s: 100 %)
+  [sweep  185s] snapshots 1763, both stations 1555, physically plausible 1445 (last 2 s: 93 %)
+
+  Sweep: 1566 snapshots (1456 plausible) -> sweep.json
+
+Session saved. Solve with:
+  python calibrate_bitcraze.py utils/calibration/calib_runs/run2 --baseline <tape BS0-BS1 m>

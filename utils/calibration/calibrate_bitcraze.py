@@ -48,6 +48,7 @@ from pathlib import Path
 from typing import Optional
 
 import numpy as np
+import scipy.sparse
 from scipy.spatial.transform import Rotation
 
 # Repository root on sys.path so the relative imports inside calibration_lib
@@ -343,6 +344,115 @@ def bitcraze_frame(solution, n_x: int, n_xy: int, x_axis_dist: Optional[float]):
 
 
 # --------------------------------------------------------------------------- #
+# Uncertainty
+# --------------------------------------------------------------------------- #
+
+def _frame_quantities(params: np.ndarray, n_ref: int) -> dict[str, np.ndarray]:
+    """Frame-independent results from the station + reference-capture parameters.
+
+    params: [BS0 (rotvec, t), BS1 (rotvec, t), ref 1 .. n_ref-1 (rotvec, t)];
+    reference 0 (origin) is the solver gauge, i.e. the identity pose.
+    Lengths are in sensor-spacing units (metres if --sensor-positions is right).
+    """
+    stations = [Pose.from_rot_vec(R_vec=params[i * 6:i * 6 + 3], t_vec=params[i * 6 + 3:i * 6 + 6]) for i in (0, 1)]
+    centres = np.vstack([np.zeros(3)] + [params[12 + k * 6 + 3:12 + k * 6 + 6] for k in range(n_ref - 1)])
+    origin, mark = centres[0], centres[1]
+    # Capture plane: best fit through all reference centres, normal toward the stations.
+    normal = np.linalg.svd(centres - centres.mean(axis=0))[2][2]
+    if np.dot(normal, stations[0].translation - origin) < 0:
+        normal = -normal
+    x_axis = (mark - origin) - np.dot(mark - origin, normal) * normal
+    x_axis /= np.linalg.norm(x_axis)
+    to_world = np.vstack((x_axis, np.cross(normal, x_axis), normal))
+    mark_dist = np.linalg.norm(mark - origin)
+    out = {
+        "mark_dist": np.array([mark_dist]),
+        "baseline": np.array([np.linalg.norm(stations[1].translation - stations[0].translation)]),
+    }
+    for i, pose in enumerate(stations):
+        boresight = pose.rot_matrix[:, 0]
+        out[f"bs{i}_pos"] = to_world @ (pose.translation - origin)
+        out[f"bs{i}_tilt_deg"] = np.array([math.degrees(math.acos(np.clip(-np.dot(boresight, normal), -1, 1)))])
+    return out
+
+
+def estimate_uncertainty(solution, n_ref: int) -> dict[str, tuple[np.ndarray, np.ndarray]]:
+    """1-sigma uncertainty of the frame-independent results, from the fit's covariance.
+
+    Covariance of the least-squares parameters: sigma^2 (J^T J)^-1, sigma^2 the
+    residual variance per degree of freedom. The ~6 x n sweep-pose parameters are
+    eliminated with a Schur complement (each sweep pose couples only to itself
+    and the stations), leaving the joint covariance of both stations and the
+    reference captures, which is propagated through _frame_quantities by finite
+    differences. This is statistical precision only: a wrong board size or
+    mark distance is a systematic error and does not show up here.
+    """
+    jac = scipy.sparse.csr_matrix(solution.jacobian)
+    residuals = solution.residuals
+    n_params = solution.params.size
+    sigma2 = float(residuals @ residuals) / max(residuals.size - n_params, 1)
+
+    kept = np.arange(12 + 6 * (n_ref - 1))
+    hessian = (jac.T @ jac).tocsc()
+    h_kept_rows = hessian[:kept.size, :].toarray()
+    schur = h_kept_rows[:, :kept.size].copy()
+    for start in range(kept.size, n_params, 6):
+        h_ko = h_kept_rows[:, start:start + 6]
+        h_oo = hessian[start:start + 6, start:start + 6].toarray()
+        schur -= h_ko @ np.linalg.solve(h_oo, h_ko.T)
+    covariance = sigma2 * np.linalg.pinv(schur)
+
+    base = solution.params[kept]
+    nominal = _frame_quantities(base, n_ref)
+    flat = np.concatenate(list(nominal.values()))
+    gradient = np.zeros((flat.size, kept.size))
+    step = 1e-6
+    for k in range(kept.size):
+        delta = np.zeros(kept.size)
+        delta[k] = step
+        plus = np.concatenate(list(_frame_quantities(base + delta, n_ref).values()))
+        minus = np.concatenate(list(_frame_quantities(base - delta, n_ref).values()))
+        gradient[:, k] = (plus - minus) / (2 * step)
+    derived_cov = gradient @ covariance @ gradient.T
+    derived_std = np.sqrt(np.clip(np.diag(derived_cov), 0, None))
+
+    result, index = {}, 0
+    for name, value in nominal.items():
+        result[name] = (value, derived_std[index:index + value.size])
+        index += value.size
+    result["_sigma_m"] = (np.array([math.sqrt(sigma2)]), np.zeros(1))
+    # Correlation of mark distance and baseline: their ratio sets the rescaled baseline.
+    i_mark, i_base = 0, 1
+    ratio = flat[i_base] / flat[i_mark]
+    g = np.array([1 / flat[i_mark], -flat[i_base] / flat[i_mark] ** 2])
+    sub = derived_cov[np.ix_([i_base, i_mark], [i_base, i_mark])]
+    result["baseline_per_mark"] = (np.array([ratio]), np.array([math.sqrt(max(g @ sub @ g, 0.0))]))
+    return result
+
+
+def print_uncertainty(unc: dict, x_axis_dist: float) -> None:
+    sigma = unc["_sigma_m"][0][0]
+    print(f"\nPrecision (1 sigma, statistical only; residual sigma {sigma * 1000:.2f} mm per angle):")
+    print("  in sensor-spacing units (metres if the board size is right):")
+    for name, label in (("baseline", "BS0-BS1 baseline"), ("mark_dist", "origin -> x-axis capture")):
+        value, std = unc[name]
+        print(f"    {label:26} {value[0]:.4f} +- {std[0]:.4f} m")
+    for i in (0, 1):
+        pos, std = unc[f"bs{i}_pos"]
+        tilt, tstd = unc[f"bs{i}_tilt_deg"]
+        print(f"    BS{i} in capture frame       [{pos[0]:+.3f}, {pos[1]:+.3f}, {pos[2]:+.3f}] "
+              f"+- [{std[0]:.3f}, {std[1]:.3f}, {std[2]:.3f}] m, tilt {tilt[0]:.2f} +- {tstd[0]:.2f} deg")
+    value, std = unc["baseline_per_mark"]
+    print(f"  scaled by the x-axis mark ({x_axis_dist:g} m): baseline "
+          f"{value[0] * x_axis_dist:.4f} +- {std[0] * x_axis_dist:.4f} m")
+
+
+def uncertainty_to_yaml(unc: dict) -> dict:
+    return {name: {"value": [float(v) for v in value], "std": [float(s) for s in std]}
+            for name, (value, std) in unc.items()}
+
+
+# --------------------------------------------------------------------------- #
 # Reporting
 # --------------------------------------------------------------------------- #
 
@@ -470,11 +580,8 @@ def main() -> int:
     print(f"Wand shape check: median rigid-fit error {stats['median_rigid_error'] * 1000:.2f} mm")
     if not solution.success:
         print("Warning: optimizer hit its iteration limit — inspect residuals before trusting the result")
-    if stats["median_rigid_error"] > 0.005 or len(used) < 0.5 * total:
-        print(f"Error: the measured sensors do not form the wand in {args.sensor_positions}. "
-              "Check that rows are in firmware order S0..S3 and the coordinates match the board.",
-              file=sys.stderr)
-        return 1
+    # Report everything below even when the shape check fails; it only blocks writing the geometry.
+    shape_failed = stats["median_rigid_error"] > 0.005 or len(used) < 0.5 * total
 
     estimated_baseline = float(np.linalg.norm(solution.bs_poses[1].translation - solution.bs_poses[0].translation))
 
@@ -494,8 +601,11 @@ def main() -> int:
         if args.board_height:
             world = {bs_id: Pose(R_matrix=pose.rot_matrix, t_vec=pose.translation + [0.0, 0.0, args.board_height])
                      for bs_id, pose in world.items()}
+        uncertainty = estimate_uncertainty(solution, len(references))
+        print_uncertainty(uncertainty, args.x_axis_dist)
     else:
         world = auto_frame(solution.bs_poses, args.height)
+        uncertainty = None
 
     print(f"Estimated baseline: {estimated_baseline:.4f} m")
     if args.baseline is None:
@@ -513,6 +623,13 @@ def main() -> int:
     if args.truth:
         compare_truth(args.truth, world)
 
+    if shape_failed:
+        print(f"Error: the measured sensors do not form the wand in {args.sensor_positions} "
+              f"(median rigid-fit error {stats['median_rigid_error'] * 1000:.2f} mm > 5 mm). "
+              "Check that rows are in firmware order S0..S3 and the coordinates match the board. "
+              "Geometry not written.", file=sys.stderr)
+        return 1
+
     import yaml
     output = {
         "type": "lighthouse_system_configuration",
@@ -523,6 +640,8 @@ def main() -> int:
                  for bs_id, pose in sorted(world.items())},
         "calibs": {},
     }
+    if uncertainty is not None:
+        output["uncertainty_1sigma"] = uncertainty_to_yaml(uncertainty)
     with open(args.output, "w", encoding="utf-8") as stream:
         yaml.safe_dump(output, stream, sort_keys=False)
     print(f"Wrote candidate geometry: {args.output}")

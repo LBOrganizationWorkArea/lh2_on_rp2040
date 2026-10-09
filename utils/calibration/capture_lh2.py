@@ -9,7 +9,7 @@ receives it over ANY MAVLink link pymavlink understands, so it works however
 the drone is connected:
 
   Wi-Fi (MavESP8266 / DroneBridge), what AUTO-CALIB-EXP uses (default):
-      python capture_lh2.py --connect udpin:0.0.0.0:14550 --heartbeat-to 192.168.4.1:14555
+      python capture_lh2.py              (defaults: this link, calib_runs/run_<date>, solve + factory re-conversion)
   Telemetry radio (SiK) or FC USB, routed through the flight controller:
       python capture_lh2.py --connect /dev/ttyUSB0 --baud 57600        (Windows: COM5)
       python capture_lh2.py --connect /dev/ttyACM0 --baud 115200
@@ -28,10 +28,11 @@ a session directory that calibrate_bitcraze.py solves directly:
   1. origin    — drone flat on the floor at the point that becomes (0, 0, 0)
   2. x-axis    — drone flat on the floor on the +X axis, --x-axis-dist (1 m) from the origin
   3. xy-plane  — drone flat on the floor at --xy-points other spots (defines Z = 0)
-  4. sweep     — walk the drone through the whole volume, Ctrl-C to finish
+  4. sweep     — walk the drone through the whole volume, Enter to finish
 
 The drone's reference point is the CENTRE of its four sensors, so place that
-centre on the marks. Then:  python calibrate_bitcraze.py <session-dir>
+centre on the marks. After the sweep the session is solved right away
+(calibrate_bitcraze.py; --baseline adds the tape check, --no-solve skips it).
 
 --raw records a single free-motion file instead (old behaviour).
 """
@@ -44,7 +45,9 @@ import json
 import math
 import os
 import struct
+import subprocess
 import sys
+import threading
 import time
 
 os.environ.setdefault("MAVLINK20", "1")  # TUNNEL is a MAVLink 2 message
@@ -60,6 +63,33 @@ NUM_SENSORS = 4
 NUM_BS = 2
 
 DEFAULT_SENSORS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wand_sensors.json")
+DEFAULT_RUNS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "calib_runs")
+DEFAULT_CONNECT = "udpin:0.0.0.0:14550"
+DEFAULT_ESP_HEARTBEAT = "192.168.4.1:14555"  # MavESP8266 / DroneBridge learns the GCS from it
+# Lab defaults (see calib_runs/RESULTS.md): tape BS0-BS1 distance, and the angle model the
+# current firmware's CAL_BS* recordings need. Set DEFAULT_RECONVERT = None once main.c uses
+# the period + factory conversion itself, or the angles would be converted twice.
+DEFAULT_BASELINE_M = 2.26
+DEFAULT_RECONVERT = "factory"
+
+
+class _Tee:
+    """Mirror everything printed (prompts included) into the session's console.log."""
+
+    def __init__(self, stream, log) -> None:
+        self.stream, self.log = stream, log
+
+    def write(self, text: str) -> int:
+        self.log.write(text)
+        self.log.flush()
+        return self.stream.write(text)
+
+    def flush(self) -> None:
+        self.stream.flush()
+        self.log.flush()
+
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
 
 
 def parse_lh2_tunnel(payload: bytes) -> dict | None:
@@ -164,13 +194,15 @@ class Receiver:
                 if snapshot is not None:
                     self.seen.add((snapshot["sequence"], snapshot["timestamp_us"] // 10_000_000))
 
-    def record(self, seconds: float | None, label: str) -> tuple[list[dict], int, int]:
-        """Record until `seconds` elapse (None: until Ctrl-C). Returns (records, complete, plausible)."""
+    def record(self, seconds: float | None, label: str,
+               stop: threading.Event | None = None) -> tuple[list[dict], int, int]:
+        """Record until `seconds` elapse, `stop` is set or Ctrl-C. Returns (records, complete, plausible)."""
         records: list[dict] = []
         complete = plausible = window_total = window_plausible = packets = 0
         started = last_report = time.monotonic()
         try:
-            while seconds is None or time.monotonic() - started < seconds:
+            while (seconds is None or time.monotonic() - started < seconds) \
+                    and not (stop is not None and stop.is_set()):
                 snapshot = self._next_snapshot(0.2)
                 if snapshot is not None:
                     packets += 1
@@ -236,14 +268,8 @@ def run_wizard(receiver: Receiver, args) -> int:
                      args.static_seconds, os.path.join(args.session, name), f"floor {index}")
         xy_files.append(name)
 
-    input("\nStep 4/4  SWEEP: pick up the drone. Press Enter, then walk it slowly through the whole flight "
-          "volume — low/middle/high, tilted up to ~30 deg, many headings, all four sensors visible to both "
-          "stations. Press Ctrl-C when done (2-3 minutes) ...")
-    receiver.drain()
-    records, complete, plausible = receiver.record(args.seconds, "sweep")
-    _save(os.path.join(args.session, "sweep.json"), records)
-    print(f"  Sweep: {complete} snapshots ({plausible} plausible) -> sweep.json")
-
+    # Written before the sweep: if the sweep is ended with Ctrl-C, that also kills a
+    # `| tee` on the same terminal, and the next print would then crash.
     manifest = {
         "type": "lh2_bitcraze_calibration_session",
         "origin": "origin.json",
@@ -254,12 +280,54 @@ def run_wizard(receiver: Receiver, args) -> int:
     }
     with open(os.path.join(args.session, "session.json"), "w", encoding="utf-8") as stream:
         json.dump(manifest, stream, indent=2)
-    print(f"\nSession saved. Solve with:\n  python calibrate_bitcraze.py {args.session} --baseline <tape BS0-BS1 m>")
+
+    input("\nStep 4/4  SWEEP: pick up the drone. Press Enter, then walk it slowly through the whole flight "
+          "volume — low/middle/high, tilted up to ~30 deg, many headings, all four sensors visible to both "
+          "stations. Press Enter again when done (2-3 minutes) ...")
+    receiver.drain()
+    stop = threading.Event()
+    threading.Thread(target=lambda: (sys.stdin.readline(), stop.set()), daemon=True).start()
+    records, complete, plausible = receiver.record(args.seconds, "sweep", stop)
+    _save(os.path.join(args.session, "sweep.json"), records)
+    print(f"  Sweep: {complete} snapshots ({plausible} plausible) -> sweep.json")
     if complete and plausible < 0.5 * complete:
         print("Warning: most sweep snapshots are physically impossible for the sensor board — the per-sensor "
               "angles are inconsistent. The calibration will reject them.", file=sys.stderr)
-        return 1
-    return 0
+    if args.no_solve:
+        print(f"\nSession saved. Solve with:\n  python calibrate_bitcraze.py {args.session} --baseline <tape BS0-BS1 m>")
+        return 0
+    return solve_session(args)
+
+
+def _run_and_log(command: list[str], log_path: str) -> int:
+    """Run a calibration step, show its output and keep it in log_path."""
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    print(result.stdout, end="")
+    with open(log_path, "w", encoding="utf-8") as log:
+        log.write(result.stdout)
+    return result.returncode
+
+
+def solve_session(args) -> int:
+    """Solve the recorded session right away (and its --reconvert variant), like AUTO-CALIB-EXP."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    targets = [args.session]
+    if args.reconvert:
+        converted = f"{args.session.rstrip(os.sep)}_{args.reconvert}"
+        print(f"\nRe-converting angles ({args.reconvert} model) -> {converted}")
+        if _run_and_log([sys.executable, os.path.join(here, "reconvert_run.py"), args.session, converted,
+                         "--model", args.reconvert], os.path.join(args.session, "reconvert.log")) != 0:
+            return 1
+        targets.append(converted)
+    status = 0
+    for target in targets:
+        print(f"\n===== Solving {target} =====")
+        command = [sys.executable, os.path.join(here, "calibrate_bitcraze.py"), target,
+                   "-o", os.path.join(target, "geometry.yaml")]
+        if args.baseline is not None:
+            command += ["--baseline", str(args.baseline)]
+        status |= _run_and_log(command, os.path.join(target, "solve.log"))
+    return status
 
 
 def run_raw(receiver: Receiver, args) -> int:
@@ -282,14 +350,15 @@ def run_raw(receiver: Receiver, args) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--connect", default="udpin:0.0.0.0:14550",
-                        help="pymavlink connection string or serial port (default udpin:0.0.0.0:14550)")
+    parser.add_argument("--connect", default=DEFAULT_CONNECT,
+                        help=f"pymavlink connection string or serial port (default {DEFAULT_CONNECT})")
     parser.add_argument("--baud", type=int, default=57600, help="serial baud rate (default 57600)")
     parser.add_argument("--heartbeat-to", metavar="HOST:PORT",
-                        help="also send the GCS heartbeat to this UDP address (MavESP8266 learns the "
-                             "GCS from it, e.g. 192.168.4.1:14555)")
-    parser.add_argument("--session", default=time.strftime("calib_%Y%m%d_%H%M%S"),
-                        help="wizard output directory (default calib_<date>_<time>)")
+                        help="also send the GCS heartbeat to this UDP address (MavESP8266 learns the GCS "
+                             f"from it; default {DEFAULT_ESP_HEARTBEAT} with the default Wi-Fi --connect)")
+    parser.add_argument("--session",
+                        default=os.path.join(DEFAULT_RUNS_DIR, time.strftime("run_%Y%m%d_%H%M%S")),
+                        help="wizard output directory (default calib_runs/run_<date>_<time>)")
     parser.add_argument("--x-axis-dist", type=float, default=1.0,
                         help="distance of the x-axis mark from the origin [m] (Bitcraze: 1.0)")
     parser.add_argument("--xy-points", type=int, default=3, help="number of floor captures (default 3)")
@@ -300,9 +369,23 @@ def main() -> int:
     parser.add_argument("--sensor-positions", default=DEFAULT_SENSORS,
                         help="drone sensor layout, only for the live quality readout")
     parser.add_argument("--min-wand-distance", type=float, default=0.5)
+    parser.add_argument("--baseline", type=float, default=DEFAULT_BASELINE_M,
+                        help=f"tape BS0-BS1 distance [m], passed to the solver as a check (default {DEFAULT_BASELINE_M})")
+    parser.add_argument("--reconvert", choices=("period", "factory", "none"), default=DEFAULT_RECONVERT,
+                        help="also solve with angles re-converted by reconvert_run.py; only for sessions "
+                             f"recorded with the fitted CAL_BS* constants in main.c (default {DEFAULT_RECONVERT})")
+    parser.add_argument("--no-solve", action="store_true", help="only record; do not run the solver")
     args = parser.parse_args()
     if args.xy_points < 1:
         parser.error("--xy-points must be at least 1")
+    if args.reconvert == "none":
+        args.reconvert = None
+    if args.heartbeat_to is None and args.connect == DEFAULT_CONNECT:
+        args.heartbeat_to = DEFAULT_ESP_HEARTBEAT
+    if not args.raw:
+        os.makedirs(args.session, exist_ok=True)
+        log = open(os.path.join(args.session, "console.log"), "w", encoding="utf-8")
+        sys.stdout, sys.stderr = _Tee(sys.stdout, log), _Tee(sys.stderr, log)
 
     receiver = Receiver(args.connect, args.baud, args.heartbeat_to,
                         wand_span_limit(args.sensor_positions, args.min_wand_distance))

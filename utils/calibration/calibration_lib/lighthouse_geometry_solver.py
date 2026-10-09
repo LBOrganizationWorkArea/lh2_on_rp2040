@@ -83,6 +83,13 @@ class LighthouseGeometrySolution:
         # If it did not converge, the solution is probably not good enough to use
         self.success = False
 
+        # Final parameter vector, residual vector [m] and (sparse) Jacobian of the
+        # least-squares fit, kept for covariance estimation. Parameter layout:
+        # 6 per base station (rot vec, translation), then 6 per CF sample 1..n-1.
+        self.params = None
+        self.residuals = None
+        self.jacobian = None
+
 
 class LighthouseGeometrySolver:
     """
@@ -414,6 +421,9 @@ class LighthouseGeometrySolver:
             solution.bs_poses[bs_id] = cls._params_to_pose(pose, solution)
 
         solution.success = lsq_result.success
+        solution.params = lsq_result.x
+        solution.residuals = lsq_result.fun
+        solution.jacobian = lsq_result.jac
 
         # Extract the error for each CF pose
         residuals = lsq_result.fun
