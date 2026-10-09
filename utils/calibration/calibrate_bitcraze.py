@@ -11,26 +11,30 @@ recovered from the wand capture, exactly as the Crazyflie client does it:
   2. IPPE       — per-sample planar pose, mirror ambiguity resolved
                   by clustering across samples                        (LighthouseInitialEstimator)
   3. solve      — sparse least squares over all BS + wand poses       (LighthouseGeometrySolver)
-  4. align      — world frame, either
-                    * Bitcraze style: static captures at origin / +X axis / floor  (LighthouseSystemAligner)
-                    * auto: BS0 at (0, 0, --height), +X toward BS1, up = -mean boresight
-  5. scale      — metric scale comes from the wand sensor spacing; optionally
-                  rescaled to a known x-axis distance (LighthouseSystemScaler)
+  4. align      — Bitcraze wizard frame from static captures at origin / +X / floor
+                                                                      (LighthouseSystemAligner)
+                  (--auto-frame instead: BS0 at (0, 0, --height), +X toward BS1)
+  5. scale      — rescale so the x-axis capture is --x-axis-dist (1 m) away
+                                                                      (LighthouseSystemScaler)
 
 SENSOR GEOMETRY — the only metric reference in the whole solve is the wand
 layout in --sensor-positions. Scale error in that file maps 1:1 onto every
 lighthouse position (a 5 cm square entered as 4 cm shrinks the room by 20 %).
 Rows must be in firmware sensor order S0..S3. See README "Sensor geometry".
 
-Usage:
-    python calibrate_bitcraze.py measurements.json --sensor-positions wand_sensors.json \
-        [--baseline 2.26] [--height 3.45] [-o lighthouse_geometry_candidate.yaml]
+Usage (default — Bitcraze wizard session recorded by capture_lh2.py):
+    python calibrate_bitcraze.py calib_20261009_101500/ --baseline 2.26
 
-    # Bitcraze world frame from static reference captures (each a --udp capture
-    # with the wand held still):
-    python calibrate_bitcraze.py sweep.json --sensor-positions wand_sensors.json \
-        --origin origin.json --x-axis xaxis.json --xy-plane p1.json p2.json p3.json \
-        [--x-axis-dist 1.0]
+    The world frame comes from the static captures: origin -> (0, 0, 0), the
+    x-axis capture -> +X (rescaled to its --x-axis-dist, 1 m, as Bitcraze does),
+    floor captures -> Z = 0. Z = 0 is the sensor plane while the drone sits on
+    the floor; pass --board-height to make Z = 0 the floor itself.
+
+Same thing from loose files:
+    python calibrate_bitcraze.py sweep.json --origin o.json --x-axis x.json --xy-plane p1.json p2.json p3.json
+
+Without static captures (old free-motion recordings):
+    python calibrate_bitcraze.py measurements.json --auto-frame --height 3.45
 """
 
 from __future__ import annotations
@@ -89,7 +93,10 @@ def load_sensor_positions(path: str) -> np.ndarray:
                  for a, b in itertools.combinations(range(4), 2)}
     if min(distances.values()) < 0.005 or max(distances.values()) > 0.5:
         raise ValueError(f"{path}: sensor spacing {distances} is implausible — are the units metres?")
-    return positions
+    # Centre the board on its sensor centroid, like the Crazyflie deck. The
+    # drone's pose (and so the origin / x-axis / floor marks) then refers to
+    # the middle of the board, not to whichever sensor the file put at 0,0,0.
+    return positions - positions.mean(axis=0)
 
 
 def describe_sensor_positions(positions: np.ndarray) -> str:
@@ -248,10 +255,10 @@ def solve(samples: list[LhCfPoseSample], sensors: np.ndarray, n_protected: int,
     samples. After the first solve, every sample is re-admitted with a wand pose
     triangulated from the solved stations, and the full set is solved again.
     """
+    # IPPE may reject the static captures too (a level board seen face-on is
+    # its worst case); they come back in via triangulation below.
     initial_guess, cleaned = LighthouseInitialEstimator.estimate(samples, sensors)
     ippe_kept = len(cleaned)
-    if len(cleaned) < len(samples) and cleaned[:n_protected] != samples[:n_protected]:
-        raise RuntimeError("IPPE rejected a static reference capture — recapture it with both stations visible")
     seed = LighthouseGeometrySolver.solve(initial_guess, cleaned, sensors, max_nr_iter=max_iter)
 
     readmitted, wand_poses, rigid_errors = [], [], []
@@ -363,14 +370,19 @@ def compare_truth(path: str, poses: dict[int, Pose]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("measurements", help="wand sweep JSON from calibrate_lighthouse.py --udp")
+    parser.add_argument("input", help="session directory from capture_lh2.py, or a sweep JSON file")
     parser.add_argument("--sensor-positions", default=str(Path(__file__).with_name("wand_sensors.json")),
                         metavar="SENSORS.JSON",
                         help="drone sensor board: 4 x [x, y, z] metres in firmware order S0..S3 — sets the "
                              "metric scale (default: wand_sensors.json, the measured 40 mm board)")
     parser.add_argument("-o", "--output", default="lighthouse_geometry_candidate.yaml")
+    parser.add_argument("--auto-frame", action="store_true",
+                        help="no static captures: BS0 at (0, 0, --height), +X toward BS1, up = -mean boresight")
     parser.add_argument("--height", type=float, default=3.45,
-                        help="auto frame: BS0 height above the floor [m] (default 3.45)")
+                        help="--auto-frame: BS0 height above the floor [m] (default 3.45)")
+    parser.add_argument("--board-height", type=float, default=0.0,
+                        help="height of the sensor plane above the floor while the drone sits on it [m]; "
+                             "added to Z so that Z = 0 is the floor (default 0)")
     parser.add_argument("--baseline", type=float,
                         help="tape-measured BS0-BS1 distance [m]; comparison only, never used in the fit")
     parser.add_argument("--origin", metavar="JSON", help="static capture at the world origin")
@@ -379,8 +391,10 @@ def main() -> int:
     parser.add_argument("--xy-plane", metavar="JSON", nargs="+", default=[],
                         help="static captures on the floor (Z = 0)")
     parser.add_argument("--x-axis-dist", type=float,
-                        help="Bitcraze frame: distance [m] of the first x-axis capture from the origin; "
-                             "rescales the solution to it (Bitcraze uses 1.0). Default: keep the wand-derived scale")
+                        help="distance [m] of the x-axis capture from the origin (default: from the session, "
+                             "else 1.0 as in Bitcraze)")
+    parser.add_argument("--keep-sensor-scale", action="store_true",
+                        help="do not rescale to --x-axis-dist; keep the scale from the sensor spacing")
     parser.add_argument("--max-angle-age-ms", type=int, default=100)
     parser.add_argument("--max-angle-skew-ms", type=int, default=50)
     parser.add_argument("--max-sample-error", type=float, default=0.02,
@@ -392,16 +406,36 @@ def main() -> int:
     parser.add_argument("--truth", help="ground-truth JSON from make_synthetic_measurements.py")
     args = parser.parse_args()
 
+    sweep_path = args.input
+    if Path(args.input).is_dir():
+        session_dir = Path(args.input)
+        manifest_path = session_dir / "session.json"
+        if not manifest_path.is_file():
+            parser.error(f"{session_dir} has no session.json — is it a capture_lh2.py wizard session?")
+        with open(manifest_path, encoding="utf-8") as stream:
+            manifest = json.load(stream)
+        sweep_path = str(session_dir / manifest["sweep"])
+        args.origin = str(session_dir / manifest["origin"])
+        args.x_axis = [str(session_dir / name) for name in manifest["x_axis"]]
+        args.xy_plane = [str(session_dir / name) for name in manifest["xy_plane"]]
+        if args.x_axis_dist is None:
+            args.x_axis_dist = float(manifest.get("x_axis_dist", 1.0))
+    if args.x_axis_dist is None:
+        args.x_axis_dist = 1.0
+
     reference_mode = bool(args.origin or args.x_axis or args.xy_plane)
+    if reference_mode and args.auto_frame:
+        parser.error("--auto-frame cannot be combined with static captures")
     if reference_mode and not (args.origin and args.x_axis and args.xy_plane):
-        parser.error("Bitcraze frame needs all of --origin, --x-axis and --xy-plane")
-    if args.x_axis_dist is not None and not reference_mode:
-        parser.error("--x-axis-dist only applies with --origin/--x-axis/--xy-plane")
+        parser.error("the wizard frame needs all of --origin, --x-axis and --xy-plane")
+    if not reference_mode and not args.auto_frame:
+        parser.error("no static captures: record a wizard session with capture_lh2.py, pass "
+                     "--origin/--x-axis/--xy-plane, or use --auto-frame --height H")
 
     sensors = load_sensor_positions(args.sensor_positions)
     print(f"Wand layout ({args.sensor_positions}): {describe_sensor_positions(sensors)}")
 
-    records, age_rejected = filter_by_age(load_records(args.measurements),
+    records, age_rejected = filter_by_age(load_records(sweep_path),
                                           args.max_angle_age_ms, args.max_angle_skew_ms)
     timestamps = len({float(record["timestamp"]) for record in records})
     records, span_rejected = filter_by_wand_span(records, sensors, args.min_wand_distance)
@@ -445,11 +479,21 @@ def main() -> int:
     estimated_baseline = float(np.linalg.norm(solution.bs_poses[1].translation - solution.bs_poses[0].translation))
 
     if reference_mode:
-        world, measured_x, scale = bitcraze_frame(solution, len(args.x_axis), len(args.xy_plane), args.x_axis_dist)
-        print(f"Bitcraze frame: x-axis capture at {measured_x:.4f} m from origin (wand scale)")
-        if args.x_axis_dist is not None:
-            print(f"Rescaled by {scale:.4f} to put it at {args.x_axis_dist:.4f} m")
+        world, measured_x, scale = bitcraze_frame(
+            solution, len(args.x_axis), len(args.xy_plane), None if args.keep_sensor_scale else args.x_axis_dist)
+        print(f"Wizard frame: x-axis capture is {measured_x:.4f} m from the origin by the sensor-spacing scale "
+              f"(marked at {args.x_axis_dist:.4f} m)")
+        sensor_scale_ratio = args.x_axis_dist / measured_x
+        if abs(sensor_scale_ratio - 1.0) > 0.05:
+            print(f"Warning: sensor-spacing scale and the x-axis mark disagree by {sensor_scale_ratio:.3f}x. "
+                  "Either the x-axis mark is not at that distance from the origin mark, or the sensor "
+                  f"spacing in {args.sensor_positions} is off (40 mm would really be {40 * sensor_scale_ratio:.1f} mm).")
+        if not args.keep_sensor_scale:
+            print(f"Rescaled by {scale:.4f} to put the x-axis capture at {args.x_axis_dist:.4f} m (Bitcraze)")
             estimated_baseline *= scale
+        if args.board_height:
+            world = {bs_id: Pose(R_matrix=pose.rot_matrix, t_vec=pose.translation + [0.0, 0.0, args.board_height])
+                     for bs_id, pose in world.items()}
     else:
         world = auto_frame(solution.bs_poses, args.height)
 
@@ -460,10 +504,9 @@ def main() -> int:
         ratio = args.baseline / estimated_baseline
         print(f"Tape baseline {args.baseline:.4f} m -> ratio tape/estimate = {ratio:.4f}")
         if abs(ratio - 1.0) > 0.03:
-            print("Warning: scale is off by more than 3 %. The scale comes from the wand layout: "
-                  f"the data is consistent with every sensor distance being x{ratio:.3f} "
-                  "(e.g. a 40 mm side would really be "
-                  f"{40 * ratio:.1f} mm). Re-measure {args.sensor_positions}.")
+            source = ("the x-axis mark distance" if reference_mode and not args.keep_sensor_scale
+                      else f"the sensor spacing in {args.sensor_positions}")
+            print(f"Warning: scale is off by more than 3 % — check {source}, and the tape measurement.")
 
     for bs_id in sorted(world):
         print_pose(bs_id, world[bs_id])
