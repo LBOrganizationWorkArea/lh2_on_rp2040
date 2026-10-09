@@ -61,3 +61,16 @@ Each solved directory has `solve.log` and `geometry.yaml` (from `calibrate_bitcr
 - `calibrate_bitcraze.py` — solver; prints 1σ precision and writes it to `geometry.yaml`.
 - `lh2_ootx.py` — decodes the factory calibration from the Pico USB `O,` stream.
 - `reconvert_run.py` — re-derives a recorded session's angles with the period / factory model.
+
+## run_20261009_180300 — first run with the period + factory firmware (now in `bs_poses_cal.h`)
+
+Recorded with firmware `cf1621f` (angles corrected on the drone, no re-conversion).
+
+| Residual mean/max | Board fit | Tilt BS0/BS1 | Baseline (1 m mark) | Height BS0/BS1 |
+|---|---|---|---|---|
+| 4.16 / 18.2 mm | 3.43 mm | 22.29° / 27.43° | 2.236 m (−1.1 % vs tape) | 2.803 / 2.812 m (−1.5 % vs ~2.85) |
+
+Best run so far; tilts match the stations' accelerometers (22.2° / 27.5°) and `run2_factory`
+to 0.1°. Exported with `calibrate_export.py` (no height offset: Z = 0 is the chair plane, so
+the drone reads z ≈ −0.6 m on the floor). Check: triangulating the run's static captures with
+the exported poses gives origin (0, 0, 0), x-axis (1.000, 0, 0), floor captures z = 0 ± 1 mm.

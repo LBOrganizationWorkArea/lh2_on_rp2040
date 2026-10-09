@@ -1,0 +1,28 @@
+Wand layout (/home/eduardo/Repositories/lh2_on_rp2040/utils/calibration/wand_sensors.json): S0-S1   40.0 mm, S0-S2   56.6 mm, S0-S3   40.0 mm, S1-S2   40.0 mm, S1-S3   56.6 mm, S2-S3   40.0 mm
+Wand-span filter dropped 39/834 snapshots whose sensors spread wider than the wand can at 0.5 m
+Sweep samples with both stations: 795 (age filter dropped 838)
+Warning: /home/eduardo/Repositories/lh2_on_rp2040/utils/calibration/calib_runs/run_20261009_180300/x_axis.json BS0 angle spread 139.20 deg — was the wand held still?
+IPPE seed kept 245/800; final solve used 800 (0 residual outliers dropped)
+Residual: mean 4.16 mm, max 18.17 mm
+Wand shape check: median rigid-fit error 3.43 mm
+Wizard frame: x-axis capture is 0.9614 m from the origin by the sensor-spacing scale (marked at 1.0000 m)
+Rescaled by 1.0401 to put the x-axis capture at 1.0000 m (Bitcraze)
+
+Precision (1 sigma, statistical only; residual sigma 4.31 mm per angle):
+  in sensor-spacing units (metres if the board size is right):
+    BS0-BS1 baseline           2.1494 +- 0.0050 m
+    origin -> x-axis capture   0.9614 +- 0.0033 m
+    BS0 in capture frame       [-1.184, +0.369, +2.696] +- [0.011, 0.016, 0.009] m, tilt 22.29 +- 0.34 deg
+    BS1 in capture frame       [+0.966, +0.362, +2.705] +- [0.011, 0.016, 0.008] m, tilt 27.43 +- 0.34 deg
+  scaled by the x-axis mark (1 m): baseline 2.2356 +- 0.0067 m
+Estimated baseline: 2.2356 m
+Tape baseline 2.2600 m -> ratio tape/estimate = 1.0109
+BS0: origin [-1.2310, +0.3843, +2.8033] m   boresight tilt-down  67.7 deg, heading  -87.7 deg
+       R[0] = [+0.015263, +0.999834, +0.009930]
+       R[1] = [-0.379031, +0.014976, -0.925263]
+       R[2] = [-0.925258, +0.010358, +0.379197]
+BS1: origin [+1.0045, +0.3763, +2.8123] m   boresight tilt-down  62.6 deg, heading  -76.5 deg
+       R[0] = [+0.107504, +0.993187, -0.044970]
+       R[1] = [-0.447998, +0.008013, -0.893999]
+       R[2] = [-0.887548, +0.116255, +0.445807]
+Wrote candidate geometry: /home/eduardo/Repositories/lh2_on_rp2040/utils/calibration/calib_runs/run_20261009_180300/geometry.yaml
