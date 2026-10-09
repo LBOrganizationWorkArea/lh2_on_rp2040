@@ -71,8 +71,8 @@
 /** Diagnostic print interval [µs] — 10 Hz */
 #define PRINT_INTERVAL_US  100000ULL
 
-#define Z_OUTPUT_SCALE       0.776446f
-#define Z_OUTPUT_OFFSET_M    0.591149f
+#define Z_OUTPUT_SCALE       0.580291f
+#define Z_OUTPUT_OFFSET_M    1.216369f
 
 // ---------------------------------------------------------------------------
 // Calibration constants

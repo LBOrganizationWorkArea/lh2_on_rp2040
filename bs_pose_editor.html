@@ -90,8 +90,9 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 <div id="panel">
   <h1>BS Pose Editor</h1>
   <div class="hint">
-    Position en mètres (repère monde, Z-up). Yaw/Pitch/Roll en degrés.<br>
-    <b>Pitch</b> 0&deg;=horizontal, 90&deg;=pointe droit vers le bas.<br>
+    Position (m, mondo Z-up). Angoli in gradi.<br>
+    <b>Inc</b> inclinazione dalla verticale (0&deg;=punta dritto gi&ugrave;, 90&deg;=orizzontale).<br>
+    <b>Dir</b> direzione dell'inclinazione (0&deg;=+X, 90&deg;=+Y, 270&deg;=-Y). <b>Rol</b> rotazione sul proprio asse.<br>
     Convention : <code>.claude/rules/solve3d_rotation.md</code>.
   </div>
 
@@ -252,8 +253,8 @@ class OdomTelemetryParser {
 const PALETTE = [0xFF66FF, 0x66FFFF, 0xFFCC44, 0x88FF66, 0xFF6666, 0x6699FF];
 let uid = 0;
 const bsList = [
-  { id: uid++, name: 'BS0 (poly 8/9, BS4)',   x: 0,    y: 0, z: 3.45, yaw: 0, pitch: 90, roll: 180 },
-  { id: uid++, name: 'BS1 (poly 20/21, BS10)', x: 2.26, y: 0, z: 3.45, yaw: 0, pitch: 90, roll: 180 },
+  { id: uid++, name: 'BS0 (poly 8/9, BS4)',   x: 0,    y: -0.7, z: 3.45, tilt: 30, dir: 270, roll: 0 },
+  { id: uid++, name: 'BS1 (poly 20/21, BS10)', x: 2.26, y: -0.7, z: 3.45, tilt: 30, dir: 270, roll: 0 },
 ];
 
 const fovHInp = document.getElementById('fov-h');
@@ -273,7 +274,7 @@ let suggestedLayout = null;
 [roomXInp, roomYInp, roomZMinInp, roomZMaxInp, gridStepInp, minSpacingInp].forEach(inp =>
   inp.addEventListener('input', () => resetCoverageDisplay()));
 
-// ─── Math: yaw/pitch/roll -> R ──────────────────────────────────────────────
+// ─── Math: tilt/dir/roll + world rotations -> R ─────────────────────────────
 function cross(a, b) {
   return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
 }
@@ -281,16 +282,16 @@ function norm(v) {
   const l = Math.hypot(v[0], v[1], v[2]) || 1;
   return [v[0]/l, v[1]/l, v[2]/l];
 }
-function computeCols(yawDeg, pitchDeg, rollDeg) {
+// tilt: degrees from straight down; dir: azimuth (deg from +X, CCW) of the tilt;
+// roll: spin around the boresight.
+function bsCols(bs) {
   const d2r = Math.PI / 180;
-  const yaw = yawDeg*d2r, pitch = pitchDeg*d2r, roll = rollDeg*d2r;
-  const col0 = [Math.cos(pitch)*Math.cos(yaw), Math.cos(pitch)*Math.sin(yaw), -Math.sin(pitch)];
-  const aux = Math.abs(col0[2]) > 0.999 ? [1,0,0] : [0,0,1];
-  const dot = aux[0]*col0[0] + aux[1]*col0[1] + aux[2]*col0[2];
-  const ref = norm([aux[0]-dot*col0[0], aux[1]-dot*col0[1], aux[2]-dot*col0[2]]);
-  const c0xr = cross(col0, ref);
-  const cr = Math.cos(roll), sr = Math.sin(roll);
-  const col1 = [ref[0]*cr + c0xr[0]*sr, ref[1]*cr + c0xr[1]*sr, ref[2]*cr + c0xr[2]*sr];
+  const t = bs.tilt*d2r, f = bs.dir*d2r, r = bs.roll*d2r;
+  const col0 = [Math.sin(t)*Math.cos(f), Math.sin(t)*Math.sin(f), -Math.cos(t)];
+  const h = [-Math.sin(f), Math.cos(f), 0];
+  const c0xh = cross(col0, h);
+  const cr = Math.cos(r), sr = Math.sin(r);
+  const col1 = [h[0]*cr + c0xh[0]*sr, h[1]*cr + c0xh[1]*sr, h[2]*cr + c0xh[2]*sr];
   const col2 = cross(col0, col1);
   return { col0, col1, col2 };
 }
@@ -302,28 +303,6 @@ function colsToR(cols) {
     [col0[2], col1[2], col2[2]],
   ];
 }
-function rotateColsAroundZ(cols, angle) {
-  const c = Math.cos(angle), s = Math.sin(angle);
-  const rotate = v => [c * v[0] - s * v[1], s * v[0] + c * v[1], v[2]];
-  return { col0: rotate(cols.col0), col1: rotate(cols.col1), col2: rotate(cols.col2) };
-}
-function colsToYpr(cols) {
-  const { col0, col1 } = cols;
-  const horizontal = Math.hypot(col0[0], col0[1]);
-  const yaw = horizontal > 1e-8 ? Math.atan2(col0[1], col0[0]) : 0;
-  const pitch = Math.atan2(-col0[2], horizontal);
-  const aux = Math.abs(col0[2]) > 0.999 ? [1, 0, 0] : [0, 0, 1];
-  const dot = aux[0] * col0[0] + aux[1] * col0[1] + aux[2] * col0[2];
-  const ref = norm([aux[0] - dot * col0[0], aux[1] - dot * col0[1], aux[2] - dot * col0[2]]);
-  const c0xr = cross(col0, ref);
-  const roll = Math.atan2(
-    col1[0] * c0xr[0] + col1[1] * c0xr[1] + col1[2] * c0xr[2],
-    col1[0] * ref[0] + col1[1] * ref[1] + col1[2] * ref[2]
-  );
-  const toDeg = value => ((value * 180 / Math.PI + 540) % 360) - 180;
-  return { yaw: toDeg(yaw), pitch: toDeg(pitch), roll: toDeg(roll) };
-}
-
 // ─── UI: BS cards ───────────────────────────────────────────────────────────
 const listEl = document.getElementById('bs-list');
 
@@ -361,11 +340,11 @@ function renderList() {
     posRow.appendChild(fieldRow('Z', bs, 'z', 0.01));
     card.appendChild(posRow);
 
-    const oriLbl = document.createElement('div'); oriLbl.className = 'grp-lbl'; oriLbl.textContent = 'ORIENTATION (deg)';
+    const oriLbl = document.createElement('div'); oriLbl.className = 'grp-lbl'; oriLbl.textContent = 'ORIENTAMENTO (deg)';
     card.appendChild(oriLbl);
     const oriRow = document.createElement('div'); oriRow.style.display = 'flex'; oriRow.style.gap = '5px';
-    oriRow.appendChild(fieldRow('Yaw', bs, 'yaw', 0.5));
-    oriRow.appendChild(fieldRow('Pit', bs, 'pitch', 0.5));
+    oriRow.appendChild(fieldRow('Inc', bs, 'tilt', 0.5));
+    oriRow.appendChild(fieldRow('Dir', bs, 'dir', 0.5));
     oriRow.appendChild(fieldRow('Rol', bs, 'roll', 0.5));
     card.appendChild(oriRow);
 
@@ -374,7 +353,7 @@ function renderList() {
 }
 
 document.getElementById('add-btn').addEventListener('click', () => {
-  bsList.push({ id: uid++, name: `BS${bsList.length}`, x: 0, y: 0, z: 3.45, yaw: 0, pitch: 90, roll: 180 });
+  bsList.push({ id: uid++, name: `BS${bsList.length}`, x: 0, y: -0.7, z: 3.45, tilt: 30, dir: 270, roll: 0 });
   renderList(); rebuild();
 });
 
@@ -386,7 +365,7 @@ function fmt(v) { return v.toFixed(6) + 'f'; }
 function generateCode() {
   warnEl.style.display = bsList.length === 2 ? 'none' : 'block';
   const entries = bsList.map(bs => {
-    const R = colsToR(computeCols(bs.yaw, bs.pitch, bs.roll));
+    const R = colsToR(bsCols(bs));
     return `    {  /* ${bs.name} */\n` +
       `        .origin = {${fmt(bs.x)}, ${fmt(bs.y)}, ${fmt(bs.z)}},\n` +
       `        .R = { {${fmt(R[0][0])}, ${fmt(R[0][1])}, ${fmt(R[0][2])}},\n` +
@@ -574,7 +553,7 @@ function drawBasestations() {
 
   bsList.forEach((bs, i) => {
     const col = PALETTE[i % PALETTE.length];
-    const { col0, col1, col2 } = computeCols(bs.yaw, bs.pitch, bs.roll);
+    const { col0, col1, col2 } = bsCols(bs);
     const [px, py, pz] = [bs.x, bs.y, bs.z];
 
     const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.08), new THREE.MeshBasicMaterial({ color: col }));
@@ -584,6 +563,16 @@ function drawBasestations() {
     d.className = 'label3d'; d.textContent = bs.name;
     d.style.color = '#' + col.toString(16).padStart(6, '0');
     const lo = new CSS2DObject(d); lo.position.copy(tv(px, py, pz + 0.2)); push(lo);
+
+    const axes = [[col0, 0xff4444, 'X'], [col1, 0x44ff44, 'Y'], [col2, 0x4488ff, 'Z']];
+    axes.forEach(([v, ac, name]) => {
+      const tip = [px + v[0]*0.45, py + v[1]*0.45, pz + v[2]*0.45];
+      push(new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(px, py, pz), tv(...tip)]),
+        new THREE.LineBasicMaterial({ color: ac })));
+      const al = document.createElement('div');
+      al.className = 'label3d'; al.textContent = name; al.style.color = '#' + ac.toString(16).padStart(6, '0');
+      const alo = new CSS2DObject(al); alo.position.copy(tv(...tip)); push(alo);
+    });
 
     const halfH = (fovHVal / 2) * (Math.PI / 180);
     const halfV = (fovVVal / 2) * (Math.PI / 180);
@@ -663,7 +652,7 @@ function evaluateCoverage(poses, points, keepOverlapPoints = false) {
   const halfH = (parseFloat(fovHInp.value) || 150) * Math.PI / 360;
   const halfV = (parseFloat(fovVInp.value) || 110) * Math.PI / 360;
   const maxRange = parseFloat(fovRangeInp.value) || 5.2;
-  const basis = poses.map(bs => computeCols(bs.yaw, bs.pitch, bs.roll));
+  const basis = poses.map(bs => bsCols(bs));
   let overlapCount = 0;
   let tripleCount = 0;
   let fullCount = 0;
@@ -759,7 +748,7 @@ function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
         ...bs,
         x: cx + rotatedOffsets[index][0],
         y: cy + rotatedOffsets[index][1],
-        ...colsToYpr(rotateColsAroundZ(computeCols(bs.yaw, bs.pitch, bs.roll), angle)),
+        dir: bs.dir + degrees,
       }));
       if (candidate.some(bs => bs.x < 0 || bs.x > roomX || bs.y < 0 || bs.y > roomY)) continue;
       let spacingValid = true;
@@ -788,7 +777,7 @@ function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
   if (bestScore.overlapCount === 0) {
     throw new Error('Nessun overlap nel volume selezionato: controlla Z min/max, FOV e orientamento delle lighthouse.');
   }
-  return { layout: bestLayout, score: bestScore, rotationDegrees: bestLayout[0].yaw - currentLayout[0].yaw };
+  return { layout: bestLayout, score: bestScore, rotationDegrees: bestLayout[0].dir - currentLayout[0].dir };
 }
 
 function showOverlapPoints(points) {
