@@ -128,26 +128,57 @@ Do not flash that header until its positions and boresight directions have been
 checked against physical measurements. The legacy `calibrate_cli.py` acquires
 data through Crazyflie and is not the JSON solver for this Wi-Fi capture path.
 
-### Bitcraze pipeline solver (`calibrate_bitcraze.py`)
+### Drone auto-calibration (`capture_lh2.py` + `calibrate_bitcraze.py`)
 
-Same input JSON, but nothing about the stations is assumed: the initial guess
-comes from Bitcraze's IPPE estimator (per-sample planar wand pose, mirror
-ambiguity resolved by clustering), followed by their sparse least-squares
-solver. Every sample is then re-admitted with a wand pose triangulated from the
-solved stations, and the solve is repeated. That step matters for stations pointing straight
-down, where IPPE alone rejects most samples.
+There is no separate wand: the drone's own 4-sensor board is the calibration
+target. `wand_sensors.json` is that board (40 mm square, S0 upper-left (D1/E1), S1
+upper-right, S2 lower-right, S3 lower-left, seen from the component side). Both
+scripts use it by default.
+
+**1. Capture.** The Pico (AUTO-CALIB-EXP firmware or later) sends a raw-angle
+snapshot every 100 ms as MAVLink `TUNNEL`. Capture it over whatever link the
+drone uses:
+
+| Link | Command |
+|---|---|
+| Wi-Fi (MavESP8266 / DroneBridge AP), the AUTO-CALIB-EXP setup | `python capture_lh2.py --connect udpin:0.0.0.0:14550 --heartbeat-to 192.168.4.1:14555` |
+| Telemetry radio (SiK) | `python capture_lh2.py --connect /dev/ttyUSB0 --baud 57600` (Windows: `COM5`) |
+| Flight controller USB | `python capture_lh2.py --connect /dev/ttyACM0 --baud 115200` |
+| Pico UART0 → USB-UART adapter, no FC | `python capture_lh2.py --connect /dev/ttyUSB0 --baud 115200` |
+| TCP (MAVProxy / Mission Planner forward) | `python capture_lh2.py --connect tcp:192.168.4.1:5760` |
+
+Through a flight controller, ArduPilot only forwards the TUNNEL to a link on which
+it has seen the GCS (sysid 255 / compid 190). The script sends that heartbeat every
+second. The Pico's FC port must use MAVLink 2 (e.g. `SERIAL2_PROTOCOL = 2`). If
+nothing arrives, the script lists the message types it *did* hear, which helps tell
+a wrong link apart from a routing problem.
+
+Walk the drone slowly through the whole flight volume for 2–3 minutes. Cover
+different heights, tilt it ±30° in roll and pitch, and turn it to many headings.
+All four sensors must stay visible to both stations. Tilting matters most when the
+stations point straight down, because a level board seen face-on is the weakest
+case for IPPE. Watch the live "physically plausible" percentage. If it stays low,
+the decoder problem described below is present, and no solver can fix that.
+
+**2. Solve.**
 
 ```bash
-python utils/calibration/calibrate_bitcraze.py measurements.json \
-  --sensor-positions utils/calibration/wand_sensors.json \
-  --baseline 2.26 --height 3.45 -o lighthouse_geometry_candidate.yaml
+python calibrate_bitcraze.py measurements.json --baseline 2.26 --height 3.45 \
+  -o lighthouse_geometry_candidate.yaml
 ```
+
+Nothing about the stations is assumed. The initial guess comes from Bitcraze's IPPE
+estimator: a planar pose for each sample, with the mirror ambiguity resolved by
+clustering. Their sparse least-squares solver then refines it. After that, every sample is
+re-admitted with a drone pose triangulated from the solved stations, and the
+solve is repeated. That step matters for stations pointing straight down, where IPPE alone rejects
+most samples.
 
 World frame: by default BS0 is placed at `(0, 0, --height)`, +X points toward BS1,
 and up is the negated mean boresight. To use the Bitcraze wizard frame instead,
-pass static captures (wand held still, both stations visible):
-`--origin o.json --x-axis x.json --xy-plane p1.json p2.json p3.json`, plus
-`--x-axis-dist 1.0` if you want to rescale to a known x-axis distance as Bitcraze does.
+capture short static recordings with the drone on the floor (`capture_lh2.py --seconds 5 -o origin.json`, etc.)
+and pass `--origin origin.json --x-axis x.json --xy-plane p1.json p2.json p3.json`.
+Add `--x-axis-dist 1.0` to rescale to a known x-axis distance, as Bitcraze does.
 
 Check it against a known geometry first:
 
@@ -178,7 +209,7 @@ python utils/calibration/calibrate_bitcraze.py synth.json \
 
 #### Data quality gate
 
-Records whose 4 sensors span more angle than the wand can subtend at
+Records whose 4 sensors span more angle than the board can subtend at
 `--min-wand-distance` (default 0.5 m) are dropped, since at least one angle in them is corrupt.
 In the current captures (`measurements*.json`), **95–99.9 % of snapshots fail
 this gate**. When the wand is held still, the angles repeat to about 0.01°, but individual
@@ -187,6 +218,14 @@ angles agree to within about 1°. A 4 cm wand at about 3 m spans about 0.8°. Th
 from the difference between the two sweeps, so this points to a per-sensor sweep pairing or decode
 problem in the firmware. No solver can calibrate from that data; fix the decoder
 and recapture.
+
+The shape of the error is a clue. About ±8° vertical but only about ±0.5° horizontal
+means both sweeps of one sensor are shifted by about 4.6° in *opposite* directions.
+An error in a single sweep would move the horizontal angle by about half as much as the
+vertical. That rules out the linear `CAL_BS*` constants and a plain sweep-0/1 swap. To diagnose
+it, keep the drone still and log the USB `L,<sensor>,<bs>,<sweep>,<poly>,<lfsr>,<t>`
+lines: for one base station, the four sensors' LFSR counts should differ by only
+a few hundred counts within each sweep.
 
 ### CLI: With Custom World Frame
 

@@ -364,8 +364,10 @@ def compare_truth(path: str, poses: dict[int, Pose]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("measurements", help="wand sweep JSON from calibrate_lighthouse.py --udp")
-    parser.add_argument("--sensor-positions", required=True, metavar="WAND.JSON",
-                        help="4 x [x, y, z] metres in firmware order S0..S3 — sets the metric scale")
+    parser.add_argument("--sensor-positions", default=str(Path(__file__).with_name("wand_sensors.json")),
+                        metavar="SENSORS.JSON",
+                        help="drone sensor board: 4 x [x, y, z] metres in firmware order S0..S3 — sets the "
+                             "metric scale (default: wand_sensors.json, the measured 40 mm board)")
     parser.add_argument("-o", "--output", default="lighthouse_geometry_candidate.yaml")
     parser.add_argument("--height", type=float, default=3.45,
                         help="auto frame: BS0 height above the floor [m] (default 3.45)")
