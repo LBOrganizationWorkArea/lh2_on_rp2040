@@ -47,6 +47,7 @@ typedef struct {
  */
 typedef struct {
     float    raw_sweep[2];       ///< pending raw angle per sweep [deg]; NAN until received
+    uint32_t raw_lfsr[2];        ///< LFSR count behind raw_sweep (re-calibrated if the slots are swapped)
     bool     has_sweep[2];       ///< true once the corresponding raw_sweep is valid
     float    ema_az;             ///< EMA-smoothed azimuth   [degrees] (legacy solve3d path)
     float    ema_el;             ///< EMA-smoothed elevation [degrees] (legacy solve3d path)
@@ -88,6 +89,17 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
                           lh2_angles_t    out[NUM_SENSORS][NUM_BS],
                           const lh2_cal_t cal[NUM_BS],
                           uint64_t        now_us);
+
+/**
+ * @brief  Enable/disable the OOTX bit stream on USB stdio.
+ *
+ * When enabled, every decoded sweep prints
+ *   O,<sensor>,<bs index>,<polynomial>,<lfsr>,<capture time us>
+ * The polynomial's parity is the base station's OOTX ("slow") bit for that
+ * rotor turn; utils/calibration/lh2_ootx.py decodes the factory calibration
+ * from it. Off by default (it is ~800 lines/s).
+ */
+void angle_decoder_set_ootx_stream(bool enabled);
 
 /**
  * @brief  Return true if both basestations for sensor @p s have fresh angles.

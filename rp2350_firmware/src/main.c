@@ -394,6 +394,15 @@ int main(void)
             last_debug_us = now_us;
         }
 
+        /* USB console commands: 'o' starts the OOTX bit stream used by
+         * utils/calibration/lh2_ootx.py, 'x' stops it. */
+        int console_char = getchar_timeout_us(0);
+        if (console_char == 'o') {
+            angle_decoder_set_ootx_stream(true);
+        } else if (console_char == 'x') {
+            angle_decoder_set_ootx_stream(false);
+        }
+
         /* Drain UART RX every iteration — EKF_STATUS_REPORT arrives at 1 Hz
          * (34-byte frames) so calling this at full loop rate keeps the FIFO empty. */
         mavlink_rx_update();

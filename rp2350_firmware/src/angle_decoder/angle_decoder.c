@@ -22,9 +22,12 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "pico/time.h"
+
 #define LFSR_LOG_INTERVAL_US 250000ULL
 
 static uint64_t s_last_lfsr_log_us[NUM_SENSORS][LH2_BASESTATION_COUNT][LH2_SWEEP_COUNT];
+static bool     s_ootx_stream = false;
 
 // ---------------------------------------------------------------------------
 // Private helpers
@@ -50,16 +53,19 @@ static void _finalize_angles(lh2_angles_t *slot,
     float a0 = slot->raw_sweep[0];
     float a1 = slot->raw_sweep[1];
 
+    /* Swap guard: if |a0 - a1| > 90° the two sweeps were interchanged.
+     * db_lh2's sweep slot is whichever slot was free first, not which laser
+     * plane hit, so re-apply each plane's own calibration to the swapped
+     * counts. Correcting only the B offset (diff = 2*(B0 - B1) - diff) leaves
+     * an (A0 - A1) * lfsr error of ~1° horizontal / 6-10° vertical.
+     */
+    if (fabsf(a0 - a1) > 90.0f) {
+        a0 = cal->A0 * (float)slot->raw_lfsr[1] + cal->B0;
+        a1 = cal->A1 * (float)slot->raw_lfsr[0] + cal->B1;
+    }
+
     float az_raw = (a0 + a1) * 0.5f;
     float diff   = a0 - a1;
-
-    /* Swap guard: if |diff| > 90° the two sweeps were interchanged.
-     * Correction mirrors the Python LH2Decoder._compute_angles():
-     *   diff = 2*(B0 - B1) - diff
-     */
-    if (fabsf(diff) > 90.0f) {
-        diff = 2.0f * (cal->B0 - cal->B1) - diff;
-    }
 
     float diff_rad = (diff * 0.5f) * ((float)M_PI / 180.0f);
     float az_rad   = az_raw              * ((float)M_PI / 180.0f);
@@ -115,6 +121,8 @@ void angle_decoder_init(lh2_angles_t out[NUM_SENSORS][NUM_BS],
         for (int b = 0; b < NUM_BS; b++) {
             out[s][b].raw_sweep[0] = 0.0f;
             out[s][b].raw_sweep[1] = 0.0f;
+            out[s][b].raw_lfsr[0]  = 0u;
+            out[s][b].raw_lfsr[1]  = 0u;
             out[s][b].has_sweep[0] = false;
             out[s][b].has_sweep[1] = false;
             out[s][b].ema_az       = 0.0f;
@@ -162,6 +170,11 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
                     continue;  /* unknown polynomial — skip */
                 }
 
+                if (s_ootx_stream) {
+                    printf("O,%d,%d,%u,%lu,%llu\n", s, bs_idx, poly, (unsigned long)lfsr,
+                           (unsigned long long)to_us_since_boot(lh2[s].timestamps[sweep][slot]));
+                }
+
                 const lh2_cal_t *c = &cal[bs_idx];
                 lh2_angles_t    *ang = &out[s][bs_idx];
 
@@ -174,6 +187,7 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
                 }
 
                 ang->raw_sweep[sweep] = raw_angle;
+                ang->raw_lfsr[sweep]  = lfsr;
                 ang->has_sweep[sweep] = true;
 
                 /* If both sweeps are now in, compute az/el */
@@ -183,6 +197,11 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
             }
         }
     }
+}
+
+void angle_decoder_set_ootx_stream(bool enabled)
+{
+    s_ootx_stream = enabled;
 }
 
 bool angle_decoder_is_fresh(const lh2_angles_t out[NUM_SENSORS][NUM_BS],
