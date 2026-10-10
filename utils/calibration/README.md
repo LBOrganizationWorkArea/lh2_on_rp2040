@@ -217,6 +217,16 @@ Check the printout:
   `calibrate_export.py` into `<run>/bs_poses_cal_candidate.h`. *Settings* holds the link, tape,
   board height, the `reconvert_run.py` option for old-firmware sessions, and **Open run**.
 
+**Simulation and quality check (pose editor).** *Simulation* replays a recorded run as a
+virtual drone: every Start feeds the matching capture of that run into the wizard (session
+`calib_runs/sim_<date>_<run>/`), so the whole procedure and the effect of a short sweep or
+fewer floor points can be tried without hardware; recorded floor points left unused replay
+as independent check points (their height must read 0). *Evaluate quality* runs
+`evaluate_calibration.py`: the session is re-solved 12 times on random 70 % subsets of the
+sweep; the spread of the station poses and baseline is the real repeatability (the solver's
+1σ is a lower bound) and the board-fit error of the held-out 30 % is the error on unseen
+data, also drawn as a coloured map in 3D. Mark-placement errors are not covered: use check points.
+
 **3. Into the firmware** (this branch compiles the poses in):
 
 ```bash

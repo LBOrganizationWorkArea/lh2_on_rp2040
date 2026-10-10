@@ -36,6 +36,7 @@ FILES = [
     ("utils/calibration/calibrate_bitcraze.py", "utils/calibration/calibrate_bitcraze.py"),
     ("utils/calibration/reconvert_run.py", "utils/calibration/reconvert_run.py"),
     ("utils/calibration/locate_samples.py", "utils/calibration/locate_samples.py"),
+    ("utils/calibration/evaluate_calibration.py", "utils/calibration/evaluate_calibration.py"),
     ("utils/calibration/calibrate_export.py", "utils/calibration/calibrate_export.py"),
     ("utils/calibration/lh2_ootx.py", "utils/calibration/lh2_ootx.py"),
     ("utils/calibration/make_synthetic_measurements.py", "utils/calibration/make_synthetic_measurements.py"),
@@ -131,6 +132,17 @@ Auto-calibrazione (Editor -> Calib), come il wizard del Crazyflie client
 SAMPLE MANAGEMENT: dettagli e cancellazione dei singoli campioni, Clear (sposta i file in
 _cleared_<data>\\, non li cancella), Import / Export dei campioni in un file .json.
 "Open run" (SETTINGS) riapre una run gia' fatta (c'e' run_20261009_180300, quella nel firmware).
+
+Simulazione e qualita'
+-----------------------
+Calib -> "Simulation": scegli una run registrata (es. run_20261009_180300). Ogni Start
+riproduce la cattura corrispondente come se il drone fosse li' (cartella sim_<data>_<run>).
+Serve per provare il wizard senza hardware e vedere l'effetto delle scelte: sweep fermato
+presto, meno punti a terra. I punti a terra registrati che non usi diventano punti di
+verifica indipendenti (la loro altezza deve risultare 0).
+Result -> "Evaluate quality": ricalcola 12 volte con il 70% della registrazione (~30 s) e
+mostra stabilita' delle stazioni, errore su letture mai viste e la mappa colorata nel 3D.
+Non include gli errori nel posizionare i segni a terra: per quelli usa i punti di verifica.
 
 Da riga di comando (dalla cartella del bundle)
 ----------------------------------------------

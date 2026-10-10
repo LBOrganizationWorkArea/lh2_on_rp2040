@@ -172,6 +172,7 @@ class CaptureManager:
         self.solve = self._idle_solve()
         self.solve_version = 0
         self.pending = False  # samples changed while the solver was running
+        self.sim = None  # simulation: a recorded run replayed as a virtual drone
         if lh2cap is not None:
             sensors = os.path.join(CALIB_DIR, "wand_sensors.json")
             try:
@@ -181,7 +182,8 @@ class CaptureManager:
 
     @staticmethod
     def _idle_solve():
-        return {"state": "idle", "log": "", "ok": None, "variants": [], "primary": None, "samples": None}
+        return {"state": "idle", "log": "", "ok": None, "variants": [], "primary": None, "samples": None,
+                "quality": None}
 
     def set_target(self, host, port):
         with self.lock:
@@ -208,6 +210,8 @@ class CaptureManager:
             self.config.update(config)
             self.last_result = None
             self.pending = False
+            if self.sim is not None:  # a new session replays the recording from the start
+                self.sim.update(used=set(), sweep_cursor=0)
             self.sweep_count = self._count_sweep()
             self.solve = self._idle_solve()
             self.solve_version += 1
@@ -348,29 +352,31 @@ class CaptureManager:
         if snapshot is None:
             return
         key = (snapshot["sequence"], snapshot["timestamp_us"] // 10_000_000)
-        finished = None
         with self.lock:
-            if key in self.seen:
+            if self.sim is not None or key in self.seen:  # the real drone is ignored while simulating
                 return
             self.seen.add(key)
-            now = time.monotonic()
-            self.packets += 1
-            self.last_packet = now
-            records = lh2cap.snapshot_to_records(snapshot)
-            for record in records:
-                self.bs_last[record["base_station_id"]] = now
-            complete = len(records) == lh2cap.NUM_BS
-            plausible = complete and self._plausible(records)
-            self.recent = [r for r in self.recent if now - r[0] < 2.0] + [(now, complete, plausible)]
-            cap = self.active
-            if cap is not None:
-                cap["records"].extend(records)
-                cap["snapshots"] += 1
-                cap["complete"] += int(complete)
-                cap["plausible"] += int(plausible)
-            finished = self._maybe_finish(now)
+            finished = self._ingest(lh2cap.snapshot_to_records(snapshot))
         if finished:
             self._samples_changed(finished)
+
+    def _ingest(self, records):
+        """Account one snapshot (lock held). Returns the kind of a capture it completed, if any."""
+        now = time.monotonic()
+        self.packets += 1
+        self.last_packet = now
+        for record in records:
+            self.bs_last[record["base_station_id"]] = now
+        complete = len(records) == lh2cap.NUM_BS
+        plausible = complete and self._plausible(records)
+        self.recent = [r for r in self.recent if now - r[0] < 2.0] + [(now, complete, plausible)]
+        cap = self.active
+        if cap is not None:
+            cap["records"].extend(records)
+            cap["snapshots"] += 1
+            cap["complete"] += int(complete)
+            cap["plausible"] += int(plausible)
+        return self._maybe_finish(now)
 
     def start(self, kind, seconds):
         with self.lock:
@@ -382,10 +388,103 @@ class CaptureManager:
                 raise ValueError("a capture is already running")
             if kind not in self.STATIC_KINDS + ("sweep",):
                 raise ValueError("unknown sample kind")
+            replay = self._sim_source(kind) if self.sim is not None else None
             self.active = {"step": kind, "seconds": None if kind == "sweep" else seconds,
                            "started": time.monotonic(), "records": [], "snapshots": 0,
                            "complete": 0, "plausible": 0}
             self.last_result = None
+            if replay is not None:
+                threading.Thread(target=self._replay, args=(self.active, *replay), daemon=True).start()
+
+    # -------------------------------------------------------------- simulation
+
+    def start_simulation(self, source, config):
+        """Replay a recorded run as a virtual drone into a new sim_<date>_<run> session."""
+        source = os.path.abspath(os.path.join(CALIB_DIR, source))
+        if not os.path.exists(os.path.join(source, "sweep.json")):
+            raise ValueError("the source run has no sweep.json")
+        manifest = os.path.join(source, "session.json")
+        if os.path.exists(manifest):
+            with open(manifest, encoding="utf-8") as stream:
+                config["x_axis_dist"] = float(json.load(stream).get("x_axis_dist", config["x_axis_dist"]))
+        with self.lock:
+            if self.active is not None:
+                raise ValueError("a capture is running")
+            self.sim = {"source": source, "name": os.path.basename(source), "used": set(), "sweep_cursor": 0}
+        name = time.strftime("sim_%Y%m%d_%H%M%S_") + os.path.basename(source)
+        self.configure(os.path.join(RUNS_DIR, name), config)
+
+    def stop_simulation(self):
+        with self.lock:
+            if self.active is not None:
+                raise ValueError("a capture is running")
+            self.sim = None
+            self.packets, self.recent, self.bs_last = 0, [], {}
+
+    def _sim_files(self, prefix):
+        return sorted((n[:-5] for n in os.listdir(self.sim["source"]) if n.startswith(prefix) and n.endswith(".json")),
+                      key=lambda n: int(n.rsplit("_", 1)[1]) if n.rsplit("_", 1)[1].isdigit() else 0)
+
+    def _sim_source(self, kind):
+        """Pick the recorded capture a step replays (lock held): (snapshots, mode)."""
+        sim = self.sim
+        if kind in ("origin", "x_axis"):
+            name = kind
+        elif kind == "xy_plane":
+            free = [n for n in self._sim_files("xy_plane_") if n not in sim["used"]]
+            if not free:
+                raise ValueError("all recorded floor points of this run are used")
+            name = free[0]
+        elif kind == "verify":
+            # A recorded floor point that calibration did not use is an independent check.
+            free = [n for n in self._sim_files("xy_plane_") + self._sim_files("verify_") if n not in sim["used"]]
+            if not free:
+                raise ValueError("no unused recorded floor point left for a check — in simulation, check points "
+                                 "replay the floor points you did not use (add fewer floor points)")
+            name = free[0]
+        else:
+            name = "sweep"
+        path = os.path.join(sim["source"], name + ".json")
+        if not os.path.exists(path):
+            raise ValueError(f"the source run has no {name}.json")
+        with open(path, encoding="utf-8") as stream:
+            records = json.load(stream)
+        grouped = {}
+        for record in records:
+            grouped.setdefault(record["timestamp"], []).append(record)
+        snapshots = [grouped[t] for t in sorted(grouped)]
+        if kind == "sweep":
+            snapshots = snapshots[sim["sweep_cursor"]:]
+            if not snapshots:
+                raise ValueError("the recorded sweep is used up — the result already has all of it")
+        else:
+            sim["used"].add(name)
+        sim["playing"] = name
+        return snapshots, kind == "sweep"
+
+    def _replay(self, cap, snapshots, is_sweep, speed=4.0):
+        """Feed recorded snapshots as if the drone sent them, until the capture ends."""
+        spacing = None if is_sweep else max(0.02, 0.85 * cap["seconds"] / max(1, len(snapshots)))
+        previous = None
+        for index, records in enumerate(snapshots):
+            stamp = records[0]["timestamp"]
+            delay = spacing if spacing else min(0.2, max(0.0, (stamp - previous) / speed)) if previous else 0.0
+            previous = stamp
+            time.sleep(delay)
+            with self.lock:
+                if self.active is not cap:
+                    return
+                if is_sweep:
+                    self.sim["sweep_cursor"] += 1
+                finished = self._ingest([dict(r) for r in records])
+            if finished:
+                self._samples_changed(finished)
+                return
+        if is_sweep:  # recording exhausted: end the capture like the user pressing Stop
+            with self.lock:
+                if self.active is not cap:
+                    return
+            self.stop()
 
     def stop(self):
         with self.lock:
@@ -595,6 +694,49 @@ class CaptureManager:
         if rerun and self._ready()[0]:
             self.start_solve()
 
+    def start_evaluation(self, runs=12):
+        """Resample the solved session (evaluate_calibration.py) to measure how good the geometry is."""
+        with self.lock:
+            variant = self._primary_variant()
+            if variant is None or self.solve["state"] == "running":
+                raise ValueError("calculate the calibration first")
+            if (self.solve.get("quality") or {}).get("state") == "running":
+                raise ValueError("an evaluation is already running")
+            self.solve["quality"] = {"state": "running", "progress": f"0/{runs}", "result": None, "error": None}
+            self.solve_version += 1
+            command = [sys.executable, "-u", os.path.join(CALIB_DIR, "evaluate_calibration.py"), variant["dir"],
+                       "--runs", str(runs), "--json"]
+            if self.config.get("baseline"):
+                command += ["--baseline", str(self.config["baseline"])]
+            if self.config.get("board_height"):
+                command += ["--board-height", str(self.config["board_height"])]
+            session = self.session_dir
+        threading.Thread(target=self._run_evaluation, args=(session, command, runs), daemon=True).start()
+
+    def _run_evaluation(self, session, command, runs):
+        result, error, tail = None, None, []
+        try:
+            process = subprocess.Popen(command, cwd=CALIB_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                       text=True, encoding="utf-8", errors="replace", env=_CHILD_ENV)
+            for line in process.stdout:
+                tail = (tail + [line])[-20:]
+                if line.startswith("run ") and "/" in line:
+                    with self.lock:
+                        if session == self.session_dir and self.solve.get("quality"):
+                            self.solve["quality"]["progress"] = line.split()[1]
+                            self.solve_version += 1
+                elif line.startswith("{"):
+                    result = json.loads(line)
+            if process.wait() != 0 or result is None:
+                error = "".join(tail).strip()[-600:] or "evaluation failed"
+        except (OSError, ValueError) as exc:
+            error = str(exc)
+        with self.lock:
+            if session != self.session_dir or not self.solve.get("quality"):
+                return
+            self.solve["quality"] = {"state": "done", "progress": f"{runs}/{runs}", "result": result, "error": error}
+            self.solve_version += 1
+
     def export_header(self, directory):
         """bs_poses_cal.h candidate from a solved variant via calibrate_export.py (never hand-edited)."""
         with self.lock:
@@ -630,7 +772,8 @@ class CaptureManager:
             ready, missing = self._ready()
             primary = self._primary_variant()
             geometry_ids = {p["id"] for p in primary["poses"]} if primary else set()
-            stations = [{"id": bs, "receiving": now - self.bs_last.get(bs, -1e9) < 1.0,
+            simulating = self.sim is not None  # the virtual drone always "sees" both stations
+            stations = [{"id": bs, "receiving": simulating or now - self.bs_last.get(bs, -1e9) < 1.0,
                          "calibration": str(bs) in factory_ids, "geometry": bs in geometry_ids}
                         for bs in range(lh2cap.NUM_BS if lh2cap else 2)]
             solve = dict(self.solve)
@@ -639,7 +782,12 @@ class CaptureManager:
             return {
                 "available": lh2cap is not None,
                 "packets": self.packets,
-                "last_packet_age": (now - self.last_packet) if self.packets else None,
+                "last_packet_age": 0.0 if simulating else (now - self.last_packet) if self.packets else None,
+                "simulation": None if not simulating else {
+                    "source": self.sim["name"],
+                    "floor_left": len([n for n in self._sim_files("xy_plane_") if n not in self.sim["used"]]),
+                    "playing": self.sim.get("playing") if cap else None,
+                },
                 "quality": (100.0 * good / total) if total else None,
                 "stations": stations,
                 "session_dir": self.session_dir,
@@ -837,6 +985,13 @@ def make_handler(state, capture):
                     capture.delete_sample(arg("name"))
                 elif action == "clear":
                     capture.clear_samples()
+                elif action == "simulate":
+                    if arg("source"):
+                        capture.start_simulation(arg("source"), self._config(arg))
+                    else:
+                        capture.stop_simulation()
+                elif action == "evaluate":
+                    capture.start_evaluation(max(3, min(30, int(arg("runs", "12") or 12))))
                 elif action == "solve":
                     with capture.lock:
                         capture.config.update(self._config(arg))

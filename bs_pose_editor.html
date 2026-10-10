@@ -128,6 +128,21 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   white-space: pre; overflow: auto; max-height: 220px; margin: 4px 0 0;
 }
 #cal-export { resize: vertical; color: #9ffd90; }
+/* mode switch, simulation, quality */
+.cal-mode { display: flex; border: 1px solid #444; border-radius: 6px; overflow: hidden; }
+#sec-calib .cal-mode button { flex: 1; border: none; border-radius: 0; background: #1e1e1e; color: #aaa; padding: 7px; }
+#sec-calib .cal-mode button.on { background: #2f5f8a; color: #fff; font-weight: 600; }
+#sec-calib .cal-mode button.on#cal-mode-sim { background: #5a3a8a; }
+.cal-dot.sim { background: #b98cf5; box-shadow: 0 0 6px #b98cf5; }
+.cal-wizard.sim { border-color: #8a5cd6 !important; }
+.cal-simnote { font-size: 12px; color: #d2bdf6; background: #2a2140; border: 1px solid #4b3a73; border-radius: 6px; padding: 6px 8px; }
+.cal-quality { border-top: 1px solid #383838; padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.cal-verdict { font-size: 13px; line-height: 1.45; border-radius: 6px; padding: 8px 10px; }
+.cal-verdict.good { background: #193524; border: 1px solid #2f6a43; color: #b6ecc5; }
+.cal-verdict.warn { background: #3a321a; border: 1px solid #7a6530; color: #f3dc9a; }
+.cal-verdict.bad { background: #3a1c1c; border: 1px solid #7a3434; color: #ffc4c4; }
+.cal-legend { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #999; }
+.cal-legend i { display: inline-block; width: 90px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #3fd06a, #f2d33a 45%, #f04a4a); }
 /* connection + stations */
 .cal-connrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ddd; }
 .cal-dot { width: 10px; height: 10px; border-radius: 50%; background: #777; flex: none; }
@@ -351,6 +366,15 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     <div class="sec-title">LIGHTHOUSE CALIBRATION</div>
 
     <div class="bs-card cal-conn">
+      <div class="cal-mode" role="tablist">
+        <button id="cal-mode-real" class="on" title="Measure with the real drone">Real drone</button>
+        <button id="cal-mode-sim" title="Replay a recorded run as a virtual drone — try the whole calibration without hardware">Simulation</button>
+      </div>
+      <div id="cal-simpick" style="display:none;">
+        <div class="hint">Pick a recorded run: each Start replays its matching capture, exactly as if the drone were there. Floor points you don't use become independent check points.</div>
+        <div class="cal-field"><label for="cal-simsrc">Recorded run</label><select id="cal-simsrc"></select></div>
+        <button id="cal-simstart">Start simulation</button>
+      </div>
       <div class="cal-connrow">
         <span class="cal-dot" id="cal-linkdot"></span>
         <span id="cal-linktext">Checking the bridge…</span>
@@ -379,6 +403,12 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <summary>Result</summary>
       <div id="cal-state" class="hint"></div>
       <div id="cal-variants"></div>
+      <div class="cal-quality">
+        <div class="grp-lbl" style="display:block;">QUALITY CHECK</div>
+        <div class="hint">Recalculates the calibration 12 times, each with a different 70% of the room recording, to see how stable the result is and how well it explains readings it never saw (about 30 s).</div>
+        <button id="cal-evaluate">Evaluate quality</button>
+        <div id="cal-qreport"></div>
+      </div>
       <button id="cal-resolve">Calculate again</button>
       <details><summary class="hint">Solver log</summary>
         <pre id="cal-log" class="cal-log"></pre></details>
@@ -1355,6 +1385,7 @@ const CAL_STEPS = [
 ];
 const CAL_KIND_COLOR = Object.fromEntries(CAL_STEPS.map(s => [s.kind, s.color]));
 let calStep = 0, calStatus = null, calSolve = null, calSolveVersion = -1, calResultKey = '', calBridgeError = '';
+let calSimMode = false, calRunsCache = [];
 
 function calInstr(kind) {
   const d = (+calEl('cal-xdist').value || 1).toFixed(2), secs = +calEl('cal-secs').value || 5;
@@ -1436,10 +1467,19 @@ function calFeedbackText(lr, s) {
 function calRender() {
   const s = calStatus, step = CAL_STEPS[calStep], cap = s && s.capture, sv = calSolve;
   // Connection (the one from the Drone tab) and base stations
-  const age = s && s.last_packet_age, live = !!(s && s.packets && age < 2);
+  const sim = s && s.simulation;
+  const age = s && s.last_packet_age, live = !!sim || !!(s && s.packets && age < 2);
+  if (sim) calSimMode = true;
+  calEl('cal-mode-real').classList.toggle('on', !calSimMode);
+  calEl('cal-mode-sim').classList.toggle('on', calSimMode);
+  calEl('cal-simpick').style.display = calSimMode && !sim ? '' : 'none';
+  document.querySelector('#sec-calib .cal-wizard').classList.toggle('sim', !!sim);
+  calEl('cal-conn-edit').textContent = sim ? 'Exit simulation' : 'Drone tab ›';
   const dot = calEl('cal-linkdot');
-  dot.className = 'cal-dot ' + (!s ? 'bad' : live ? 'good' : 'warn');
+  dot.className = 'cal-dot ' + (!s ? 'bad' : sim ? 'sim' : live ? 'good' : 'warn');
   calEl('cal-linktext').textContent = !s ? 'Bridge not running — start avvia.bat'
+    : sim ? `Simulation · virtual drone replaying ${sim.source}`
+    : calSimMode ? 'Simulation not started — pick a recorded run below'
     : !s.available ? 'Bridge has no capture module (install numpy)'
     : !live ? `No data from the drone (${document.getElementById('track-host').value.trim() || 'no IP set'})`
     : 'Drone connected' + (s.quality != null ? ` · ${s.quality.toFixed(0)}% good readings` : '');
@@ -1458,9 +1498,13 @@ function calRender() {
   }).join('');
   calEl('cal-stepno').textContent = step.kind === 'verify' ? 'Optional' : `Step ${calStep + 1} of 4`;
   calEl('cal-steptitle').textContent = step.title;
-  const instrKey = step.kind + calEl('cal-xdist').value + calEl('cal-secs').value;
+  const simNote = !sim ? '' : step.kind === 'sweep' ? `Simulation: Start replays the room recording of ${sim.source} (4× faster); Stop early to see what a short recording gives.`
+    : step.kind === 'xy_plane' ? `Simulation: each point replays a recorded floor point of ${sim.source} — ${sim.floor_left} left. Leave some unused to replay them as check points.`
+    : step.kind === 'verify' ? `Simulation: replays a recorded floor point you did not use (${sim.floor_left} left) — an independent check: its height should read 0.`
+    : `Simulation: Start replays the recorded ${step.title.toLowerCase()} capture of ${sim.source}.`;
+  const instrKey = step.kind + calEl('cal-xdist').value + calEl('cal-secs').value + simNote;
   if (calEl('cal-instr').dataset.key !== instrKey) {
-    calEl('cal-instr').innerHTML = calInstr(step.kind);
+    calEl('cal-instr').innerHTML = calInstr(step.kind) + (simNote ? `<div class="cal-simnote">${calEsc(simNote)}</div>` : '');
     calEl('cal-illus').innerHTML = calIllus(step.kind);
     calEl('cal-instr').dataset.key = instrKey;
   }
@@ -1585,7 +1629,8 @@ function calRenderManagement() {
     const html = names.length ? names.map(n => {
       const l = located[n];
       const info = n === 'sweep' ? `${sm.sweep} snapshots` + (sv && sv.samples ? ` · ${sv.samples.cloud.length} shown` : '')
-        : l && l.position ? `${l.position.map(c => (c >= 0 ? '+' : '') + c.toFixed(3)).join(' ')} m · fit ${l.error_mm.toFixed(2)} mm`
+        : l && l.position ? `${l.position.map(c => (c >= 0 ? '+' : '') + c.toFixed(3)).join(' ')} m · fit ${l.error_mm.toFixed(2)} mm` +
+          (l.kind === 'verify' ? ` · height ${(l.position[2] * 1000).toFixed(0)} mm` : '')
         : l && l.error ? l.error : 'not located yet';
       return `<div class="cal-srow"><span class="dot" style="background:${hex(CAL_KIND_COLOR[kindOf(n)])}"></span>` +
         `<span class="nm">${n}</span><span class="info">${calEsc(info)}</span><button data-del="${n}">✕</button></div>`;
@@ -1622,7 +1667,19 @@ function calDraw3d() {
     if (x.kind === 'origin' || x.kind === 'x_axis' || x.kind === 'verify')
       label(x.kind === 'origin' ? 'O' : x.kind === 'x_axis' ? 'X' : x.name.replace('verify_', 'V'), tv(x.position[0], x.position[1], x.position[2] + 0.12), hex(col));
   });
-  if (samples.cloud.length) {
+  const q = sv.quality && sv.quality.result;
+  if (q && calEl('cal-qmap') && calEl('cal-qmap').checked) {
+    // Hold-out error per reading: green <= 3 mm, yellow ~6 mm, red >= 12 mm.
+    const g = new THREE.BufferGeometry().setFromPoints(q.points.map(p => tv(p[0], p[1], p[2])));
+    const colors = [];
+    q.points.forEach(p => {
+      const t = Math.max(0, Math.min(1, (p[3] - 3) / 9));
+      const c = new THREE.Color().setHSL((1 - t) * 0.33, 0.85, 0.52);
+      colors.push(c.r, c.g, c.b);
+    });
+    g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    add(new THREE.Points(g, new THREE.PointsMaterial({ vertexColors: true, size: 0.04 })));
+  } else if (samples.cloud.length) {
     const g = new THREE.BufferGeometry().setFromPoints(samples.cloud.map(p => tv(...p)));
     add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9a9a9a, size: 0.025 })));
   }
@@ -1686,7 +1743,27 @@ calEl('cal-measure').addEventListener('click', async () => {
   if (!calStatus || !calStatus.session_dir) { if (!(await calNewSession())) return; }
   await calCall('start', { step: CAL_STEPS[calStep].kind, seconds: calEl('cal-secs').value });
 });
-calEl('cal-conn-edit').addEventListener('click', () => openSection('drone'));
+calEl('cal-conn-edit').addEventListener('click', () => {
+  if (calStatus && calStatus.simulation) calExitSimulation(); else openSection('drone');
+});
+async function calExitSimulation() {
+  calSimMode = false;
+  if (calStatus && calStatus.simulation) {
+    await calCall('simulate');
+    await calNewSession();  // back to the real drone in a fresh session, not inside the sim_ folder
+  }
+  calRender();
+}
+calEl('cal-mode-real').addEventListener('click', calExitSimulation);
+calEl('cal-mode-sim').addEventListener('click', () => { calSimMode = true; calLoadRuns(); calRender(); });
+calEl('cal-simstart').addEventListener('click', async () => {
+  const source = calEl('cal-simsrc').value;
+  if (!source) return;
+  calSolveVersion = -1; calStep = 0; calResultKey = '';
+  calEl('cal-export-card').style.display = 'none';
+  await calCall('simulate', { source, ...calSettings() });
+  calLoadRuns();
+});
 calEl('cal-statusbar').addEventListener('click', e => {
   const b = e.target.closest('button');
   if (!b) return;
@@ -1739,9 +1816,47 @@ function calRenderSolve(sv) {
     : 'The calculation failed — see the solver log.';
   calVariants = sv.state === 'running' ? [] : (sv.variants || []).map(v => ({
     ...v, poses: v.ok ? v.poses.map(p => ({ id: p.id, pos: p.position, ...calQuatToPose(p.quat) })) : null }));
+  calRenderQuality(sv);
   const key = JSON.stringify([sv.state, sv.variants, calFactory]);
   if (key !== calVariantsKey) { calVariantsKey = key; calEl('cal-variants').innerHTML = calVariants.map(calVariantHtml).join(''); }
 }
+function calRenderQuality(sv) {
+  const q = sv.quality, btn = calEl('cal-evaluate'), box = calEl('cal-qreport');
+  btn.disabled = !sv.ok || sv.state === 'running' || (q && q.state === 'running');
+  btn.textContent = q && q.state === 'running' ? `Evaluating… ${q.progress}` : q && q.result ? 'Evaluate again' : 'Evaluate quality';
+  let html = '';
+  if (q && q.error) html = `<div class="cal-verdict bad">✘ Evaluation failed: ${calEsc(q.error)}</div>`;
+  else if (q && q.result) {
+    const r = q.result, rows = [], grades = [];
+    const row = (label, value, grade) => { grades.push(grade);
+      rows.push(`<tr><td>${label}</td><td>${value}</td><td class="st ${grade}">${calMark(grade)}</td></tr>`); };
+    const st = Object.entries(r.stations);
+    row('Station position spread', st.map(([b, v]) => `BS${b} ${v.position_spread_mm.toFixed(1)} mm`).join(' · '),
+      calGrade(Math.max(...st.map(([, v]) => v.position_spread_mm)), 10, 30));
+    row('Station tilt spread', st.map(([b, v]) => `BS${b} ±${v.tilt_deg.std.toFixed(2)}°`).join(' · '),
+      calGrade(Math.max(...st.map(([, v]) => v.tilt_deg.std)), 0.2, 0.5));
+    row('Baseline BS0–BS1', `${r.baseline_m.mean.toFixed(3)} m ± ${(r.baseline_m.std * 1000).toFixed(1)} mm`,
+      calGrade(r.baseline_m.std * 1000, 5, 15));
+    row('Error on unseen readings', `${r.holdout.median_mm.toFixed(1)} mm typical · ${r.holdout.p90_mm.toFixed(1)} mm (90%)`,
+      calGrade(r.holdout.median_mm, 5, 8));
+    row('Bad readings ignored', `${(100 * r.holdout.outlier_share).toFixed(1)} %`, calGrade(100 * r.holdout.outlier_share, 10, 30));
+    const worst = grades.includes('bad') ? 'bad' : grades.includes('warn') ? 'warn' : 'good';
+    const verdict = { good: '✔ Stable and consistent: the calibration explains readings it never saw to a few millimetres.',
+      warn: '! Usable, but some figures are borderline — a longer room recording usually helps.',
+      bad: '✘ Not reliable: the result changes too much with the data. Record the room again, longer and covering the whole volume.' }[worst];
+    html = `<div class="cal-verdict ${worst}">${verdict}</div><table class="cal-metrics">${rows.join('')}</table>` +
+      `<div class="hint">${r.solved}/${r.runs} recalculations on ${Math.round(r.fraction * 100)}% of ${r.snapshots} readings. ` +
+      `This shows how much the result depends on the room recording; mistakes in placing the marks are not included — use check points for that.</div>` +
+      `<label class="hint"><input type="checkbox" id="cal-qmap" checked> Colour the room recording by error in 3D</label>` +
+      `<div class="cal-legend">≤ 3 mm <i></i> ≥ 12 mm</div>`;
+  }
+  if (box.dataset.html !== html) {
+    const keep = calEl('cal-qmap') ? calEl('cal-qmap').checked : true;
+    box.innerHTML = html; box.dataset.html = html;
+    if (calEl('cal-qmap')) { calEl('cal-qmap').checked = keep; calEl('cal-qmap').addEventListener('change', calDraw3d); }
+  }
+}
+calEl('cal-evaluate').addEventListener('click', () => calCall('evaluate'));
 calEl('cal-variants').addEventListener('click', async e => {
   const apply = e.target.dataset.apply, exp = e.target.dataset.export;
   if (apply != null) {
@@ -1772,6 +1887,11 @@ async function calLoadRuns() {
     sel.innerHTML = '<option value="">— previous runs —</option>' + r.runs.slice().reverse().map(run =>
       `<option value="${calEsc(run.dir)}">${calEsc(run.name)}${run.solved ? ' ✔' : ''}</option>`).join('');
     sel.value = keep;
+    calRunsCache = r.runs;
+    const src = calEl('cal-simsrc'), keepSrc = src.value;
+    const sources = r.runs.filter(run => !run.name.startsWith('sim_')).reverse();
+    src.innerHTML = sources.map(run => `<option value="${calEsc(run.dir)}">${calEsc(run.name)}${run.solved ? ' ✔' : ''}</option>`).join('');
+    src.value = keepSrc || (sources.find(run => run.name === 'run_20261009_180300') || sources[0] || {}).dir || '';
     const ids = Object.keys(calFactory);
     calEl('cal-factory').textContent = ids.length ? ids.map(id => {
       const f = calFactory[id];
