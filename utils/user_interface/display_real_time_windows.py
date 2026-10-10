@@ -435,14 +435,17 @@ class CaptureManager:
         kind, complete, plausible = cap["step"], cap["complete"], cap["plausible"]
         ok = complete > 0 if kind == "sweep" else complete >= 10 and plausible >= 0.5 * complete
         message = f"{complete} snapshots with both stations, {plausible} plausible"
+        reason = None if ok else "no_data" if complete == 0 else "few" if complete < 10 else "implausible"
         if ok and kind != "sweep":
             cleaned = self._clean_static(cap["records"])
             if len(cleaned) < 0.7 * len(cap["records"]):
-                ok = False
+                ok, reason = False, "moving"
                 message += "; drone not still"
             cap["records"] = cleaned
+        # Structured fields let the page word the outcome; message stays for logs and older pages.
+        result = {"step": kind, "ok": ok, "reason": reason, "complete": complete, "plausible": plausible}
         if not ok:
-            self.last_result = {"step": kind, "ok": False, "message": f"Not usable: {message} (need >= 10, mostly "
+            self.last_result = {**result, "message": f"Not usable: {message} (need >= 10, mostly "
                                 "plausible, drone still). Check that both stations see all four sensors; retry."}
             return None
         if kind == "sweep":
@@ -463,7 +466,8 @@ class CaptureManager:
         if kind == "sweep" and plausible < 0.5 * complete:
             message += (" — WARNING: most snapshots are physically impossible for the sensor board;"
                         " the solver will reject them")
-        self.last_result = {"step": kind, "ok": True, "message": message}
+        self.last_result = {**result, "name": name, "total": self.sweep_count if kind == "sweep" else None,
+                            "message": message}
         return kind
 
     def _samples_changed(self, kind):

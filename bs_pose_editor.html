@@ -7,7 +7,8 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
   background: #181818; color: #ddd;
-  font-family: 'Courier New', monospace;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
   display: flex; flex-direction: column; height: 100vh; overflow: hidden;
 }
 #topbar {
@@ -15,12 +16,13 @@ body {
   padding: 0 10px; background: #1e1e1e; border-bottom: 1px solid #333; z-index: 20;
 }
 #topbar h1 { margin-right: 14px; white-space: nowrap; }
+button, input, select, textarea { font-family: inherit; }
 .tb-btn { white-space: nowrap; }
 @media (max-width: 1000px) { .tb-btn .lb { display: none; } .odo-row .val { font-size: 30px; min-width: 100px; } }
 .tb-btn {
   height: 34px; min-width: 38px; padding: 0 10px; display: flex; align-items: center; gap: 6px;
   background: transparent; border: 1px solid transparent; border-radius: 6px;
-  color: #bbb; font: 12px 'Courier New', monospace; cursor: pointer;
+  color: #c8c8c8; font-size: 13px; font-family: inherit; cursor: pointer;
 }
 .tb-btn .ic { font-size: 17px; line-height: 1; }
 .tb-btn:hover { background: #2a2a2a; color: #fff; }
@@ -38,13 +40,13 @@ body {
 #panel .sec { display: none; flex-direction: column; gap: 8px; }
 #panel .sec.show { display: flex; }
 .sec > .bs-card > .grp-lbl:first-child, #code-wrap > .grp-lbl:first-child { display: none; }
-.sec-title { font-size: 13px; color: #fff; letter-spacing: 1px; }
+.sec-title { font-size: 14px; color: #fff; letter-spacing: .5px; font-weight: 600; }
 #odo {
   position: absolute; top: 12px; right: 14px; z-index: 5; pointer-events: none;
   background: rgba(20,20,20,0.72); border: 1px solid #2c5968; border-radius: 8px;
   padding: 10px 16px; text-align: right;
 }
-#odo-title { font-size: 10px; letter-spacing: 2px; color: #688; }
+#odo-title { font-size: 11px; letter-spacing: 2px; color: #688; }
 .odo-row { display: flex; align-items: baseline; justify-content: flex-end; gap: 10px; font-variant-numeric: tabular-nums; }
 .odo-row .ax { font-size: 22px; font-weight: bold; width: 24px; }
 .odo-row .val { font-size: 44px; font-weight: bold; color: #fff; min-width: 150px; }
@@ -52,7 +54,7 @@ body {
 #ox .ax { color: #ff5555; } #oy .ax { color: #55ff55; } #oz .ax { color: #5588ff; }
 #odo #tracking-status { font-size: 11px; color: #8adcf0; margin-top: 4px; }
 h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
-.hint { font-size: 10px; color: #888; line-height: 1.5; }
+.hint { font-size: 12px; color: #9a9a9a; line-height: 1.5; }
 .bs-card {
   background: #252525; border: 1px solid #383838; border-radius: 5px;
   padding: 8px; display: flex; flex-direction: column; gap: 5px;
@@ -60,116 +62,150 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 .bs-head { display: flex; justify-content: space-between; align-items: center; }
 .bs-head input[type=text] {
   background: transparent; border: none; color: #fff; font-family: inherit;
-  font-size: 12px; font-weight: bold; width: 220px;
+  font-size: 13px; font-weight: 600; width: 220px;
 }
 .bs-swatch { width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; flex: none; }
 .row { display: flex; gap: 5px; align-items: center; }
-.row .lbl { font-size: 10px; color: #888; width: 14px; flex: none; }
+.row .lbl { font-size: 12px; color: #9a9a9a; width: 14px; flex: none; }
 .row input[type=number] {
   background: #141414; border: 1px solid #444; border-radius: 3px;
-  color: #fff; font-family: inherit; font-size: 11px; padding: 3px 4px; width: 100%;
+  color: #fff; font-family: inherit; font-size: 13px; padding: 4px 5px; width: 100%;
 }
-.grp-lbl { font-size: 9px; color: #666; letter-spacing: 1px; margin-top: 2px; }
+.grp-lbl { font-size: 11px; color: #8a8a8a; letter-spacing: .5px; margin-top: 2px; font-weight: 600; }
 .rm-btn {
   background: #3a1c1c; border: 1px solid #5a2c2c; color: #f48a8a;
-  border-radius: 3px; font-size: 10px; padding: 2px 7px; cursor: pointer;
+  border-radius: 3px; font-size: 12px; padding: 2px 8px; cursor: pointer;
 }
 .rm-btn:hover { background: #4a2222; }
 #add-btn, #copy-btn, #meas-btn {
   background: #1b3824; border: 1px solid #2d5a3c; color: #7adf9c;
-  border-radius: 4px; font-size: 11px; padding: 7px; cursor: pointer; text-align: center;
+  border-radius: 4px; font-size: 13px; padding: 8px; cursor: pointer; text-align: center;
 }
 #add-btn:hover, #copy-btn:hover, #meas-btn:hover { background: #23472e; }
 #meas-btn.active { background: #382d1b; border-color: #7a6a38; color: #dfc17a; }
 #coverage-btn, #apply-layout-btn {
   background: #18313a; border: 1px solid #2c5968; color: #8adcf0;
-  border-radius: 4px; font: inherit; font-size: 11px; padding: 7px; cursor: pointer; text-align: center;
+  border-radius: 4px; font: inherit; font-size: 13px; padding: 8px; cursor: pointer; text-align: center;
 }
 #coverage-btn:hover, #apply-layout-btn:hover:not(:disabled) { background: #214653; }
 #apply-layout-btn:disabled { opacity: 0.4; cursor: default; }
-#coverage-info { font-size: 10px; color: #a9c9d0; line-height: 1.5; white-space: pre-line; }
+#coverage-info { font-size: 12px; color: #a9c9d0; line-height: 1.5; white-space: pre-line; }
 #tracking-card input, #tracking-card select {
   min-width: 0; flex: 1; background: #141414; border: 1px solid #444;
-  border-radius: 3px; color: #fff; font: 11px 'Courier New', monospace; padding: 4px;
+  border-radius: 3px; color: #fff; font: 13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 4px;
 }
 #tracking-card button {
   background: #18313a; border: 1px solid #2c5968; color: #8adcf0;
-  border-radius: 4px; font: 11px 'Courier New', monospace; padding: 7px; cursor: pointer;
+  border-radius: 4px; font: 13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 7px; cursor: pointer;
 }
 #tracking-card button.active { background: #382d1b; border-color: #7a6a38; color: #dfc17a; }
-#tracking-status { font-size: 10px; color: #888; }
-#tracking-position { font-size: 10px; color: #8adcf0; font-variant-numeric: tabular-nums; }
+#tracking-status { font-size: 12px; color: #9a9a9a; }
+#tracking-position { font-size: 12px; color: #8adcf0; font-variant-numeric: tabular-nums; }
 #tracking-card .tracking-field { width: 68px; flex: none; }
 #meas-info { font-size: 11px; color: #dfc17a; background: #252218; border: 1px solid #3d3520; padding: 5px; border-radius: 3px; display: none; }
 #code-wrap { flex: none; display: flex; flex-direction: column; gap: 4px; }
 #code-out {
   background: #121212; border: 1px solid #2a2a2a; border-radius: 3px;
-  color: #9ffd90; font-family: inherit; font-size: 10px; padding: 6px;
+  color: #9ffd90; font-family: ui-monospace, Consolas, 'Courier New', monospace; font-size: 11px; padding: 6px;
   width: 100%; height: 200px; resize: vertical; white-space: pre; overflow: auto;
 }
-#warn { font-size: 10px; color: #e4b960; display: none; }
-#sec-calib input[type=text], #sec-calib select {
-  min-width: 0; flex: 1; background: #141414; border: 1px solid #444;
-  border-radius: 3px; color: #fff; font: 11px 'Courier New', monospace; padding: 4px;
+#warn { font-size: 12px; color: #e4b960; display: none; }
+#sec-calib input[type=text], #sec-calib input[type=number], #sec-calib select {
+  min-width: 0; flex: 1; background: #141414; border: 1px solid #484848;
+  border-radius: 4px; color: #fff; font-size: 13px; padding: 5px 6px;
 }
 #sec-calib button {
-  background: #18313a; border: 1px solid #2c5968; color: #8adcf0;
-  border-radius: 4px; font: 11px 'Courier New', monospace; padding: 7px; cursor: pointer;
+  background: #1d3742; border: 1px solid #2f6577; color: #a6e4f5;
+  border-radius: 5px; font-size: 13px; padding: 8px 10px; cursor: pointer;
 }
-#sec-calib button:hover:not(:disabled) { background: #214653; }
-#sec-calib button:disabled { opacity: 0.4; cursor: default; }
-#cal-export {
-  background: #121212; border: 1px solid #2a2a2a; border-radius: 3px; color: #9ffd90;
-  font: 10px 'Courier New', monospace; padding: 6px; width: 100%; resize: vertical; white-space: pre; overflow: auto;
+#sec-calib button:hover:not(:disabled) { background: #24485a; }
+#sec-calib button:disabled { opacity: 0.45; cursor: default; }
+#sec-calib .bs-card { gap: 8px; padding: 10px; }
+#panel[data-sec=calib] { width: 440px; max-width: calc(100% - 16px); }
+#cal-export, .cal-log {
+  background: #121212; border: 1px solid #2a2a2a; border-radius: 4px; color: #b5d6c0;
+  font: 11px/1.45 ui-monospace, Consolas, 'Courier New', monospace; padding: 6px; width: 100%;
+  white-space: pre; overflow: auto; max-height: 220px; margin: 4px 0 0;
 }
-.cal-variant { border-top: 1px solid #383838; padding-top: 6px; margin-top: 4px; display: flex; flex-direction: column; gap: 5px; }
-.cal-variant .vname { font-size: 11px; color: #fff; font-weight: bold; }
-.cal-metrics { border-collapse: collapse; font-size: 10px; width: 100%; font-variant-numeric: tabular-nums; }
-.cal-metrics td { padding: 1px 4px 1px 0; color: #ccc; vertical-align: top; }
-.cal-metrics td:first-child { color: #888; white-space: nowrap; }
-.cal-metrics td.st { width: 12px; text-align: center; }
-.cal-metrics .good { color: #5adf7a; } .cal-metrics .warn { color: #e4b960; } .cal-metrics .bad { color: #f48a8a; }
-.cal-btns { display: flex; gap: 5px; } .cal-btns button { flex: 1; }
-#panel[data-sec=calib] { width: 430px; max-width: calc(100% - 16px); }
-.cal-top { display: flex; gap: 6px; flex-wrap: wrap; }
-.cal-top > .bs-card { flex: 1 1 170px; }
-.cal-kv { display: flex; gap: 6px; font-size: 11px; color: #888; }
-.cal-kv b { color: #ddd; font-weight: normal; font-variant-numeric: tabular-nums; }
-#cal-bsgrid { border-collapse: separate; border-spacing: 2px; font-size: 10px; color: #aaa; }
-#cal-bsgrid th { font-weight: normal; color: #ccc; }
-#cal-bsgrid td.c { width: 26px; height: 15px; border-radius: 2px; background: #6a3434; }
-#cal-bsgrid td.c.on { background: #3f9a57; }
+#cal-export { resize: vertical; color: #9ffd90; }
+/* connection + stations */
+.cal-connrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ddd; }
+.cal-dot { width: 10px; height: 10px; border-radius: 50%; background: #777; flex: none; }
+.cal-dot.good { background: #4fcf6f; box-shadow: 0 0 6px #4fcf6f; } .cal-dot.warn { background: #e8b84a; } .cal-dot.bad { background: #e05252; }
+#cal-linktext { flex: 1; }
+#sec-calib .cal-link-btn { background: transparent; border-color: #444; color: #bbb; padding: 3px 8px; font-size: 12px; }
+#cal-stations { display: flex; flex-direction: column; gap: 4px; }
+.cal-bs { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.cal-bs b { width: 34px; color: #fff; font-weight: 600; }
+.cal-pill { padding: 2px 8px; border-radius: 10px; background: #2e2e2e; color: #8a8a8a; font-size: 11.5px; white-space: nowrap; }
+.cal-pill.on { background: #1f4a2c; color: #8fe0a5; }
+/* wizard */
 .cal-wizard { border: 2px solid #2f8ee0 !important; border-radius: 10px !important; }
-#cal-instr { font-size: 12px; color: #eee; line-height: 1.45; min-height: 52px; }
-#cal-illus { background: #1c1c1c; border: 1px solid #333; border-radius: 4px; }
+#cal-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; position: relative; }
+#cal-tiles::before { content: ''; position: absolute; left: 10%; right: 10%; top: 15px; height: 2px; background: #3a3a3a; }
+#sec-calib .cal-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 0 0 4px; border: none; background: transparent; color: #aaa; font-size: 12px; line-height: 1.2; border-radius: 6px; }
+#sec-calib .cal-tile:hover { background: #262626; }
+.cal-tile .num { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: #2b2b2b; border: 2px solid #555; color: #ccc; font-weight: 700; font-size: 14px; }
+.cal-tile.done .num { background: #245c35; border-color: #4fcf6f; color: #fff; }
+.cal-tile.sel .num { border-color: #2f8ee0; box-shadow: 0 0 0 3px rgba(47,142,224,.35); }
+.cal-tile.sel .tl { color: #fff; font-weight: 600; }
+.cal-tile .sub { font-size: 11px; color: #7f7f7f; }
+.cal-tile.done .sub { color: #8fe0a5; }
+.cal-stephead { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; }
+#cal-stepno { font-size: 12px; color: #6fb5ee; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+#cal-steptitle { font-size: 16px; color: #fff; font-weight: 600; }
+#cal-instr { font-size: 13.5px; color: #e4e4e4; line-height: 1.5; }
+#cal-instr ul { margin: 4px 0 0 18px; padding: 0; } #cal-instr li { margin: 2px 0; }
+#cal-illus { background: #1c1c1c; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
 #cal-illus svg { display: block; width: 100%; height: auto; }
-#cal-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
-.cal-tile { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px;
-  padding: 5px 2px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; text-align: center;
-  font-size: 10px; color: #ccc; background: transparent; }
-.cal-tile:hover { background: #2c2c2c; }
-.cal-tile.sel { border-color: #8a8a8a; background: #2f2f2f; }
-.cal-tile .ic { font-size: 22px; line-height: 26px; height: 26px; color: #e04848; font-weight: bold; }
-.cal-tile .ic.ok { color: #4fcf6f; } .cal-tile .ic.n { font-size: 12px; color: #ddd; font-weight: normal; }
-.cal-nav { display: flex; gap: 6px; } .cal-nav button { padding: 10px 0 !important; }
-.cal-nav #cal-prev, .cal-nav #cal-next { flex: 0 0 52px; } .cal-nav #cal-measure { flex: 1; }
-#cal-measure.rec { background: #4a1f1f !important; border-color: #8a3a3a !important; color: #ffb0b0 !important; }
-#cal-progress { height: 4px; background: #222; border-radius: 2px; overflow: hidden; visibility: hidden; }
+#sec-calib .cal-primary { font-size: 15px; font-weight: 600; padding: 12px; background: #1f6fb8; border-color: #3a8fd8; color: #fff; }
+#sec-calib .cal-primary:hover:not(:disabled) { background: #2a7fcc; }
+#sec-calib .cal-primary.rec { background: #a83232; border-color: #d05050; }
+#cal-progress { height: 6px; background: #2a2a2a; border-radius: 3px; overflow: hidden; display: none; }
 #cal-progress > div { height: 100%; width: 0; background: #2f8ee0; transition: width .4s linear; }
-#cal-result { font-size: 10px; color: #a9c9d0; line-height: 1.4; min-height: 14px; }
-#cal-statusbar { align-self: flex-start; font-size: 11px; padding: 2px 6px; border-radius: 2px; }
-#cal-statusbar.bad { background: #f2a0a0; color: #311; } #cal-statusbar.warn { background: #e8cf7a; color: #321; }
-#cal-statusbar.good { background: #8fd8a0; color: #132; } #cal-statusbar.info { background: #8ec5ef; color: #123; }
-#cal-details { display: flex; flex-direction: column; gap: 2px; max-height: 180px; overflow-y: auto; }
-.cal-srow { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #ccc; font-variant-numeric: tabular-nums; }
-.cal-srow .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
-.cal-srow .nm { width: 74px; flex: none; color: #fff; } .cal-srow .info { flex: 1; color: #9ab; }
-.cal-srow button { padding: 1px 6px !important; font-size: 10px !important; }
-#sec-calib details > summary { font-size: 10px; color: #aaa; letter-spacing: 1px; cursor: pointer; }
-#sec-calib details[open] > summary { margin-bottom: 4px; }
+#cal-feedback { font-size: 13px; line-height: 1.45; border-radius: 6px; padding: 8px 10px; display: none; }
+#cal-feedback.good { display: block; background: #193524; border: 1px solid #2f6a43; color: #b6ecc5; }
+#cal-feedback.bad { display: block; background: #3a1c1c; border: 1px solid #7a3434; color: #ffc4c4; }
+#cal-feedback.warn { display: block; background: #3a321a; border: 1px solid #7a6530; color: #f3dc9a; }
+#cal-feedback.info { display: block; background: #182c3c; border: 1px solid #2f5a7a; color: #b8dcf6; }
+.cal-nav { display: flex; justify-content: space-between; }
+#sec-calib .cal-nav button { background: transparent; border-color: #444; color: #bbb; padding: 6px 12px; }
+/* status banner */
+#cal-statusbar { border-radius: 8px; padding: 10px 12px; font-size: 13.5px; line-height: 1.4; display: flex; gap: 8px; align-items: center; }
+#cal-statusbar .ic { font-size: 18px; } #cal-statusbar .tx { flex: 1; }
+#cal-statusbar.bad { background: #3a1c1c; color: #ffc4c4; border: 1px solid #7a3434; }
+#cal-statusbar.warn { background: #3a321a; color: #f3dc9a; border: 1px solid #7a6530; }
+#cal-statusbar.good { background: #193524; color: #b6ecc5; border: 1px solid #2f6a43; }
+#cal-statusbar.info { background: #182c3c; color: #b8dcf6; border: 1px solid #2f5a7a; }
+#cal-statusbar.idle { background: #262626; color: #cfcfcf; border: 1px solid #3a3a3a; }
+#sec-calib #cal-statusbar button { padding: 4px 10px; font-size: 12px; }
+/* collapsibles, fields, lists */
+#sec-calib details > summary { font-size: 13px; color: #ddd; font-weight: 600; cursor: pointer; }
+#sec-calib details details > summary { font-weight: normal; }
+.cal-field { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #aaa; }
+.cal-field label { width: 132px; flex: none; } .cal-field span { width: 14px; color: #777; }
+.cal-kv { display: flex; justify-content: space-between; gap: 6px; font-size: 12.5px; color: #9a9a9a; }
+.cal-kv b { color: #eee; font-weight: normal; font-variant-numeric: tabular-nums; }
+#cal-details { display: flex; flex-direction: column; gap: 3px; max-height: 220px; overflow-y: auto; }
+.cal-srow { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #ccc; font-variant-numeric: tabular-nums; }
+.cal-srow .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.cal-srow .nm { width: 78px; flex: none; color: #fff; } .cal-srow .info { flex: 1; color: #a5b5c0; }
+#sec-calib .cal-srow button { padding: 1px 7px; font-size: 11px; background: transparent; border-color: #4a4a4a; color: #aaa; }
+#sec-calib .cal-danger { background: #3a1c1c; border-color: #7a3434; color: #ffb0b0; }
+.cal-btns { display: flex; gap: 6px; } .cal-btns button { flex: 1; }
+.cal-variant { border-top: 1px solid #383838; padding-top: 8px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+.cal-variant .vname { font-size: 13px; color: #fff; font-weight: 600; }
+.cal-metrics { border-collapse: collapse; font-size: 12px; width: 100%; font-variant-numeric: tabular-nums; }
+.cal-metrics td { padding: 2px 6px 2px 0; color: #ddd; vertical-align: top; }
+.cal-metrics td:first-child { color: #999; white-space: nowrap; }
+.cal-metrics td.st { width: 14px; text-align: center; font-weight: 700; }
+.cal-metrics .good { color: #5adf7a; } .cal-metrics .warn { color: #e4b960; } .cal-metrics .bad { color: #f48a8a; }
+
 #scene-container { position: absolute; inset: 0; background: #161616; }
 #scene-container canvas { display: block; }
-.label3d { font-size: 12px; font-family: monospace; font-weight: bold; pointer-events: none; user-select: none; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+.label3d { font-size: 12px; font-family: system-ui, 'Segoe UI', sans-serif; font-weight: bold; pointer-events: none; user-select: none; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
 </style>
 </head>
 <body>
@@ -196,26 +232,26 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     <div id="tracking-card" class="bs-card">
     <div class="grp-lbl">DRONE · MAVLINK ODOMETRY</div>
     <div class="row">
-      <div class="lbl" style="width:38px;">Link</div>
+      <div class="lbl" style="width:62px;">Link</div>
       <select id="track-mode">
-        <option value="udp">UDP relay</option>
-        <option value="db">DroneBridge WS</option>
+        <option value="udp">UDP via bridge (Wi-Fi)</option>
+        <option value="db">DroneBridge WebSocket</option>
       </select>
     </div>
-    <div class="row" id="relay-row">
-      <div class="lbl" style="width:38px;">Relay</div>
+    <div class="row">
+      <div class="lbl" style="width:62px;">Drone IP</div>
+      <input id="track-host" type="text" value="192.168.4.1" spellcheck="false">
+      <div class="lbl" style="width:32px;">Port</div>
+      <input id="track-port" class="tracking-field" type="number" value="14550" min="1" max="65535">
+    </div>
+    <div class="row" id="relay-row" title="display_real_time_windows.py on this PC (avvia.bat). Also used by the Calib tab.">
+      <div class="lbl" style="width:62px;">Bridge</div>
       <input id="relay-url" type="text" autocomplete="off" value="http://127.0.0.1:8051/api/odometry" spellcheck="false">
     </div>
     <div class="row">
-      <div class="lbl" style="width:38px;">IP</div>
-      <input id="track-host" type="text" value="192.168.4.1" spellcheck="false">
-      <div class="lbl" style="width:22px;">Port</div>
-      <input id="track-port" class="tracking-field" type="number" value="14550" min="1" max="65535">
+      <button id="track-connect-btn" type="button" style="flex:1;">Connect</button>
     </div>
-    <div class="row">
-      <button id="track-connect-btn" type="button">Connect</button>
-      
-    </div>
+    <div class="hint">One connection for the whole editor: the Calib tab uses the same drone IP and bridge.</div>
   </div>
   </div>
   <div class="sec" id="sec-bs">
@@ -247,7 +283,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     <div class="row">
       <div class="lbl" style="width:38px;">Opacity</div>
       <input id="rm-opacity" type="range" min="0" max="0.6" step="0.02" value="0.18" style="flex:1">
-      <label style="font-size:10px;color:#888;"><input id="rm-show" type="checkbox" checked> show</label>
+      <label style="font-size:12px;color:#9a9a9a;"><input id="rm-show" type="checkbox" checked> show</label>
     </div>
   </div>
   </div>
@@ -312,60 +348,40 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   </div>
   </div>
   <div class="sec" id="sec-calib">
-    <div class="sec-title">LIGHTHOUSE AUTO-CALIBRATION</div>
-    <div class="cal-top">
-      <div class="bs-card cal-cfstatus">
-        <div class="grp-lbl" style="display:block;">DRONE STATUS</div>
-        <div class="cal-kv"><span>Status:</span><b id="cal-cfstate">—</b></div>
-        <div class="cal-kv"><span>Position:</span><b id="cal-cfpos">—</b></div>
+    <div class="sec-title">LIGHTHOUSE CALIBRATION</div>
+
+    <div class="bs-card cal-conn">
+      <div class="cal-connrow">
+        <span class="cal-dot" id="cal-linkdot"></span>
+        <span id="cal-linktext">Checking the bridge…</span>
+        <button id="cal-conn-edit" class="cal-link-btn" title="The connection is set in the Drone tab">Drone tab ›</button>
       </div>
-      <div class="bs-card cal-bsstatus">
-        <div class="grp-lbl" style="display:block;" title="Receiving: all four sensors seen in the last second. Calibration: factory (OOTX) data decoded in lh2_factory_calibration.json. Geometry: pose solved in this session.">BASE STATION STATUS ⓘ</div>
-        <table id="cal-bsgrid"></table>
-      </div>
+      <div id="cal-stations"></div>
     </div>
-    <div id="cal-link" class="hint">Link: —</div>
 
     <div class="bs-card cal-wizard">
-      <div class="grp-lbl" style="display:block;">SAMPLE COLLECTION</div>
+      <div id="cal-tiles"></div>
+      <div class="cal-stephead"><span id="cal-stepno"></span><span id="cal-steptitle"></span></div>
       <div id="cal-instr"></div>
       <div id="cal-illus"></div>
-      <div id="cal-tiles"></div>
-      <div class="cal-nav">
-        <button id="cal-prev" title="Previous step">&lt;</button>
-        <button id="cal-measure">Start measurement</button>
-        <button id="cal-next" title="Next step">&gt;</button>
-      </div>
+      <button id="cal-measure" class="cal-primary">Start</button>
       <div id="cal-progress"><div></div></div>
-      <div id="cal-result"></div>
-      <div id="cal-statusbar"></div>
+      <div id="cal-feedback"></div>
+      <div class="cal-nav">
+        <button id="cal-prev">← Back</button>
+        <button id="cal-next">Next →</button>
+      </div>
     </div>
 
-    <div class="bs-card">
-      <div class="grp-lbl" style="display:block;">SAMPLE MANAGEMENT</div>
-      <div class="row" style="font-size:11px;color:#aaa;">Sample details:
-        <label><input type="radio" name="cal-det" value="show"> Show</label>
-        <label><input type="radio" name="cal-det" value="hide" checked> Hide</label>
-        <label style="margin-left:auto;" title="Draw the samples and the solved stations in the 3D view"><input type="checkbox" id="cal-show3d" checked> 3D</label>
-      </div>
-      <div id="cal-details" style="display:none;"></div>
-      <div class="cal-kv"><span>Max estimation sample error:</span><b id="cal-esterr">--</b></div>
-      <div class="cal-kv"><span>Max verification sample error:</span><b id="cal-vererr">--</b></div>
-      <div class="cal-btns">
-        <button id="cal-clear">Clear all samples</button>
-        <button id="cal-import">Import samples</button>
-        <button id="cal-exportsamples">Export samples</button>
-      </div>
-      <input type="file" id="cal-importfile" accept=".json,application/json" hidden>
-    </div>
+    <div id="cal-statusbar"></div>
 
     <details class="bs-card" id="cal-results-card">
-      <summary>GEOMETRY RESULT</summary>
-      <div id="cal-state" style="font-size:11px;color:#fff;"></div>
+      <summary>Result</summary>
+      <div id="cal-state" class="hint"></div>
       <div id="cal-variants"></div>
-      <button id="cal-resolve">Solve now</button>
-      <details><summary class="hint" style="cursor:pointer;">Solver log</summary>
-        <pre id="cal-log" style="font-size:9px;color:#9ab;max-height:220px;overflow:auto;margin:4px 0 0;"></pre></details>
+      <button id="cal-resolve">Calculate again</button>
+      <details><summary class="hint">Solver log</summary>
+        <pre id="cal-log" class="cal-log"></pre></details>
     </details>
     <div class="bs-card" id="cal-export-card" style="display:none;">
       <div class="grp-lbl" style="display:block;">bs_poses_cal.h — calibrate_export.py</div>
@@ -374,36 +390,47 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <button id="cal-export-copy">Copy</button>
     </div>
 
+    <details class="bs-card" id="cal-manage">
+      <summary>Samples <span id="cal-samplecount" class="hint"></span></summary>
+      <div id="cal-details"></div>
+      <div class="cal-kv"><span>Largest estimation error</span><b id="cal-esterr">--</b></div>
+      <div class="cal-kv"><span>Largest verification error</span><b id="cal-vererr">--</b></div>
+      <label class="hint"><input type="checkbox" id="cal-show3d" checked> Show samples and solved stations in 3D</label>
+      <div class="cal-btns">
+        <button id="cal-import">Import…</button>
+        <button id="cal-exportsamples">Export</button>
+        <button id="cal-clear" class="cal-danger">Clear all</button>
+      </div>
+      <input type="file" id="cal-importfile" accept=".json,application/json" hidden>
+    </details>
+
     <details class="bs-card" id="cal-settings">
-      <summary>SETTINGS &amp; SESSIONS</summary>
-      <div class="row"><div class="lbl" style="width:38px;">IP</div>
-        <input id="cal-host" type="text" value="192.168.4.1" spellcheck="false">
-        <div class="lbl" style="width:22px;">Port</div>
-        <input id="cal-port" type="number" value="14555"></div>
-      <div class="row"><div class="lbl" style="width:72px;">X-axis dist</div>
-        <input id="cal-xdist" type="number" step="0.1" value="1.0">
-        <div class="lbl" style="width:60px;">Static secs</div>
-        <input id="cal-secs" type="number" step="1" min="1" value="5"></div>
-      <div class="row"><div class="lbl" style="width:72px;">Tape BS0-BS1</div>
-        <input id="cal-baseline" type="number" step="0.01" value="2.26">
-        <div class="lbl" style="width:60px;" title="Height of the sensor board above the floor while on the marks: Z = 0 becomes the floor">Board h</div>
-        <input id="cal-bh" type="number" step="0.01" value="0"></div>
-      <div class="row"><div class="lbl" style="width:72px;" title="Re-convert the recorded angles before solving. Only for sessions recorded with the old fitted CAL_BS* firmware; current firmware already applies the period + factory model.">Angles</div>
+      <summary>Settings &amp; previous runs</summary>
+      <div class="cal-field"><label for="cal-xdist">X-axis mark distance</label>
+        <input id="cal-xdist" type="number" step="0.1" value="1.0"><span>m</span></div>
+      <div class="cal-field"><label for="cal-baseline" title="Tape-measured distance between the two base stations, used as a check">Tape BS0 – BS1</label>
+        <input id="cal-baseline" type="number" step="0.01" value="2.26"><span>m</span></div>
+      <div class="cal-field"><label for="cal-bh" title="Height of the sensor board above the floor while on the marks: Z = 0 becomes the floor">Board height</label>
+        <input id="cal-bh" type="number" step="0.01" value="0"><span>m</span></div>
+      <div class="cal-field"><label for="cal-secs">Static measurement</label>
+        <input id="cal-secs" type="number" step="1" min="1" value="5"><span>s</span></div>
+      <div class="cal-field"><label for="cal-reconvert" title="Only for sessions recorded with the old fitted CAL_BS* firmware; current firmware already applies the period + factory model.">Angles</label>
         <select id="cal-reconvert">
-          <option value="">As recorded (firmware)</option>
-          <option value="factory">+ re-convert: factory</option>
-          <option value="period">+ re-convert: period</option>
+          <option value="">As recorded (current firmware)</option>
+          <option value="factory">Re-convert: factory (old firmware)</option>
+          <option value="period">Re-convert: period (old firmware)</option>
         </select></div>
-      <label class="hint"><input type="checkbox" id="cal-auto" checked> Solve automatically when there are enough samples</label>
-      <div class="row"><div class="lbl" style="width:38px;">Dir</div>
-        <input id="cal-dir" type="text" placeholder="auto: calib_runs/run_&lt;date&gt;" spellcheck="false"></div>
-      <button id="cal-new">New session</button>
-      <div class="row"><div class="lbl" style="width:38px;">Run</div>
-        <select id="cal-runs"><option value="">— previous runs —</option></select></div>
-      <button id="cal-open">Open run</button>
+      <label class="hint"><input type="checkbox" id="cal-auto" checked> Calculate automatically when there are enough samples</label>
+      <div class="grp-lbl" style="display:block;margin-top:6px;">SESSION</div>
       <div id="cal-session" class="hint"></div>
+      <div class="cal-field"><label for="cal-dir">New folder</label>
+        <input id="cal-dir" type="text" placeholder="calib_runs/run_&lt;date&gt;" spellcheck="false"></div>
+      <button id="cal-new">Start a new session</button>
+      <div class="cal-field"><label for="cal-runs">Previous run</label>
+        <select id="cal-runs"><option value="">— choose —</option></select></div>
+      <button id="cal-open">Open run</button>
       <div class="grp-lbl" style="display:block;margin-top:6px;">FACTORY CALIBRATION (OOTX)</div>
-      <div id="cal-factory" style="font-size:10px;color:#a9c9d0;line-height:1.6;white-space:pre;overflow-x:auto;">—</div>
+      <div id="cal-factory" class="cal-log" style="max-height:none;">—</div>
     </details>
   </div>
   <div class="sec" id="sec-help">
@@ -732,9 +759,7 @@ const relayRow = document.getElementById('relay-row');
 const trackConnectButton = document.getElementById('track-connect-btn');
 const trackingStatus = document.getElementById('tracking-status');
 
-trackMode.addEventListener('change', () => {
-  relayRow.style.display = trackMode.value === 'udp' ? '' : 'none';
-});
+
 
 function disconnectTracking() {
   if (trackingSocket) {
@@ -1301,12 +1326,14 @@ function animate() {
 animate();
 
 // ─── Auto-calibration: Bitcraze-style wizard (drives the bridge /api/lh2/*) ───
+// One connection for the whole editor: the bridge URL and drone IP come from the Drone tab.
 const calEl = id => document.getElementById(id);
+const ESP_GCS_PORT = 14555;  // MavESP8266 / DroneBridge learn the GCS address from heartbeats sent here
 function calApi(action, params = {}, body) {
   const base = new URL(document.getElementById('relay-url').value.trim());
   const url = new URL('/api/lh2/' + action, base.origin);
-  url.searchParams.set('host', calEl('cal-host').value.trim());
-  url.searchParams.set('port', calEl('cal-port').value);
+  const host = document.getElementById('track-host').value.trim();
+  if (host) { url.searchParams.set('host', host); url.searchParams.set('port', ESP_GCS_PORT); }
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   return fetch(url, { method: 'POST', body }).then(async r => {
     const data = await r.json().catch(() => ({ error: r.statusText }));
@@ -1320,23 +1347,29 @@ const calSettings = () => ({
   reconvert: calEl('cal-reconvert').value, auto_solve: calEl('cal-auto').checked ? 1 : 0 });
 
 const CAL_STEPS = [
-  { kind: 'origin',   label: 'Origin<br>sample',          color: 0xff5555 },
-  { kind: 'x_axis',   label: 'X-axis<br>sample',          color: 0x55ee66 },
-  { kind: 'xy_plane', label: 'XY-plane<br>samples',       color: 0x55a0ff },
-  { kind: 'sweep',    label: 'XYZ-space<br>samples',      color: 0x9a9a9a },
-  { kind: 'verify',   label: 'Verification samples (optional)', color: 0xffcc44 },
+  { kind: 'origin',   short: 'Origin',  title: 'Origin',               color: 0xff5555 },
+  { kind: 'x_axis',   short: 'X axis',  title: 'X axis',               color: 0x55ee66 },
+  { kind: 'xy_plane', short: 'Floor',   title: 'Floor points',         color: 0x55a0ff },
+  { kind: 'sweep',    short: 'Volume',  title: 'Move through the room', color: 0x9a9a9a },
+  { kind: 'verify',   short: 'Check',   title: 'Check the accuracy',   color: 0xffcc44 },
 ];
 const CAL_KIND_COLOR = Object.fromEntries(CAL_STEPS.map(s => [s.kind, s.color]));
-let calStep = 0, calStatus = null, calSolve = null, calSolveVersion = -1, calResultKey = '';
+let calStep = 0, calStatus = null, calSolve = null, calSolveVersion = -1, calResultKey = '', calBridgeError = '';
 
 function calInstr(kind) {
-  const d = (+calEl('cal-xdist').value || 1).toFixed(2);
+  const d = (+calEl('cal-xdist').value || 1).toFixed(2), secs = +calEl('cal-secs').value || 5;
   return {
-    origin: 'Place the drone flat on the floor where you want the <b>origin</b> of your coordinate system to be — the centre of the four sensors on the mark — and start the measurement. Keep it still.',
-    x_axis: `Place the drone flat on the floor on the <b>positive X axis</b>, exactly <b>${d} m</b> from the origin, and start the measurement.`,
-    xy_plane: 'Place the drone flat on the floor at <b>other spots</b>, away from the X axis, to define the floor plane (Z = 0). Each measurement adds one sample — take 3 or more, spread out.',
-    sweep: 'Pick the drone up, start the measurement and move it slowly through the <b>whole flight volume</b>: low / middle / high, tilted up to ~30°, many headings, all four sensors visible to both stations. Stop after 1–3 minutes; you can add more later.',
-    verify: '<i>Optional.</i> Place the drone at spots you can check (e.g. marked points) and measure. These samples are <b>not used by the solver</b>: their board-fit error is the verification error, their position is shown in the 3D view.',
+    origin: `Put the drone <b>flat on the floor</b> with the centre of its sensors on the <b>origin mark</b>.
+      <ul><li>Press <b>Start</b> and don't touch it for ${secs} s.</li><li>This point becomes (0, 0, 0).</li></ul>`,
+    x_axis: `Put the drone flat on the floor on the <b>+X mark, exactly ${d} m</b> from the origin.
+      <ul><li>Press <b>Start</b> and don't touch it for ${secs} s.</li><li>This sets the direction of X and the scale.</li></ul>`,
+    xy_plane: `Put the drone flat on the floor at <b>another spot</b>, away from the X axis, and press <b>Add point</b>.
+      <ul><li>Do it for <b>3 or more</b> spots, spread out.</li><li>They define the floor (Z = 0).</li></ul>`,
+    sweep: `Pick the drone up, press <b>Start</b> and walk it <b>slowly through the whole flight space</b>.
+      <ul><li>Low, middle and high; tilted a bit; turning it around.</li><li>Keep the sensors visible to both stations.</li>
+      <li>Press <b>Stop</b> after 1–3 minutes. You can add more later.</li></ul>`,
+    verify: `Optional: put the drone on spots you can check (e.g. marked points) and press <b>Add check</b>.
+      <ul><li>These are <b>not used</b> for the calibration.</li><li>They show how accurate the result is.</li></ul>`,
   }[kind];
 }
 
@@ -1349,7 +1382,7 @@ function calIllus(kind) {
       <rect x="-7" y="-5" width="14" height="9" rx="2" fill="#ccd"/><line x1="0" y1="4" x2="0" y2="12" stroke="#ccd" stroke-width="2" stroke-dasharray="2 2"/></g>`;
   const station = (x, lbl) => `<g transform="translate(${x},8)"><rect x="-11" y="0" width="22" height="16" rx="4" fill="#3a3a3a" stroke="#777"/>
       <circle cx="0" cy="8" r="4" fill="#111" stroke="#8adcf0"/><text x="0" y="30" fill="#777" font-size="9" text-anchor="middle">${lbl}</text></g>`;
-  const label = (x, y, t, c = '#bbb') => `<text x="${x}" y="${y}" fill="${c}" font-size="11" text-anchor="middle" font-family="Courier New, monospace">${t}</text>`;
+  const label = (x, y, t, c = '#bbb') => `<text x="${x}" y="${y}" fill="${c}" font-size="11" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif">${t}</text>`;
   const floor = `<polygon points="10,165 390,165 335,70 65,70" fill="#262626" stroke="#3a3a3a"/>` +
     [0.25, 0.5, 0.75].map(f => `<line x1="${10 + 380 * f}" y1="165" x2="${65 + 270 * f}" y2="70" stroke="#303030"/>`).join('') +
     [100, 130].map(y => { const t = (165 - y) / 95; return `<line x1="${10 + 55 * t}" y1="${y}" x2="${390 - 55 * t}" y2="${y}" stroke="#303030"/>`; }).join('');
@@ -1366,72 +1399,124 @@ function calIllus(kind) {
   return `<svg viewBox="0 0 400 170" xmlns="http://www.w3.org/2000/svg">${defs}${floor}${station(70, 'BS0')}${station(330, 'BS1')}${body}</svg>`;
 }
 
-function calTileIcon(kind, s) {
+function calStepState(kind, s) {
   const sm = s && s.samples;
-  if (!sm) return '<span class="ic">✘</span>';
-  if (kind === 'origin' || kind === 'x_axis') return sm[kind] ? '<span class="ic ok">✔</span>' : '<span class="ic">✘</span>';
-  if (kind === 'xy_plane') return sm.xy_plane.length ? `<span class="ic n ok">✔ (${sm.xy_plane.length})</span>` : '<span class="ic">✘</span>';
-  if (kind === 'sweep') return `<span class="ic n${sm.sweep >= sm.sweep_min ? ' ok' : ''}">(${sm.sweep})</span>`;
-  return `<span class="ic n">(${sm.verify.length})</span>`;
+  if (!sm) return { done: false, sub: '' };
+  if (kind === 'origin' || kind === 'x_axis') return { done: sm[kind], sub: sm[kind] ? 'done' : 'to do' };
+  if (kind === 'xy_plane') return { done: sm.xy_plane.length >= 1, sub: sm.xy_plane.length ? `${sm.xy_plane.length} point${sm.xy_plane.length > 1 ? 's' : ''}` : 'to do' };
+  if (kind === 'sweep') return { done: sm.sweep >= sm.sweep_min, sub: sm.sweep ? `${sm.sweep} readings` : 'to do' };
+  return { done: sm.verify.length > 0, sub: sm.verify.length ? `${sm.verify.length} checks` : 'optional' };
+}
+
+// Plain-language outcome of the last measurement.
+function calFeedbackText(lr, s) {
+  if (lr.complete === undefined)  // delete / clear: no measurement behind it
+    return ['info', lr.step === 'clear' ? 'All samples moved aside (_cleared_…) — start again from step 1.' : `Removed ${lr.step} (moved to _deleted/).`];
+  const step = CAL_STEPS.find(t => t.kind === lr.step);
+  const what = step ? step.title : lr.step;
+  if (lr.ok) {
+    if (lr.step === 'sweep') {
+      const share = lr.complete ? Math.round(100 * lr.plausible / lr.complete) : 0;
+      return share < 50
+        ? ['warn', `⚠ Recorded ${lr.complete} readings, but only ${share}% look physically possible. The calculation will ignore the bad ones — check the sensors.`]
+        : ['good', `✔ Recorded ${lr.complete} readings (${lr.total} in total).` + (s && s.samples.sweep < s.samples.sweep_min ? ' Record a bit more.' : '')];
+    }
+    if (lr.step === 'xy_plane') return ['good', `✔ Floor point ${lr.name.split('_').pop()} saved (${lr.complete} good readings). Move to another spot and add more, or press Next.`];
+    if (lr.step === 'verify') return ['good', `✔ Check point saved — its error appears under Samples once the result is ready.`];
+    return ['good', `✔ ${what} saved (${lr.complete} good readings).`];
+  }
+  return ['bad', {
+    no_data: '✘ No readings with both stations. Check the drone is connected and both base stations see all four sensors, then retry.',
+    few: `✘ Only ${lr.complete} readings with both stations (10 needed). Make sure nothing blocks the sensors, then retry.`,
+    implausible: '✘ Most readings were inconsistent between the sensors. Check the sensor board, then retry.',
+    moving: '✘ The drone moved during the measurement. Keep it still and retry.',
+  }[lr.reason] || ('✘ ' + lr.message)];
 }
 
 function calRender() {
-  const s = calStatus, step = CAL_STEPS[calStep], cap = s && s.capture;
-  // Drone / base-station status
-  const age = s && s.last_packet_age;
-  const live = s && s.packets && age < 2;
-  const sv = calSolve;
-  calEl('cal-cfstate').textContent = !s ? 'Bridge offline' : !s.available ? 'No capture module (install numpy)'
-    : !live ? 'No LH2 data' : sv && sv.ok ? 'Geometry solved' : 'Receiving — no geometry';
-  calEl('cal-cfpos').textContent = lastOdomPos && Date.now() - lastOdomAt < 2000
-    ? `(${lastOdomPos.x.toFixed(2)}, ${lastOdomPos.y.toFixed(2)}, ${lastOdomPos.z.toFixed(2)})` : '—';
+  const s = calStatus, step = CAL_STEPS[calStep], cap = s && s.capture, sv = calSolve;
+  // Connection (the one from the Drone tab) and base stations
+  const age = s && s.last_packet_age, live = !!(s && s.packets && age < 2);
+  const dot = calEl('cal-linkdot');
+  dot.className = 'cal-dot ' + (!s ? 'bad' : live ? 'good' : 'warn');
+  calEl('cal-linktext').textContent = !s ? 'Bridge not running — start avvia.bat'
+    : !s.available ? 'Bridge has no capture module (install numpy)'
+    : !live ? `No data from the drone (${document.getElementById('track-host').value.trim() || 'no IP set'})`
+    : 'Drone connected' + (s.quality != null ? ` · ${s.quality.toFixed(0)}% good readings` : '');
   const st = (s && s.stations) || [0, 1].map(id => ({ id }));
-  calEl('cal-bsgrid').innerHTML = `<tr><th></th>${st.map(b => `<th>${b.id}</th>`).join('')}</tr>` +
-    [['Receiving', 'receiving'], ['Calibration', 'calibration'], ['Geometry', 'geometry']].map(([l, k]) =>
-      `<tr><td>${l}</td>${st.map(b => `<td class="c${b[k] ? ' on' : ''}"></td>`).join('')}</tr>`).join('');
-  calEl('cal-link').textContent = !s ? 'Bridge: not reachable — start display_real_time_windows.py (avvia.bat).'
-    : s.packets === 0 ? 'Link: no LH2 TUNNEL received yet (check IP / port and that the PC is on the drone Wi-Fi)'
-    : `Link: ${s.packets} snapshots · last ${age.toFixed(1)} s ago` + (s.quality != null ? ` · plausible ${s.quality.toFixed(0)}%` : '');
+  const pill = (on, txt, tip) => `<span class="cal-pill${on ? ' on' : ''}" title="${tip}">${on ? '✓' : '·'} ${txt}</span>`;
+  calEl('cal-stations').innerHTML = st.map(b => `<div class="cal-bs"><b>BS${b.id}</b>` +
+    pill(b.receiving, 'sees drone', 'All four sensors seen by this station in the last second') +
+    pill(b.calibration, 'factory data', 'Factory calibration (OOTX) decoded in lh2_factory_calibration.json') +
+    pill(b.geometry, 'position found', 'Position solved in this session') + '</div>').join('');
 
-  // Wizard
-  calEl('cal-instr').innerHTML = calInstr(step.kind);
-  if (calEl('cal-illus').dataset.kind !== step.kind + calEl('cal-xdist').value) {
+  // Stepper
+  calEl('cal-tiles').innerHTML = CAL_STEPS.map((t, i) => {
+    const ss = calStepState(t.kind, s);
+    return `<button class="cal-tile${i === calStep ? ' sel' : ''}${ss.done ? ' done' : ''}" data-i="${i}">` +
+      `<span class="num">${ss.done ? '✓' : i + 1}</span><span class="tl">${t.short}</span><span class="sub">${ss.sub}</span></button>`;
+  }).join('');
+  calEl('cal-stepno').textContent = step.kind === 'verify' ? 'Optional' : `Step ${calStep + 1} of 4`;
+  calEl('cal-steptitle').textContent = step.title;
+  const instrKey = step.kind + calEl('cal-xdist').value + calEl('cal-secs').value;
+  if (calEl('cal-instr').dataset.key !== instrKey) {
+    calEl('cal-instr').innerHTML = calInstr(step.kind);
     calEl('cal-illus').innerHTML = calIllus(step.kind);
-    calEl('cal-illus').dataset.kind = step.kind + calEl('cal-xdist').value;
+    calEl('cal-instr').dataset.key = instrKey;
   }
-  calEl('cal-tiles').innerHTML = CAL_STEPS.map((t, i) =>
-    `<button class="cal-tile${i === calStep ? ' sel' : ''}" data-i="${i}">${calTileIcon(t.kind, s)}<span>${t.label}</span></button>`).join('');
-  calEl('cal-prev').disabled = calStep === 0;
-  calEl('cal-next').disabled = calStep === CAL_STEPS.length - 1;
-  const btn = calEl('cal-measure'), bar = calEl('cal-progress');
+  calEl('cal-prev').style.visibility = calStep === 0 ? 'hidden' : '';
+  calEl('cal-next').style.visibility = calStep === CAL_STEPS.length - 1 ? 'hidden' : '';
+
+  // Main button, progress, feedback
+  const btn = calEl('cal-measure'), bar = calEl('cal-progress'), fb = calEl('cal-feedback');
   btn.classList.toggle('rec', !!(cap && cap.step === 'sweep'));
+  let feedback = null;
   if (cap) {
-    const what = CAL_STEPS.find(t => t.kind === cap.step).label.replace(/<br>/g, ' ');
     btn.disabled = cap.step !== 'sweep';
-    btn.textContent = cap.step === 'sweep' ? `Stop measurement (${cap.complete})` : `Measuring… ${Math.max(0, cap.seconds - cap.elapsed).toFixed(0)} s`;
-    bar.style.visibility = 'visible';
-    bar.firstElementChild.style.width = cap.seconds ? `${Math.min(100, 100 * cap.elapsed / cap.seconds)}%` : '100%';
-    calEl('cal-result').textContent = `Recording ${what} · ${cap.complete} snapshots with both stations · ${cap.plausible} plausible`;
+    btn.textContent = cap.step === 'sweep' ? `■ Stop  (${cap.complete} readings)` : `Hold still… ${Math.max(0, Math.ceil(cap.seconds - cap.elapsed))} s`;
+    bar.style.display = cap.seconds ? 'block' : 'none';
+    bar.firstElementChild.style.width = cap.seconds ? `${Math.min(100, 100 * cap.elapsed / cap.seconds)}%` : '0';
+    feedback = ['info', cap.step === 'sweep' ? `Recording — keep moving the drone through the room. ${cap.complete} readings so far.`
+      : `Measuring — ${cap.complete} readings so far.`];
   } else {
+    const sm = s && s.samples;
     btn.disabled = !s || !s.available;
-    btn.textContent = step.kind === 'xy_plane' || step.kind === 'verify' ? 'Add measurement'
-      : (step.kind === 'sweep' && s && s.samples && s.samples.sweep ? 'Add measurement' : 'Start measurement');
-    bar.style.visibility = 'hidden';
-    calEl('cal-result').textContent = s && s.last_result ? s.last_result.message : '';
+    btn.textContent = step.kind === 'xy_plane' ? (sm && sm.xy_plane.length ? '＋ Add another floor point' : '▶ Add floor point')
+      : step.kind === 'verify' ? '＋ Add check point'
+      : step.kind === 'sweep' ? (sm && sm.sweep ? '▶ Record more' : '▶ Start recording')
+      : (sm && sm[step.kind] ? '↻ Measure again' : '▶ Start');
+    bar.style.display = 'none';
+    if (s && s.last_result) feedback = calFeedbackText(s.last_result, s);
+    else if (s && live && st.some(b => !b.receiving)) feedback = ['warn', `⚠ ${st.filter(b => !b.receiving).map(b => 'BS' + b.id).join(' and ')} can't see the drone's sensors right now.`];
   }
+  if (calBridgeError) feedback = ['bad', calBridgeError];
+  fb.className = feedback ? feedback[0] : '';
+  fb.textContent = feedback ? feedback[1] : '';
+
+  // One status banner for the whole calibration
   const sb = calEl('cal-statusbar');
-  let cls, txt;
-  if (!s) [cls, txt] = ['bad', 'Bridge not reachable'];
-  else if (cap) [cls, txt] = ['info', 'Measuring…'];
-  else if (sv && sv.state === 'running') [cls, txt] = ['warn', 'Solving geometry…'];
-  else if (!s.ready) [cls, txt] = ['bad', 'Not enough samples — missing: ' + s.missing.join(', ')];
+  let cls, ic, txt, action = '';
+  if (!s) [cls, ic, txt] = ['bad', '⛔', 'The bridge is not running. Start avvia.bat (display_real_time_windows.py) on this PC.'];
+  else if (cap) [cls, ic, txt] = ['info', '●', 'Recording…'];
+  else if (sv && sv.state === 'running') [cls, ic, txt] = ['warn', '⏳', 'Calculating the base-station positions…'];
   else if (sv && sv.ok) {
     const m = sv.variants[sv.primary].metrics;
-    [cls, txt] = ['good', `Geometry solved · residual ${m.residual_mean_mm != null ? m.residual_mean_mm.toFixed(1) : '?'} mm · board fit ${m.board_fit_mm != null ? m.board_fit_mm.toFixed(1) : '?'} mm`];
-  } else if (sv && sv.state === 'done') [cls, txt] = ['bad', 'Solver failed — see GEOMETRY RESULT'];
-  else [cls, txt] = ['warn', 'Enough samples — press "Solve now" in GEOMETRY RESULT'];
-  sb.className = cls; sb.textContent = txt;
-  calEl('cal-session').textContent = s && s.session_dir ? 'Session: ' + s.session_dir : 'No session yet: the first measurement creates calib_runs/run_<date>.';
+    [cls, ic, txt] = ['good', '✔', `Calibration ready — average error ${m.residual_mean_mm != null ? m.residual_mean_mm.toFixed(1) : '?'} mm.`];
+    action = '<button data-open="cal-results-card">See result</button>';
+  } else if (!s.ready) {
+    const left = s.missing.map(m => m.replace('xy-plane', 'floor point').replace('x-axis', 'X axis').replace(/XYZ-space \((\d+)\/(\d+)\)/, 'room recording ($1/$2)'));
+    [cls, ic, txt] = ['idle', '○', 'Still needed: ' + left.join(', ') + '.'];
+  } else if (sv && sv.state === 'done') {
+    [cls, ic, txt] = ['bad', '✘', 'The calculation failed.'];
+    action = '<button data-open="cal-results-card">Details</button>';
+  } else {
+    [cls, ic, txt] = ['warn', '▶', 'Enough samples.'];
+    action = '<button data-solve="1">Calculate</button>';
+  }
+  sb.className = cls;
+  const html = `<span class="ic">${ic}</span><span class="tx">${txt}</span>${action}`;
+  if (sb.dataset.html !== html) { sb.innerHTML = html; sb.dataset.html = html; }
+  calEl('cal-session').textContent = s && s.session_dir ? s.session_dir : 'No session yet — the first measurement creates calib_runs/run_<date>.';
   calRenderManagement();
 }
 
@@ -1495,7 +1580,8 @@ function calRenderManagement() {
     ...(sm.sweep ? ['sweep'] : []), ...sm.verify];
   const kindOf = n => n.startsWith('xy_plane') ? 'xy_plane' : n.startsWith('verify') ? 'verify' : n;
   const hex = c => '#' + c.toString(16).padStart(6, '0');
-  if (calEl('cal-details').style.display !== 'none') {
+  calEl('cal-samplecount').textContent = names.length ? `(${names.length})` : '';
+  {
     const html = names.length ? names.map(n => {
       const l = located[n];
       const info = n === 'sweep' ? `${sm.sweep} snapshots` + (sv && sv.samples ? ` · ${sv.samples.cloud.length} shown` : '')
@@ -1503,7 +1589,7 @@ function calRenderManagement() {
         : l && l.error ? l.error : 'not located yet';
       return `<div class="cal-srow"><span class="dot" style="background:${hex(CAL_KIND_COLOR[kindOf(n)])}"></span>` +
         `<span class="nm">${n}</span><span class="info">${calEsc(info)}</span><button data-del="${n}">✕</button></div>`;
-    }).join('') : '<div class="hint">No samples in this session.</div>';
+    }).join('') : '<div class="hint">No samples yet.</div>';
     if (calEl('cal-details').dataset.html !== html) { calEl('cal-details').innerHTML = html; calEl('cal-details').dataset.html = html; }
   }
   const primary = sv && sv.ok ? sv.variants[sv.primary] : null;
@@ -1564,17 +1650,21 @@ async function calCall(action, params = {}, body) {
       if (calSolve.state === 'done') calLoadRuns();
     }
     calStatus = s;
+    calBridgeError = '';
     const key = s.last_result ? JSON.stringify(s.last_result) : '';
     if (key !== calResultKey) {  // like the client: a good origin / x-axis sample moves on to the next step
       calResultKey = key;
       const lr = s.last_result;
-      if (lr && lr.ok && CAL_STEPS[calStep].kind === lr.step && (lr.step === 'origin' || lr.step === 'x_axis')) calStep++;
+      const here = CAL_STEPS[calStep].kind;
+      if (lr && lr.ok && here === lr.step && (here === 'origin' || here === 'x_axis' ||
+          (here === 'xy_plane' && s.samples.xy_plane.length === 3))) calStep++;
     }
     calRender();
     return s;
   } catch (e) {
-    calStatus = null; calRender();
-    calEl('cal-result').textContent = 'Bridge error: ' + e.message;
+    if (/fetch|network/i.test(e.message)) { calStatus = null; calBridgeError = ''; }
+    else calBridgeError = '✘ ' + e.message;
+    calRender();
   }
 }
 async function calNewSession(dir = '') {
@@ -1596,11 +1686,13 @@ calEl('cal-measure').addEventListener('click', async () => {
   if (!calStatus || !calStatus.session_dir) { if (!(await calNewSession())) return; }
   await calCall('start', { step: CAL_STEPS[calStep].kind, seconds: calEl('cal-secs').value });
 });
-document.querySelectorAll('input[name=cal-det]').forEach(r => r.addEventListener('change', () => {
-  calEl('cal-details').style.display = document.querySelector('input[name=cal-det]:checked').value === 'show' ? '' : 'none';
-  calEl('cal-details').dataset.html = '';
-  calRender();
-}));
+calEl('cal-conn-edit').addEventListener('click', () => openSection('drone'));
+calEl('cal-statusbar').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.solve) calCall('solve', calSettings());
+  if (b.dataset.open) { const d = calEl(b.dataset.open); d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+});
 // Destructive buttons ask for a second click instead of a dialog.
 function calConfirm(btn, text, action) {
   if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = btn.dataset.text; action(); return; }
@@ -1612,7 +1704,7 @@ calEl('cal-details').addEventListener('click', e => {
   if (b) calConfirm(b, 'sure?', () => calCall('delete', { name: b.dataset.del }));
 });
 calEl('cal-clear').addEventListener('click', e =>
-  calConfirm(e.currentTarget, 'Click again to clear', () => calCall('clear')));
+  calConfirm(e.currentTarget, 'Sure? Click again', () => calCall('clear')));
 calEl('cal-exportsamples').addEventListener('click', async () => {
   try {
     const data = await calApi('export_samples');
@@ -1621,7 +1713,7 @@ calEl('cal-exportsamples').addEventListener('click', async () => {
     a.download = `${data.session}_samples.json`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  } catch (err) { calEl('cal-result').textContent = 'Export failed: ' + err.message; }
+  } catch (err) { calBridgeError = '✘ Export failed: ' + err.message; calRender(); }
 });
 calEl('cal-import').addEventListener('click', () => calEl('cal-importfile').click());
 calEl('cal-importfile').addEventListener('change', async e => {
@@ -1642,8 +1734,9 @@ function calRenderSolve(sv) {
   if (log.textContent !== (sv.log || '')) log.textContent = sv.log || '';
   if (atBottom) log.scrollTop = log.scrollHeight;
   calEl('cal-resolve').disabled = sv.state === 'running';
-  calEl('cal-state').textContent = sv.state === 'idle' ? 'Not solved yet.' : sv.state === 'running' ? 'Solving…'
-    : sv.ok ? 'Solved — check the figures (✔ ok · ! marginal · ✘ out of range), then apply or export.' : 'Solver failed — see log.';
+  calEl('cal-state').textContent = sv.state === 'idle' ? 'Not calculated yet.' : sv.state === 'running' ? 'Calculating…'
+    : sv.ok ? 'Check the figures (✔ good · ! borderline · ✘ out of range), then "Apply to editor" to see the stations in 3D, or "Export header" for the firmware.'
+    : 'The calculation failed — see the solver log.';
   calVariants = sv.state === 'running' ? [] : (sv.variants || []).map(v => ({
     ...v, poses: v.ok ? v.poses.map(p => ({ id: p.id, pos: p.position, ...calQuatToPose(p.quat) })) : null }));
   const key = JSON.stringify([sv.state, sv.variants, calFactory]);
@@ -1666,7 +1759,7 @@ calEl('cal-variants').addEventListener('click', async e => {
       calEl('cal-export-card').style.display = '';
       calEl('cal-export-path').textContent = 'Written to ' + r.path + ' — compare with rp2350_firmware/src/bs_poses_cal.h, copy it over, rebuild both UF2s.';
       calEl('cal-export').value = r.header;
-    } catch (err) { calEl('cal-result').textContent = 'Export failed: ' + err.message; }
+    } catch (err) { calBridgeError = '✘ Export failed: ' + err.message; calRender(); }
   }
 });
 calEl('cal-export-copy').addEventListener('click', () => navigator.clipboard.writeText(calEl('cal-export').value));

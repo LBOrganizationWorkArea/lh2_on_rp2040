@@ -114,9 +114,10 @@ Windows Firewall deve permettere a Python di ricevere su UDP 14550.
 Auto-calibrazione (Editor -> Calib), come il wizard del Crazyflie client
 -----------------------------------------------------------------------
 1. Firmware: flasha firmware\\crossing_beams.uf2 (angoli con modello period + factory).
-2. SETTINGS: IP 192.168.4.1, Port 14555, Tape BS0-BS1 = distanza misurata col metro.
-   BASE STATION STATUS: "Receiving" deve essere verde per entrambe le stazioni.
-3. SAMPLE COLLECTION, un riquadro alla volta (< > per spostarsi):
+2. Tab Drone: IP del drone e Bridge (unica connessione, la usa anche Calib). In Calib ->
+   "Settings": Tape BS0 - BS1 = distanza misurata col metro.
+   In alto: pallino verde "Drone connected" e "sees drone" verde per BS0 e BS1.
+3. Segui i passi 1-4 (Back / Next per spostarsi), il pulsante blu fa la misura:
    Origin -> X-axis (1 m) -> XY-plane (3 o piu' punti a terra) -> XYZ-space (sweep, Stop
    quando hai finito; si puo' aggiungere altro dopo). La prima misura crea
    utils\\calibration\\calib_runs\\run_<data>.
