@@ -197,6 +197,15 @@ Check the printout:
 - **Estimated baseline** vs the tape-measured `--baseline`: within about 3 %.
 - **Poses**: right heights, and boresights that match how the stations are mounted.
 
+**Same flow from the browser.** Run `python utils/user_interface/display_real_time_windows.py`
+and open `bs_pose_editor.html` → **Calib**. Each step is captured from the page, the session is
+written to `calib_runs/run_<date>/` and solved with `calibrate_bitcraze.py` (`geometry.yaml` +
+`solve.log`, same files as the wizard). The page grades the report (residual, board fit, 1 m mark,
+baseline vs tape, station tilt vs the OOTX accelerometer from `lh2_factory_calibration.json`).
+**Open run** reloads any solved run. **Angles** re-converts sessions recorded with the old
+`CAL_BS*` firmware (`reconvert_run.py`). **Export header** runs `calibrate_export.py` into
+`<run>/bs_poses_cal_candidate.h`.
+
 **3. Into the firmware** (this branch compiles the poses in):
 
 ```bash

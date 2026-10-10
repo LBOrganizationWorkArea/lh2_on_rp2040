@@ -29,6 +29,83 @@ except ImportError as _error:  # numpy missing or capture_lh2.py not found
     print(f"LH2 calibration capture disabled: {_error}")
 
 STEP_NAMES = ("origin", "x_axis", "sweep")
+CALIB_DIR = os.path.dirname(os.path.abspath(lh2cap.__file__)) if lh2cap else os.path.join(_HERE, "..", "calibration")
+RUNS_DIR = os.path.join(CALIB_DIR, "calib_runs")
+FACTORY_CAL = os.path.join(CALIB_DIR, "lh2_factory_calibration.json")
+
+# Key lines of calibrate_bitcraze.py's report, shown as figures in the pose editor.
+_LOG_METRICS = (
+    ("residual_mean_mm", r"Residual: mean ([\d.]+) mm"),
+    ("residual_max_mm", r"Residual: mean [\d.]+ mm, max ([\d.]+) mm"),
+    ("board_fit_mm", r"Wand shape check: median rigid-fit error ([\d.]+) mm"),
+    ("mark_dist_m", r"x-axis capture is ([\d.]+) m from the origin"),
+    ("baseline_m", r"Estimated baseline: ([\d.]+) m"),
+    ("tape_m", r"Tape baseline ([\d.]+) m"),
+    ("samples", r"final solve used (\d+)"),
+)
+
+
+def _read_text(path):
+    if not os.path.exists(path):
+        return ""
+    with open(path, encoding="utf-8", errors="replace") as stream:
+        return stream.read()
+
+
+def load_solve_result(directory, name):
+    """Poses, precision and report figures of a solved session directory (geometry.yaml + solve.log)."""
+    import re
+    import yaml
+    result = {"name": name, "dir": directory, "ok": False, "poses": None, "precision": {}, "metrics": {}}
+    log = _read_text(os.path.join(directory, "solve.log"))
+    for key, pattern in _LOG_METRICS:
+        match = re.search(pattern, log)
+        if match:
+            result["metrics"][key] = float(match.group(1))
+    geometry = os.path.join(directory, "geometry.yaml")
+    if not os.path.exists(geometry):
+        return result
+    with open(geometry, encoding="utf-8") as stream:
+        data = yaml.safe_load(stream)
+    result["poses"] = [{"id": int(k), "position": v["position"], "quat": v["rotation_quat"]}
+                       for k, v in sorted(data["geos"].items(), key=lambda kv: int(kv[0]))]
+    result["precision"] = {k: {"value": v["value"], "std": v["std"]}
+                           for k, v in (data.get("uncertainty_1sigma") or {}).items()}
+    result["ok"] = True
+    return result
+
+
+def load_factory_calibration():
+    """OOTX factory data per station (lh2_ootx.py), with the tilt its accelerometer reports."""
+    if not os.path.exists(FACTORY_CAL):
+        return {}
+    with open(FACTORY_CAL, encoding="utf-8") as stream:
+        data = json.load(stream)
+    stations = {}
+    for bs, calib in data.items():
+        frame = calib.get("raw_frame", {})
+        accel = [frame.get("accel_x"), frame.get("accel_y"), frame.get("accel_z")]
+        tilt = None
+        if None not in accel and any(accel):
+            tilt = math.degrees(math.acos(max(-1.0, min(1.0, accel[2] / math.hypot(*accel)))))
+        stations[bs] = {
+            "uid": calib.get("uid"),
+            "polynomials": calib.get("polynomials"),
+            "accel_tilt_deg": tilt,
+            "planes": [{k: math.degrees(s[k]) for k in ("phase", "tilt", "gibmag")} for s in calib.get("sweeps", [])],
+        }
+    return stations
+
+
+def list_runs():
+    if not os.path.isdir(RUNS_DIR):
+        return []
+    runs = []
+    for name in sorted(os.listdir(RUNS_DIR)):
+        path = os.path.join(RUNS_DIR, name)
+        if os.path.isdir(path) and os.path.exists(os.path.join(path, "session.json")):
+            runs.append({"name": name, "dir": path, "solved": os.path.exists(os.path.join(path, "geometry.yaml"))})
+    return runs
 
 
 class BridgeState:
@@ -75,7 +152,7 @@ class CaptureManager:
         self.active = None  # running capture
         self.last_result = None
         self.done = {}
-        self.solve = {"state": "idle", "log": "", "poses": None, "ok": None}
+        self.solve = {"state": "idle", "log": "", "ok": None, "variants": []}
         if lh2cap is not None:
             sensors = os.path.join(os.path.dirname(os.path.abspath(lh2cap.__file__)), "wand_sensors.json")
             try:
@@ -92,12 +169,32 @@ class CaptureManager:
             return self.target
 
     def configure(self, session_dir, config):
+        # Relative directories live next to capture_lh2.py, like its calib_runs/run_<date> sessions.
+        session_dir = os.path.join(CALIB_DIR, session_dir)
         with self.lock:
+            if self.active is not None or self.solve["state"] == "running":
+                raise ValueError("a capture or solve is running")
             os.makedirs(session_dir, exist_ok=True)
             self.session_dir = os.path.abspath(session_dir)
+            manifest = os.path.join(self.session_dir, "session.json")
+            if os.path.exists(manifest):  # reopening a recorded run: keep its own settings
+                with open(manifest, encoding="utf-8") as stream:
+                    saved = json.load(stream)
+                config["x_axis_dist"] = float(saved.get("x_axis_dist", config["x_axis_dist"]))
+                config["xy_points"] = len(saved.get("xy_plane", [])) or config["xy_points"]
             self.config.update(config)
-            self.done = {name[:-5]: True for name in os.listdir(self.session_dir) if name.endswith(".json")}
+            self.done = {name[:-5]: True for name in os.listdir(self.session_dir)
+                         if name.endswith(".json") and name != "session.json"}
             self.last_result = None
+            self.solve = {"state": "idle", "log": "", "ok": None, "variants": []}
+            variants = [(self.session_dir, "firmware angles")] + [
+                (self.session_dir + "_" + model, model + " re-conversion") for model in ("period", "factory")]
+            for directory, name in variants:
+                if os.path.exists(os.path.join(directory, "geometry.yaml")):
+                    self.solve["variants"].append(load_solve_result(directory, name))
+            if self.solve["variants"]:
+                log = "".join(_read_text(os.path.join(v["dir"], "solve.log")) for v in self.solve["variants"])
+                self.solve.update(state="done", ok=True, log=log)
 
     def _plausible(self, records):
         if self.span_limit is None:
@@ -204,6 +301,9 @@ class CaptureManager:
                 json.dump(cap["records"], stream, indent=1)
             self.done[step] = True
             message = f"OK: {message} -> {step}.json"
+            if step == "sweep" and plausible < 0.5 * complete:
+                message += (" — WARNING: most snapshots are physically impossible for the sensor board;"
+                            " the solver will reject them")
         else:
             message = f"Not usable: {message} (need >= 10, mostly plausible, wand still). Check that both stations see all four sensors; retry."
         self.last_result = {"step": step, "ok": ok, "message": message}
@@ -229,7 +329,7 @@ class CaptureManager:
                 json.dump(manifest, stream, indent=2)
             return self.session_dir
 
-    def start_solve(self, baseline, board_height):
+    def start_solve(self, baseline, board_height, reconvert):
         with self.lock:
             if lh2cap is None:
                 raise ValueError("capture_lh2 module unavailable")
@@ -237,40 +337,76 @@ class CaptureManager:
                 raise ValueError("solver already running")
             if not os.path.exists(os.path.join(self.session_dir or "", "session.json")):
                 raise ValueError("finish the session first (session.json missing)")
-            self.solve = {"state": "running", "log": "", "poses": None, "ok": None}
+            if reconvert not in ("", "period", "factory"):
+                raise ValueError("reconvert must be period, factory or empty")
+            self.solve = {"state": "running", "log": "", "ok": None, "variants": []}
             session = self.session_dir
             self._clean_session_files(session)
-        threading.Thread(target=self._run_solve, args=(session, baseline, board_height), daemon=True).start()
+        threading.Thread(target=self._run_solve, args=(session, baseline, board_height, reconvert),
+                         daemon=True).start()
 
-    def _run_solve(self, session, baseline, board_height):
-        calib_dir = os.path.dirname(os.path.abspath(lh2cap.__file__))
-        script = os.path.join(calib_dir, "calibrate_bitcraze.py")
-        output = os.path.join(session, "lighthouse_geometry_candidate.yaml")
-        command = [sys.executable, "-u", script, session, "-o", output]
-        if baseline:
-            command += ["--baseline", str(baseline)]
-        if board_height:
-            command += ["--board-height", str(board_height)]
-        poses, ok = None, False
-        try:
-            process = subprocess.Popen(command, cwd=os.path.abspath(os.path.join(calib_dir, "..", "..")),
-                                       stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                       text=True, errors="replace")
+    def _stream(self, command, log_path):
+        """Run a calibration script, appending its output to the live log and to log_path."""
+        process = subprocess.Popen(command, cwd=CALIB_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                   text=True, errors="replace")
+        with open(log_path, "w", encoding="utf-8") as log:
             for line in process.stdout:
+                log.write(line)
                 with self.lock:
                     self.solve["log"] += line
-            ok = process.wait() == 0
-            if ok:
-                import yaml
-                with open(output, encoding="utf-8") as stream:
-                    geos = yaml.safe_load(stream)["geos"]
-                poses = [{"id": int(k), "position": v["position"], "quat": v["rotation_quat"]}
-                         for k, v in sorted(geos.items(), key=lambda kv: int(kv[0]))]
-        except Exception as error:  # report any solver/launch failure to the UI
-            with self.lock:
-                self.solve["log"] += f"\nSolver launch failed: {error}\n"
+        return process.wait() == 0
+
+    def _log(self, text):
         with self.lock:
-            self.solve.update(state="done", ok=ok, poses=poses)
+            self.solve["log"] += text
+
+    def _run_solve(self, session, baseline, board_height, reconvert):
+        # Same flow as capture_lh2.solve_session(): the firmware angles as recorded and, for sessions
+        # recorded with the old fitted CAL_BS* firmware, a re-converted copy <session>_<model>.
+        targets = [(session, "firmware angles")]
+        try:
+            if reconvert:
+                converted = f"{session.rstrip(os.sep)}_{reconvert}"
+                self._log(f"===== Re-converting angles ({reconvert} model) -> {converted} =====\n")
+                if self._stream([sys.executable, "-u", os.path.join(CALIB_DIR, "reconvert_run.py"), session,
+                                 converted, "--model", reconvert], os.path.join(session, "reconvert.log")):
+                    targets.append((converted, reconvert + " re-conversion"))
+            variants = []
+            for target, name in targets:
+                self._log(f"\n===== Solving {target} =====\n")
+                command = [sys.executable, "-u", os.path.join(CALIB_DIR, "calibrate_bitcraze.py"), target,
+                           "-o", os.path.join(target, "geometry.yaml")]
+                if baseline:
+                    command += ["--baseline", str(baseline)]
+                if board_height:
+                    command += ["--board-height", str(board_height)]
+                if not self._stream(command, os.path.join(target, "solve.log")):
+                    geometry = os.path.join(target, "geometry.yaml")
+                    if os.path.exists(geometry):  # do not show a previous solve's poses as this one's
+                        os.remove(geometry)
+                variants.append(load_solve_result(target, name))
+        except Exception as error:  # report any solver/launch failure to the UI
+            self._log(f"\nSolver launch failed: {error}\n")
+            variants = []
+        with self.lock:
+            self.solve.update(state="done", ok=any(v["ok"] for v in variants), variants=variants)
+
+    def export_header(self, directory):
+        """bs_poses_cal.h candidate from a solved variant via calibrate_export.py (never hand-edited)."""
+        with self.lock:
+            known = {v["dir"] for v in self.solve["variants"] if v["ok"]}
+        if directory not in known:
+            raise ValueError("no solved geometry for that variant")
+        output = os.path.join(directory, "bs_poses_cal_candidate.h")
+        result = subprocess.run([sys.executable, os.path.join(CALIB_DIR, "calibrate_export.py"),
+                                 "--yaml", os.path.relpath(os.path.join(directory, "geometry.yaml"),
+                                                           os.path.join(CALIB_DIR, "..", "..")),
+                                 "-o", output],
+                                cwd=os.path.abspath(os.path.join(CALIB_DIR, "..", "..")),
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+        if result.returncode != 0:
+            raise ValueError("calibrate_export.py failed:\n" + result.stdout)
+        return {"path": output, "header": _read_text(output), "log": result.stdout}
 
     def status(self):
         with self.lock:
@@ -439,6 +575,12 @@ def make_handler(state, capture):
                     capture.set_target(host, int(arg("port", "14555")))
                 if action == "status":
                     pass
+                elif action == "runs":
+                    self._json({"runs": list_runs(), "factory": load_factory_calibration()})
+                    return
+                elif action == "export":
+                    self._json(capture.export_header(arg("variant")))
+                    return
                 elif action == "session":
                     capture.configure(arg("dir") or time.strftime("calib_runs/run_%Y%m%d_%H%M%S"), {
                         "x_axis_dist": float(arg("x_axis_dist", "1.0")),
@@ -452,7 +594,8 @@ def make_handler(state, capture):
                 elif action == "finish":
                     capture.finish_session()
                 elif action == "solve":
-                    capture.start_solve(float(arg("baseline", "0") or 0), float(arg("board_height", "0") or 0))
+                    capture.start_solve(float(arg("baseline", "0") or 0), float(arg("board_height", "0") or 0),
+                                        arg("reconvert"))
                 else:
                     self.send_error(404)
                     return
