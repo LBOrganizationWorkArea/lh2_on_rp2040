@@ -35,6 +35,7 @@ FILES = [
     ("utils/calibration/capture_lh2.py", "utils/calibration/capture_lh2.py"),
     ("utils/calibration/calibrate_bitcraze.py", "utils/calibration/calibrate_bitcraze.py"),
     ("utils/calibration/reconvert_run.py", "utils/calibration/reconvert_run.py"),
+    ("utils/calibration/locate_samples.py", "utils/calibration/locate_samples.py"),
     ("utils/calibration/calibrate_export.py", "utils/calibration/calibrate_export.py"),
     ("utils/calibration/lh2_ootx.py", "utils/calibration/lh2_ootx.py"),
     ("utils/calibration/make_synthetic_measurements.py", "utils/calibration/make_synthetic_measurements.py"),
@@ -110,19 +111,25 @@ PC sulla Wi-Fi del MavESP8266 / DroneBridge (192.168.4.1).
 Editor -> Drone: Link "UDP relay", Relay http://127.0.0.1:8051/api/odometry, Connect.
 Windows Firewall deve permettere a Python di ricevere su UDP 14550.
 
-Auto-calibrazione (Editor -> Calib)
------------------------------------
+Auto-calibrazione (Editor -> Calib), come il wizard del Crazyflie client
+-----------------------------------------------------------------------
 1. Firmware: flasha firmware\\crossing_beams.uf2 (angoli con modello period + factory).
-2. IP 192.168.4.1, Port 14555, Tape BS0-BS1 = distanza misurata col metro.
-3. "New session": la run va in utils\\calibration\\calib_runs\\run_<data>.
-4. Origin, X-axis (1 m), 3 punti a terra (drone fermo 5 s), poi Sweep (2-3 min), "Stop sweep".
-5. "Finish & solve": controlla le spunte (residuo, board fit, baseline vs metro,
-   inclinazione vs accelerometro della stazione).
-6. "Apply to editor" per vederle in 3D, "Export header" per il bs_poses_cal.h candidato
-   (scritto in utils\\calibration\\calib_runs\\<run>\\bs_poses_cal_candidate.h).
-   Va copiato in rp2350_firmware\\src\\bs_poses_cal.h nel repo, ricompilato e committato.
-"Angles: re-convert" serve solo per sessioni registrate col vecchio firmware CAL_BS*.
-"Open run" riapre una run gia' fatta (c'e' run_20261009_180300, quella nel firmware).
+2. SETTINGS: IP 192.168.4.1, Port 14555, Tape BS0-BS1 = distanza misurata col metro.
+   BASE STATION STATUS: "Receiving" deve essere verde per entrambe le stazioni.
+3. SAMPLE COLLECTION, un riquadro alla volta (< > per spostarsi):
+   Origin -> X-axis (1 m) -> XY-plane (3 o piu' punti a terra) -> XYZ-space (sweep, Stop
+   quando hai finito; si puo' aggiungere altro dopo). La prima misura crea
+   utils\\calibration\\calib_runs\\run_<data>.
+4. Appena i campioni bastano il solver parte da solo. Barra verde = geometria risolta.
+   Nel 3D: campioni (O, X, punti blu, nuvola grigia) e stazioni risolte (magenta).
+5. Verification (opzionale): misure in punti noti, non usate dal solver; errore in
+   "Max verification sample error".
+6. GEOMETRY RESULT: controlla le spunte, "Apply to editor", "Export header" ->
+   utils\\calibration\\calib_runs\\<run>\\bs_poses_cal_candidate.h da copiare in
+   rp2350_firmware\\src\\bs_poses_cal.h nel repo, ricompilare e committare.
+SAMPLE MANAGEMENT: dettagli e cancellazione dei singoli campioni, Clear (sposta i file in
+_cleared_<data>\\, non li cancella), Import / Export dei campioni in un file .json.
+"Open run" (SETTINGS) riapre una run gia' fatta (c'e' run_20261009_180300, quella nel firmware).
 
 Da riga di comando (dalla cartella del bundle)
 ----------------------------------------------

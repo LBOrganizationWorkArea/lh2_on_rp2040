@@ -130,6 +130,43 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 .cal-metrics td.st { width: 12px; text-align: center; }
 .cal-metrics .good { color: #5adf7a; } .cal-metrics .warn { color: #e4b960; } .cal-metrics .bad { color: #f48a8a; }
 .cal-btns { display: flex; gap: 5px; } .cal-btns button { flex: 1; }
+#panel[data-sec=calib] { width: 430px; max-width: calc(100% - 16px); }
+.cal-top { display: flex; gap: 6px; flex-wrap: wrap; }
+.cal-top > .bs-card { flex: 1 1 170px; }
+.cal-kv { display: flex; gap: 6px; font-size: 11px; color: #888; }
+.cal-kv b { color: #ddd; font-weight: normal; font-variant-numeric: tabular-nums; }
+#cal-bsgrid { border-collapse: separate; border-spacing: 2px; font-size: 10px; color: #aaa; }
+#cal-bsgrid th { font-weight: normal; color: #ccc; }
+#cal-bsgrid td.c { width: 26px; height: 15px; border-radius: 2px; background: #6a3434; }
+#cal-bsgrid td.c.on { background: #3f9a57; }
+.cal-wizard { border: 2px solid #2f8ee0 !important; border-radius: 10px !important; }
+#cal-instr { font-size: 12px; color: #eee; line-height: 1.45; min-height: 52px; }
+#cal-illus { background: #1c1c1c; border: 1px solid #333; border-radius: 4px; }
+#cal-illus svg { display: block; width: 100%; height: auto; }
+#cal-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 3px; }
+.cal-tile { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 2px;
+  padding: 5px 2px; border: 1px solid transparent; border-radius: 4px; cursor: pointer; text-align: center;
+  font-size: 10px; color: #ccc; background: transparent; }
+.cal-tile:hover { background: #2c2c2c; }
+.cal-tile.sel { border-color: #8a8a8a; background: #2f2f2f; }
+.cal-tile .ic { font-size: 22px; line-height: 26px; height: 26px; color: #e04848; font-weight: bold; }
+.cal-tile .ic.ok { color: #4fcf6f; } .cal-tile .ic.n { font-size: 12px; color: #ddd; font-weight: normal; }
+.cal-nav { display: flex; gap: 6px; } .cal-nav button { padding: 10px 0 !important; }
+.cal-nav #cal-prev, .cal-nav #cal-next { flex: 0 0 52px; } .cal-nav #cal-measure { flex: 1; }
+#cal-measure.rec { background: #4a1f1f !important; border-color: #8a3a3a !important; color: #ffb0b0 !important; }
+#cal-progress { height: 4px; background: #222; border-radius: 2px; overflow: hidden; visibility: hidden; }
+#cal-progress > div { height: 100%; width: 0; background: #2f8ee0; transition: width .4s linear; }
+#cal-result { font-size: 10px; color: #a9c9d0; line-height: 1.4; min-height: 14px; }
+#cal-statusbar { align-self: flex-start; font-size: 11px; padding: 2px 6px; border-radius: 2px; }
+#cal-statusbar.bad { background: #f2a0a0; color: #311; } #cal-statusbar.warn { background: #e8cf7a; color: #321; }
+#cal-statusbar.good { background: #8fd8a0; color: #132; } #cal-statusbar.info { background: #8ec5ef; color: #123; }
+#cal-details { display: flex; flex-direction: column; gap: 2px; max-height: 180px; overflow-y: auto; }
+.cal-srow { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #ccc; font-variant-numeric: tabular-nums; }
+.cal-srow .dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.cal-srow .nm { width: 74px; flex: none; color: #fff; } .cal-srow .info { flex: 1; color: #9ab; }
+.cal-srow button { padding: 1px 6px !important; font-size: 10px !important; }
+#sec-calib details > summary { font-size: 10px; color: #aaa; letter-spacing: 1px; cursor: pointer; }
+#sec-calib details[open] > summary { margin-bottom: 4px; }
 #scene-container { position: absolute; inset: 0; background: #161616; }
 #scene-container canvas { display: block; }
 .label3d { font-size: 12px; font-family: monospace; font-weight: bold; pointer-events: none; user-select: none; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
@@ -275,21 +312,81 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   </div>
   </div>
   <div class="sec" id="sec-calib">
-    <div class="sec-title">AUTO-CALIBRATION CAPTURE</div>
+    <div class="sec-title">LIGHTHOUSE AUTO-CALIBRATION</div>
+    <div class="cal-top">
+      <div class="bs-card cal-cfstatus">
+        <div class="grp-lbl" style="display:block;">DRONE STATUS</div>
+        <div class="cal-kv"><span>Status:</span><b id="cal-cfstate">—</b></div>
+        <div class="cal-kv"><span>Position:</span><b id="cal-cfpos">—</b></div>
+      </div>
+      <div class="bs-card cal-bsstatus">
+        <div class="grp-lbl" style="display:block;" title="Receiving: all four sensors seen in the last second. Calibration: factory (OOTX) data decoded in lh2_factory_calibration.json. Geometry: pose solved in this session.">BASE STATION STATUS ⓘ</div>
+        <table id="cal-bsgrid"></table>
+      </div>
+    </div>
+    <div id="cal-link" class="hint">Link: —</div>
+
+    <div class="bs-card cal-wizard">
+      <div class="grp-lbl" style="display:block;">SAMPLE COLLECTION</div>
+      <div id="cal-instr"></div>
+      <div id="cal-illus"></div>
+      <div id="cal-tiles"></div>
+      <div class="cal-nav">
+        <button id="cal-prev" title="Previous step">&lt;</button>
+        <button id="cal-measure">Start measurement</button>
+        <button id="cal-next" title="Next step">&gt;</button>
+      </div>
+      <div id="cal-progress"><div></div></div>
+      <div id="cal-result"></div>
+      <div id="cal-statusbar"></div>
+    </div>
+
     <div class="bs-card">
+      <div class="grp-lbl" style="display:block;">SAMPLE MANAGEMENT</div>
+      <div class="row" style="font-size:11px;color:#aaa;">Sample details:
+        <label><input type="radio" name="cal-det" value="show"> Show</label>
+        <label><input type="radio" name="cal-det" value="hide" checked> Hide</label>
+        <label style="margin-left:auto;" title="Draw the samples and the solved stations in the 3D view"><input type="checkbox" id="cal-show3d" checked> 3D</label>
+      </div>
+      <div id="cal-details" style="display:none;"></div>
+      <div class="cal-kv"><span>Max estimation sample error:</span><b id="cal-esterr">--</b></div>
+      <div class="cal-kv"><span>Max verification sample error:</span><b id="cal-vererr">--</b></div>
+      <div class="cal-btns">
+        <button id="cal-clear">Clear all samples</button>
+        <button id="cal-import">Import samples</button>
+        <button id="cal-exportsamples">Export samples</button>
+      </div>
+      <input type="file" id="cal-importfile" accept=".json,application/json" hidden>
+    </div>
+
+    <details class="bs-card" id="cal-results-card">
+      <summary>GEOMETRY RESULT</summary>
+      <div id="cal-state" style="font-size:11px;color:#fff;"></div>
+      <div id="cal-variants"></div>
+      <button id="cal-resolve">Solve now</button>
+      <details><summary class="hint" style="cursor:pointer;">Solver log</summary>
+        <pre id="cal-log" style="font-size:9px;color:#9ab;max-height:220px;overflow:auto;margin:4px 0 0;"></pre></details>
+    </details>
+    <div class="bs-card" id="cal-export-card" style="display:none;">
+      <div class="grp-lbl" style="display:block;">bs_poses_cal.h — calibrate_export.py</div>
+      <div id="cal-export-path" class="hint"></div>
+      <textarea id="cal-export" readonly spellcheck="false" style="height:180px;"></textarea>
+      <button id="cal-export-copy">Copy</button>
+    </div>
+
+    <details class="bs-card" id="cal-settings">
+      <summary>SETTINGS &amp; SESSIONS</summary>
       <div class="row"><div class="lbl" style="width:38px;">IP</div>
         <input id="cal-host" type="text" value="192.168.4.1" spellcheck="false">
         <div class="lbl" style="width:22px;">Port</div>
         <input id="cal-port" type="number" value="14555"></div>
       <div class="row"><div class="lbl" style="width:72px;">X-axis dist</div>
         <input id="cal-xdist" type="number" step="0.1" value="1.0">
-        <div class="lbl" style="width:60px;">Floor pts</div>
-        <input id="cal-xy" type="number" min="1" value="3"></div>
-      <div class="row"><div class="lbl" style="width:72px;">Static secs</div>
-        <input id="cal-secs" type="number" step="1" value="5"></div>
+        <div class="lbl" style="width:60px;">Static secs</div>
+        <input id="cal-secs" type="number" step="1" min="1" value="5"></div>
       <div class="row"><div class="lbl" style="width:72px;">Tape BS0-BS1</div>
         <input id="cal-baseline" type="number" step="0.01" value="2.26">
-        <div class="lbl" style="width:60px;">Board h</div>
+        <div class="lbl" style="width:60px;" title="Height of the sensor board above the floor while on the marks: Z = 0 becomes the floor">Board h</div>
         <input id="cal-bh" type="number" step="0.01" value="0"></div>
       <div class="row"><div class="lbl" style="width:72px;" title="Re-convert the recorded angles before solving. Only for sessions recorded with the old fitted CAL_BS* firmware; current firmware already applies the period + factory model.">Angles</div>
         <select id="cal-reconvert">
@@ -297,38 +394,17 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
           <option value="factory">+ re-convert: factory</option>
           <option value="period">+ re-convert: period</option>
         </select></div>
+      <label class="hint"><input type="checkbox" id="cal-auto" checked> Solve automatically when there are enough samples</label>
       <div class="row"><div class="lbl" style="width:38px;">Dir</div>
         <input id="cal-dir" type="text" placeholder="auto: calib_runs/run_&lt;date&gt;" spellcheck="false"></div>
       <button id="cal-new">New session</button>
       <div class="row"><div class="lbl" style="width:38px;">Run</div>
         <select id="cal-runs"><option value="">— previous runs —</option></select></div>
       <button id="cal-open">Open run</button>
-      <div id="cal-link" class="hint">Link: —</div>
-    </div>
-    <div class="bs-card" id="cal-factory-card" style="display:none;">
-      <div class="grp-lbl" style="display:block;">FACTORY CALIBRATION (OOTX)</div>
-      <div id="cal-factory" style="font-size:10px;color:#a9c9d0;line-height:1.6;white-space:pre;"></div>
-    </div>
-    <div class="bs-card" id="cal-steps-card" style="display:none;">
-      <div id="cal-steps" class="hint"></div>
-      <div id="cal-prompt" style="font-size:12px;color:#fff;line-height:1.5;"></div>
-      <button id="cal-go">Capture</button>
-      <button id="cal-stop" style="display:none;">Stop sweep</button>
-      <div id="cal-solve" style="display:none;">
-        <div id="cal-state" style="font-size:11px;color:#fff;"></div>
-        <div id="cal-variants"></div>
-        <button id="cal-resolve">Re-run solver</button>
-        <details><summary class="hint" style="cursor:pointer;">Solver log</summary>
-          <pre id="cal-log" style="font-size:9px;color:#9ab;max-height:220px;overflow:auto;margin:4px 0 0;"></pre></details>
-      </div>
-      <div id="cal-result" style="font-size:10px;color:#a9c9d0;line-height:1.5;white-space:pre-line;"></div>
-    </div>
-    <div class="bs-card" id="cal-export-card" style="display:none;">
-      <div class="grp-lbl" style="display:block;">bs_poses_cal.h — calibrate_export.py</div>
-      <div id="cal-export-path" class="hint"></div>
-      <textarea id="cal-export" readonly spellcheck="false" style="height:180px;"></textarea>
-      <button id="cal-export-copy">Copy</button>
-    </div>
+      <div id="cal-session" class="hint"></div>
+      <div class="grp-lbl" style="display:block;margin-top:6px;">FACTORY CALIBRATION (OOTX)</div>
+      <div id="cal-factory" style="font-size:10px;color:#a9c9d0;line-height:1.6;white-space:pre;overflow-x:auto;">—</div>
+    </details>
   </div>
   <div class="sec" id="sec-help">
     <div class="sec-title">HELP</div>
@@ -374,6 +450,7 @@ let trackingSocket = null;
 let trackingTimer = null;
 let trackingPolling = false;
 let relayConnected = false;
+let lastOdomPos = null;
 let lastOdomAt = 0;
 let odometryCount = 0;
 
@@ -628,6 +705,7 @@ function updateDronePosition(position) {
   droneTrailLine.geometry = new THREE.BufferGeometry().setFromPoints(droneTrailPoints);
 
   lastOdomAt = Date.now();
+  lastOdomPos = position;
   odometryCount++;
   document.getElementById('odo-x').textContent = position.x.toFixed(3);
   document.getElementById('odo-y').textContent = position.y.toFixed(3);
@@ -1222,60 +1300,141 @@ function animate() {
 }
 animate();
 
-// ─── Auto-calibration capture (drives the bridge /api/lh2/*) ──────────────────
-const calApi = (action, params = {}) => {
+// ─── Auto-calibration: Bitcraze-style wizard (drives the bridge /api/lh2/*) ───
+const calEl = id => document.getElementById(id);
+function calApi(action, params = {}, body) {
   const base = new URL(document.getElementById('relay-url').value.trim());
   const url = new URL('/api/lh2/' + action, base.origin);
-  url.searchParams.set('host', document.getElementById('cal-host').value.trim());
-  url.searchParams.set('port', document.getElementById('cal-port').value);
+  url.searchParams.set('host', calEl('cal-host').value.trim());
+  url.searchParams.set('port', calEl('cal-port').value);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  return fetch(url, { method: 'POST' }).then(async r => {
-    const data = await r.json();
+  return fetch(url, { method: 'POST', body }).then(async r => {
+    const data = await r.json().catch(() => ({ error: r.statusText }));
     if (!r.ok) throw new Error(data.error || r.statusText);
     return data;
   });
-};
-const calEl = id => document.getElementById(id);
-let calStatus = null, calSteps = [];
-const calLabel = st => st === 'origin' ? 'Origin: drone flat at (0,0,0)'
-  : st === 'x_axis' ? `X-axis: drone flat ${calEl('cal-xdist').value} m from the origin along +X`
-  : st === 'sweep' ? 'Sweep: walk the drone through the whole volume (low/mid/high, tilted ≤30°, many headings), then press Stop'
-  : `Floor ${st.split('_')[2]}: drone flat elsewhere on the floor, off the X axis`;
+}
+const calSettings = () => ({
+  x_axis_dist: calEl('cal-xdist').value, static_seconds: calEl('cal-secs').value,
+  baseline: calEl('cal-baseline').value, board_height: calEl('cal-bh').value,
+  reconvert: calEl('cal-reconvert').value, auto_solve: calEl('cal-auto').checked ? 1 : 0 });
+
+const CAL_STEPS = [
+  { kind: 'origin',   label: 'Origin<br>sample',          color: 0xff5555 },
+  { kind: 'x_axis',   label: 'X-axis<br>sample',          color: 0x55ee66 },
+  { kind: 'xy_plane', label: 'XY-plane<br>samples',       color: 0x55a0ff },
+  { kind: 'sweep',    label: 'XYZ-space<br>samples',      color: 0x9a9a9a },
+  { kind: 'verify',   label: 'Verification samples (optional)', color: 0xffcc44 },
+];
+const CAL_KIND_COLOR = Object.fromEntries(CAL_STEPS.map(s => [s.kind, s.color]));
+let calStep = 0, calStatus = null, calSolve = null, calSolveVersion = -1, calResultKey = '';
+
+function calInstr(kind) {
+  const d = (+calEl('cal-xdist').value || 1).toFixed(2);
+  return {
+    origin: 'Place the drone flat on the floor where you want the <b>origin</b> of your coordinate system to be — the centre of the four sensors on the mark — and start the measurement. Keep it still.',
+    x_axis: `Place the drone flat on the floor on the <b>positive X axis</b>, exactly <b>${d} m</b> from the origin, and start the measurement.`,
+    xy_plane: 'Place the drone flat on the floor at <b>other spots</b>, away from the X axis, to define the floor plane (Z = 0). Each measurement adds one sample — take 3 or more, spread out.',
+    sweep: 'Pick the drone up, start the measurement and move it slowly through the <b>whole flight volume</b>: low / middle / high, tilted up to ~30°, many headings, all four sensors visible to both stations. Stop after 1–3 minutes; you can add more later.',
+    verify: '<i>Optional.</i> Place the drone at spots you can check (e.g. marked points) and measure. These samples are <b>not used by the solver</b>: their board-fit error is the verification error, their position is shown in the 3D view.',
+  }[kind];
+}
+
+// Small floor-scene drawings in place of the Crazyflie client's photos.
+function calIllus(kind) {
+  const ring = (x, y, on = true) => `<ellipse cx="${x}" cy="${y}" rx="30" ry="9" fill="none" stroke="${on ? '#f2f2f2' : '#5a5a5a'}" stroke-width="2.2"/>`;
+  const drone = (x, y, tilt = 0) => `<g transform="translate(${x},${y}) rotate(${tilt})">
+      <line x1="-20" y1="-4" x2="20" y2="4" stroke="#9aa" stroke-width="3"/><line x1="-20" y1="4" x2="20" y2="-4" stroke="#9aa" stroke-width="3"/>
+      ${[[-20, -4], [20, 4], [-20, 4], [20, -4]].map(([a, b]) => `<ellipse cx="${a}" cy="${b - 3}" rx="9" ry="2.5" fill="#8adcf0" opacity=".8"/>`).join('')}
+      <rect x="-7" y="-5" width="14" height="9" rx="2" fill="#ccd"/><line x1="0" y1="4" x2="0" y2="12" stroke="#ccd" stroke-width="2" stroke-dasharray="2 2"/></g>`;
+  const station = (x, lbl) => `<g transform="translate(${x},8)"><rect x="-11" y="0" width="22" height="16" rx="4" fill="#3a3a3a" stroke="#777"/>
+      <circle cx="0" cy="8" r="4" fill="#111" stroke="#8adcf0"/><text x="0" y="30" fill="#777" font-size="9" text-anchor="middle">${lbl}</text></g>`;
+  const label = (x, y, t, c = '#bbb') => `<text x="${x}" y="${y}" fill="${c}" font-size="11" text-anchor="middle" font-family="Courier New, monospace">${t}</text>`;
+  const floor = `<polygon points="10,165 390,165 335,70 65,70" fill="#262626" stroke="#3a3a3a"/>` +
+    [0.25, 0.5, 0.75].map(f => `<line x1="${10 + 380 * f}" y1="165" x2="${65 + 270 * f}" y2="70" stroke="#303030"/>`).join('') +
+    [100, 130].map(y => { const t = (165 - y) / 95; return `<line x1="${10 + 55 * t}" y1="${y}" x2="${390 - 55 * t}" y2="${y}" stroke="#303030"/>`; }).join('');
+  const arrow = (x1, y1, x2, y2, c) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="2.5" marker-end="url(#cal-ah-${c.slice(1)})"/>`;
+  const defs = `<defs>${['ff5555', '55ee66', '8adcf0'].map(c => `<marker id="cal-ah-${c}" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#${c}"/></marker>`).join('')}</defs>`;
+  let body = '';
+  if (kind === 'origin') body = ring(200, 140) + drone(200, 118) + arrow(200, 140, 262, 140, '#ff5555') + arrow(200, 140, 150, 122, '#55ee66') + label(140, 117, '+Y', '#55ee66') + label(270, 158, '+X', '#ff5555') + label(200, 162, '(0, 0, 0)');
+  else if (kind === 'x_axis') body = ring(120, 140, false) + label(120, 162, 'origin', '#777') + arrow(152, 140, 248, 140, '#ff5555') +
+    label(200, 132, (+calEl('cal-xdist').value || 1).toFixed(2) + ' m', '#ff8888') + ring(280, 140) + drone(280, 118) + label(280, 162, '+X');
+  else if (kind === 'xy_plane') body = ring(120, 140, false) + ring(280, 140, false) + ring(150, 95) + ring(255, 92) + ring(330, 128) + drone(255, 70) + label(200, 162, 'any floor spots · Z = 0');
+  else if (kind === 'sweep') body = `<path d="M70,130 C110,40 170,150 210,70 S300,30 340,110" fill="none" stroke="#8adcf0" stroke-width="2" stroke-dasharray="4 5"/>` +
+    drone(210, 66, -18) + arrow(372, 120, 372, 52, '#8adcf0') + arrow(372, 70, 372, 140, '#8adcf0') + label(200, 162, 'low · middle · high · tilted · all headings');
+  else body = ring(140, 120) + ring(270, 110) + drone(140, 98) + '<path d="M260,108 l7,7 l14,-16" fill="none" stroke="#ffcc44" stroke-width="3"/>' + label(200, 162, 'not used by the solver');
+  return `<svg viewBox="0 0 400 170" xmlns="http://www.w3.org/2000/svg">${defs}${floor}${station(70, 'BS0')}${station(330, 'BS1')}${body}</svg>`;
+}
+
+function calTileIcon(kind, s) {
+  const sm = s && s.samples;
+  if (!sm) return '<span class="ic">✘</span>';
+  if (kind === 'origin' || kind === 'x_axis') return sm[kind] ? '<span class="ic ok">✔</span>' : '<span class="ic">✘</span>';
+  if (kind === 'xy_plane') return sm.xy_plane.length ? `<span class="ic n ok">✔ (${sm.xy_plane.length})</span>` : '<span class="ic">✘</span>';
+  if (kind === 'sweep') return `<span class="ic n${sm.sweep >= sm.sweep_min ? ' ok' : ''}">(${sm.sweep})</span>`;
+  return `<span class="ic n">(${sm.verify.length})</span>`;
+}
 
 function calRender() {
-  const s = calStatus;
-  if (!s) return;
-  const age = s.last_packet_age;
-  calEl('cal-link').textContent = !s.available ? 'Bridge has no capture module (install numpy).'
-    : s.packets === 0 ? 'Link: no LH2 TUNNEL received yet'
+  const s = calStatus, step = CAL_STEPS[calStep], cap = s && s.capture;
+  // Drone / base-station status
+  const age = s && s.last_packet_age;
+  const live = s && s.packets && age < 2;
+  const sv = calSolve;
+  calEl('cal-cfstate').textContent = !s ? 'Bridge offline' : !s.available ? 'No capture module (install numpy)'
+    : !live ? 'No LH2 data' : sv && sv.ok ? 'Geometry solved' : 'Receiving — no geometry';
+  calEl('cal-cfpos').textContent = lastOdomPos && Date.now() - lastOdomAt < 2000
+    ? `(${lastOdomPos.x.toFixed(2)}, ${lastOdomPos.y.toFixed(2)}, ${lastOdomPos.z.toFixed(2)})` : '—';
+  const st = (s && s.stations) || [0, 1].map(id => ({ id }));
+  calEl('cal-bsgrid').innerHTML = `<tr><th></th>${st.map(b => `<th>${b.id}</th>`).join('')}</tr>` +
+    [['Receiving', 'receiving'], ['Calibration', 'calibration'], ['Geometry', 'geometry']].map(([l, k]) =>
+      `<tr><td>${l}</td>${st.map(b => `<td class="c${b[k] ? ' on' : ''}"></td>`).join('')}</tr>`).join('');
+  calEl('cal-link').textContent = !s ? 'Bridge: not reachable — start display_real_time_windows.py (avvia.bat).'
+    : s.packets === 0 ? 'Link: no LH2 TUNNEL received yet (check IP / port and that the PC is on the drone Wi-Fi)'
     : `Link: ${s.packets} snapshots · last ${age.toFixed(1)} s ago` + (s.quality != null ? ` · plausible ${s.quality.toFixed(0)}%` : '');
-  if (!s.session_dir) return;
-  const n = s.config.xy_points;
-  calSteps = ['origin', 'x_axis', ...Array.from({ length: n }, (_, i) => 'xy_plane_' + (i + 1)), 'sweep'];
-  const next = calSteps.find(st => !s.done.includes(st));
-  calEl('cal-steps-card').style.display = '';
-  calEl('cal-steps').textContent = calSteps.map(st => (s.done.includes(st) ? '✔ ' : st === next ? '▶ ' : '○ ') + st).join('\n');
-  calEl('cal-steps').style.whiteSpace = 'pre-line';
-  const cap = s.capture;
-  calRenderSolve(s.solve);
-  const go = calEl('cal-go'), stop = calEl('cal-stop');
-  go.style.display = '';
-  stop.style.display = cap && cap.step === 'sweep' ? '' : 'none';
-  if (cap) {
-    calEl('cal-prompt').textContent = `Recording ${cap.step}… ${cap.elapsed.toFixed(0)} s · both stations ${cap.complete} · plausible ${cap.plausible}`;
-    go.disabled = true;
-  } else if (next) {
-    calEl('cal-prompt').textContent = calLabel(next);
-    go.disabled = false;
-    go.textContent = s.last_result && !s.last_result.ok && s.last_result.step === next ? 'Retry capture' : (next === 'sweep' ? 'Start sweep' : 'Capture');
-    go.dataset.step = next;
-  } else {
-    calEl('cal-prompt').textContent = s.solve && s.solve.state !== 'idle' ? 'Session complete.' : 'All steps captured. Finish to write session.json and solve.';
-    go.disabled = false; go.textContent = 'Finish & solve'; go.dataset.step = 'finish';
-    if (s.solve && s.solve.state !== 'idle') go.style.display = 'none';
+
+  // Wizard
+  calEl('cal-instr').innerHTML = calInstr(step.kind);
+  if (calEl('cal-illus').dataset.kind !== step.kind + calEl('cal-xdist').value) {
+    calEl('cal-illus').innerHTML = calIllus(step.kind);
+    calEl('cal-illus').dataset.kind = step.kind + calEl('cal-xdist').value;
   }
-  calEl('cal-result').textContent = (s.last_result ? s.last_result.message + '\n' : '') + 'Session: ' + s.session_dir;
+  calEl('cal-tiles').innerHTML = CAL_STEPS.map((t, i) =>
+    `<button class="cal-tile${i === calStep ? ' sel' : ''}" data-i="${i}">${calTileIcon(t.kind, s)}<span>${t.label}</span></button>`).join('');
+  calEl('cal-prev').disabled = calStep === 0;
+  calEl('cal-next').disabled = calStep === CAL_STEPS.length - 1;
+  const btn = calEl('cal-measure'), bar = calEl('cal-progress');
+  btn.classList.toggle('rec', !!(cap && cap.step === 'sweep'));
+  if (cap) {
+    const what = CAL_STEPS.find(t => t.kind === cap.step).label.replace(/<br>/g, ' ');
+    btn.disabled = cap.step !== 'sweep';
+    btn.textContent = cap.step === 'sweep' ? `Stop measurement (${cap.complete})` : `Measuring… ${Math.max(0, cap.seconds - cap.elapsed).toFixed(0)} s`;
+    bar.style.visibility = 'visible';
+    bar.firstElementChild.style.width = cap.seconds ? `${Math.min(100, 100 * cap.elapsed / cap.seconds)}%` : '100%';
+    calEl('cal-result').textContent = `Recording ${what} · ${cap.complete} snapshots with both stations · ${cap.plausible} plausible`;
+  } else {
+    btn.disabled = !s || !s.available;
+    btn.textContent = step.kind === 'xy_plane' || step.kind === 'verify' ? 'Add measurement'
+      : (step.kind === 'sweep' && s && s.samples && s.samples.sweep ? 'Add measurement' : 'Start measurement');
+    bar.style.visibility = 'hidden';
+    calEl('cal-result').textContent = s && s.last_result ? s.last_result.message : '';
+  }
+  const sb = calEl('cal-statusbar');
+  let cls, txt;
+  if (!s) [cls, txt] = ['bad', 'Bridge not reachable'];
+  else if (cap) [cls, txt] = ['info', 'Measuring…'];
+  else if (sv && sv.state === 'running') [cls, txt] = ['warn', 'Solving geometry…'];
+  else if (!s.ready) [cls, txt] = ['bad', 'Not enough samples — missing: ' + s.missing.join(', ')];
+  else if (sv && sv.ok) {
+    const m = sv.variants[sv.primary].metrics;
+    [cls, txt] = ['good', `Geometry solved · residual ${m.residual_mean_mm != null ? m.residual_mean_mm.toFixed(1) : '?'} mm · board fit ${m.board_fit_mm != null ? m.board_fit_mm.toFixed(1) : '?'} mm`];
+  } else if (sv && sv.state === 'done') [cls, txt] = ['bad', 'Solver failed — see GEOMETRY RESULT'];
+  else [cls, txt] = ['warn', 'Enough samples — press "Solve now" in GEOMETRY RESULT'];
+  sb.className = cls; sb.textContent = txt;
+  calEl('cal-session').textContent = s && s.session_dir ? 'Session: ' + s.session_dir : 'No session yet: the first measurement creates calib_runs/run_<date>.';
+  calRenderManagement();
 }
+
 function calQuatToPose(q) {
   const [x, y, z, w] = q;
   const R = [[1-2*(y*y+z*z), 2*(x*y-z*w), 2*(x*z+y*w)],
@@ -1327,21 +1486,166 @@ function calVariantHtml(v, i) {
     (v.ok ? `<div class="cal-btns"><button data-apply="${i}">Apply to editor</button>` +
             `<button data-export="${i}">Export header</button></div>` : '') + `</div>`;
 }
+
+function calRenderManagement() {
+  const s = calStatus, sv = calSolve;
+  const located = Object.fromEntries(((sv && sv.samples && sv.samples.statics) || []).map(x => [x.name, x]));
+  const sm = s && s.samples;
+  const names = !sm ? [] : [...(sm.origin ? ['origin'] : []), ...(sm.x_axis ? ['x_axis'] : []), ...sm.xy_plane,
+    ...(sm.sweep ? ['sweep'] : []), ...sm.verify];
+  const kindOf = n => n.startsWith('xy_plane') ? 'xy_plane' : n.startsWith('verify') ? 'verify' : n;
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  if (calEl('cal-details').style.display !== 'none') {
+    const html = names.length ? names.map(n => {
+      const l = located[n];
+      const info = n === 'sweep' ? `${sm.sweep} snapshots` + (sv && sv.samples ? ` · ${sv.samples.cloud.length} shown` : '')
+        : l && l.position ? `${l.position.map(c => (c >= 0 ? '+' : '') + c.toFixed(3)).join(' ')} m · fit ${l.error_mm.toFixed(2)} mm`
+        : l && l.error ? l.error : 'not located yet';
+      return `<div class="cal-srow"><span class="dot" style="background:${hex(CAL_KIND_COLOR[kindOf(n)])}"></span>` +
+        `<span class="nm">${n}</span><span class="info">${calEsc(info)}</span><button data-del="${n}">✕</button></div>`;
+    }).join('') : '<div class="hint">No samples in this session.</div>';
+    if (calEl('cal-details').dataset.html !== html) { calEl('cal-details').innerHTML = html; calEl('cal-details').dataset.html = html; }
+  }
+  const primary = sv && sv.ok ? sv.variants[sv.primary] : null;
+  const m = primary && primary.metrics;
+  calEl('cal-esterr').textContent = m && m.residual_max_mm != null
+    ? `${m.residual_max_mm.toFixed(1)} mm (mean ${m.residual_mean_mm.toFixed(2)} mm)` : '--';
+  const ver = Object.values(located).filter(x => x.kind === 'verify' && x.error_mm != null);
+  calEl('cal-vererr').textContent = ver.length ? `${Math.max(...ver.map(x => x.error_mm)).toFixed(2)} mm (${ver.length} samples)` : '--';
+}
+
+// 3D: samples placed with the solved geometry + the solved stations, as in the Crazyflie client.
+const calGroup = new THREE.Group();
+scene.add(calGroup);
+function calDraw3d() {
+  calGroup.children.forEach(o => { if (o.geometry) o.geometry.dispose(); });
+  calGroup.clear();
+  const sv = calSolve;
+  if (!calEl('cal-show3d').checked || !sv || !sv.ok) return;
+  const add = o => calGroup.add(o);
+  const label = (txt, p, col) => {
+    const d = document.createElement('div'); d.className = 'label3d'; d.textContent = txt; d.style.color = col;
+    const o = new CSS2DObject(d); o.position.copy(p); add(o);
+  };
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  const samples = sv.samples || { statics: [], cloud: [] };
+  samples.statics.filter(x => x.position).forEach(x => {
+    const col = CAL_KIND_COLOR[x.kind] || 0xffffff;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), new THREE.MeshBasicMaterial({ color: col }));
+    m.position.copy(tv(...x.position)); add(m);
+    if (x.kind === 'origin' || x.kind === 'x_axis' || x.kind === 'verify')
+      label(x.kind === 'origin' ? 'O' : x.kind === 'x_axis' ? 'X' : x.name.replace('verify_', 'V'), tv(x.position[0], x.position[1], x.position[2] + 0.12), hex(col));
+  });
+  if (samples.cloud.length) {
+    const g = new THREE.BufferGeometry().setFromPoints(samples.cloud.map(p => tv(...p)));
+    add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9a9a9a, size: 0.025 })));
+  }
+  sv.variants[sv.primary].poses.forEach(p => {
+    const pose = calQuatToPose(p.quat), c0 = [pose.R[0][0], pose.R[1][0], pose.R[2][0]];
+    const at = tv(...p.position);
+    const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.07), new THREE.MeshBasicMaterial({ color: 0xff55ff, wireframe: true }));
+    m.position.copy(at); add(m);
+    add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([at, tv(p.position[0] + c0[0] * 0.8, p.position[1] + c0[1] * 0.8, p.position[2] + c0[2] * 0.8)]),
+      new THREE.LineBasicMaterial({ color: 0xff55ff })));
+    label(`BS${p.id} solved`, tv(p.position[0], p.position[1], p.position[2] - 0.18), '#ff77ff');
+  });
+}
+calEl('cal-show3d').addEventListener('change', calDraw3d);
+
+// Status polling. The solve result (log, sample cloud) is only re-sent when it changed.
+async function calCall(action, params = {}, body) {
+  try {
+    const s = await calApi(action, { ...params, since: calSolveVersion }, body);
+    if (!s.solve.unchanged) {
+      calSolve = s.solve;
+      calSolveVersion = s.solve_version;
+      calRenderSolve(calSolve);
+      calDraw3d();
+      if (calSolve.state === 'done') calLoadRuns();
+    }
+    calStatus = s;
+    const key = s.last_result ? JSON.stringify(s.last_result) : '';
+    if (key !== calResultKey) {  // like the client: a good origin / x-axis sample moves on to the next step
+      calResultKey = key;
+      const lr = s.last_result;
+      if (lr && lr.ok && CAL_STEPS[calStep].kind === lr.step && (lr.step === 'origin' || lr.step === 'x_axis')) calStep++;
+    }
+    calRender();
+    return s;
+  } catch (e) {
+    calStatus = null; calRender();
+    calEl('cal-result').textContent = 'Bridge error: ' + e.message;
+  }
+}
+async function calNewSession(dir = '') {
+  calEl('cal-export-card').style.display = 'none';
+  calSolveVersion = -1;
+  const s = await calCall('session', { dir, ...calSettings() });
+  calLoadRuns();
+  return s;
+}
+
+calEl('cal-tiles').addEventListener('click', e => {
+  const t = e.target.closest('.cal-tile');
+  if (t) { calStep = +t.dataset.i; calRender(); }
+});
+calEl('cal-prev').addEventListener('click', () => { calStep = Math.max(0, calStep - 1); calRender(); });
+calEl('cal-next').addEventListener('click', () => { calStep = Math.min(CAL_STEPS.length - 1, calStep + 1); calRender(); });
+calEl('cal-measure').addEventListener('click', async () => {
+  if (calStatus && calStatus.capture) { if (calStatus.capture.step === 'sweep') await calCall('stop'); return; }
+  if (!calStatus || !calStatus.session_dir) { if (!(await calNewSession())) return; }
+  await calCall('start', { step: CAL_STEPS[calStep].kind, seconds: calEl('cal-secs').value });
+});
+document.querySelectorAll('input[name=cal-det]').forEach(r => r.addEventListener('change', () => {
+  calEl('cal-details').style.display = document.querySelector('input[name=cal-det]:checked').value === 'show' ? '' : 'none';
+  calEl('cal-details').dataset.html = '';
+  calRender();
+}));
+// Destructive buttons ask for a second click instead of a dialog.
+function calConfirm(btn, text, action) {
+  if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = btn.dataset.text; action(); return; }
+  btn.dataset.armed = '1'; btn.dataset.text = btn.textContent; btn.textContent = text;
+  setTimeout(() => { if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = btn.dataset.text; } }, 3000);
+}
+calEl('cal-details').addEventListener('click', e => {
+  const b = e.target.closest('button[data-del]');
+  if (b) calConfirm(b, 'sure?', () => calCall('delete', { name: b.dataset.del }));
+});
+calEl('cal-clear').addEventListener('click', e =>
+  calConfirm(e.currentTarget, 'Click again to clear', () => calCall('clear')));
+calEl('cal-exportsamples').addEventListener('click', async () => {
+  try {
+    const data = await calApi('export_samples');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    a.download = `${data.session}_samples.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } catch (err) { calEl('cal-result').textContent = 'Export failed: ' + err.message; }
+});
+calEl('cal-import').addEventListener('click', () => calEl('cal-importfile').click());
+calEl('cal-importfile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  calSolveVersion = -1;
+  await calCall('import_samples', calSettings(), await file.text());
+  calLoadRuns();
+});
+['cal-xdist', 'cal-secs', 'cal-baseline', 'cal-bh', 'cal-reconvert', 'cal-auto'].forEach(id =>
+  calEl(id).addEventListener('change', () => calCall('config', calSettings())));
+
 let calVariantsKey = '';
 function calRenderSolve(sv) {
-  const box = calEl('cal-solve');
-  if (!sv || sv.state === 'idle') { box.style.display = 'none'; return; }
-  box.style.display = '';
   const log = calEl('cal-log');
   const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 5;
-  if (log.textContent !== sv.log) log.textContent = sv.log;
+  if (log.textContent !== (sv.log || '')) log.textContent = sv.log || '';
   if (atBottom) log.scrollTop = log.scrollHeight;
   calEl('cal-resolve').disabled = sv.state === 'running';
-  calEl('cal-state').textContent = sv.state === 'running' ? 'Solving…'
+  calEl('cal-state').textContent = sv.state === 'idle' ? 'Not solved yet.' : sv.state === 'running' ? 'Solving…'
     : sv.ok ? 'Solved — check the figures (✔ ok · ! marginal · ✘ out of range), then apply or export.' : 'Solver failed — see log.';
   calVariants = sv.state === 'running' ? [] : (sv.variants || []).map(v => ({
     ...v, poses: v.ok ? v.poses.map(p => ({ id: p.id, pos: p.position, ...calQuatToPose(p.quat) })) : null }));
-  // Re-render only on change: the status poll runs every 500 ms and would eat button clicks.
   const key = JSON.stringify([sv.state, sv.variants, calFactory]);
   if (key !== calVariantsKey) { calVariantsKey = key; calEl('cal-variants').innerHTML = calVariants.map(calVariantHtml).join(''); }
 }
@@ -1366,13 +1670,7 @@ calEl('cal-variants').addEventListener('click', async e => {
   }
 });
 calEl('cal-export-copy').addEventListener('click', () => navigator.clipboard.writeText(calEl('cal-export').value));
-const calSolve = () => calCall('solve', { baseline: calEl('cal-baseline').value, board_height: calEl('cal-bh').value,
-  reconvert: calEl('cal-reconvert').value });
-calEl('cal-resolve').addEventListener('click', calSolve);
-async function calCall(action, params) {
-  try { calStatus = await calApi(action, params); calRender(); return calStatus; }
-  catch (e) { calEl('cal-link').textContent = 'Bridge error: ' + e.message; }
-}
+calEl('cal-resolve').addEventListener('click', () => calCall('solve', calSettings()));
 async function calLoadRuns() {
   try {
     const r = await calApi('runs');
@@ -1382,46 +1680,29 @@ async function calLoadRuns() {
       `<option value="${calEsc(run.dir)}">${calEsc(run.name)}${run.solved ? ' ✔' : ''}</option>`).join('');
     sel.value = keep;
     const ids = Object.keys(calFactory);
-    calEl('cal-factory-card').style.display = ids.length ? '' : 'none';
-    calEl('cal-factory').textContent = ids.map(id => {
+    calEl('cal-factory').textContent = ids.length ? ids.map(id => {
       const f = calFactory[id];
       const planes = f.planes.map((p, k) => `  plane${k}: phase ${p.phase.toFixed(3)}°  tilt ${p.tilt.toFixed(2)}°  gib ${p.gibmag.toFixed(2)}°`).join('\n');
       return `BS${id}  uid ${f.uid}  polys ${(f.polynomials || []).join('/')}  accel tilt ${f.accel_tilt_deg != null ? f.accel_tilt_deg.toFixed(1) + '°' : '—'}\n${planes}`;
-    }).join('\n');
+    }).join('\n') : 'lh2_factory_calibration.json not found — run lh2_ootx.py.';
     calVariantsKey = '';
-    if (calStatus) calRenderSolve(calStatus.solve);
-  } catch (e) { calEl('cal-link').textContent = 'Bridge error: ' + e.message; }
+    if (calSolve) calRenderSolve(calSolve);
+  } catch (e) { /* bridge offline: calRender shows it */ }
 }
+calEl('cal-new').addEventListener('click', () => calNewSession(calEl('cal-dir').value.trim()));
 calEl('cal-open').addEventListener('click', () => {
   const dir = calEl('cal-runs').value;
-  calEl('cal-export-card').style.display = 'none';
-  if (dir) calCall('session', { dir, x_axis_dist: calEl('cal-xdist').value,
-    xy_points: calEl('cal-xy').value, static_seconds: calEl('cal-secs').value });
+  if (dir) calNewSession(dir);
 });
-calEl('cal-new').addEventListener('click', async () => {
-  calEl('cal-export-card').style.display = 'none';
-  await calCall('session', { dir: calEl('cal-dir').value.trim(), x_axis_dist: calEl('cal-xdist').value,
-    xy_points: calEl('cal-xy').value, static_seconds: calEl('cal-secs').value });
-  calLoadRuns();
-});
-calEl('cal-go').addEventListener('click', async () => {
-  const step = calEl('cal-go').dataset.step;
-  if (step === 'finish') { if (await calCall('finish')) await calSolve(); }
-  else await calCall('start', { step, seconds: calEl('cal-secs').value });
-});
-calEl('cal-stop').addEventListener('click', () => calCall('stop'));
-let calWasSolving = false, calWasOpen = false;
+let calWasOpen = false, calTick = 0;
 setInterval(async () => {
   const open = panelEl.dataset.sec === 'calib';
   if (open && !calWasOpen) calLoadRuns();  // refresh run list + factory data each time the section opens
   calWasOpen = open;
-  if (open || (calStatus && (calStatus.capture || (calStatus.solve && calStatus.solve.state === 'running')))) {
-    await calCall('status');
-    const solving = !!(calStatus && calStatus.solve && calStatus.solve.state === 'running');
-    if (calWasSolving && !solving) calLoadRuns();  // a solve just wrote geometry.yaml
-    calWasSolving = solving;
-  }
+  const busy = calStatus && (calStatus.capture || (calSolve && calSolve.state === 'running'));
+  if (open || busy || (++calTick % 6 === 0 && calStatus)) await calCall('status');
 }, 500);
+calRender();
 </script>
 </body>
 </html>

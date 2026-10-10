@@ -197,14 +197,25 @@ Check the printout:
 - **Estimated baseline** vs the tape-measured `--baseline`: within about 3 %.
 - **Poses**: right heights, and boresights that match how the stations are mounted.
 
-**Same flow from the browser.** Run `python utils/user_interface/display_real_time_windows.py`
-and open `bs_pose_editor.html` → **Calib**. Each step is captured from the page, the session is
-written to `calib_runs/run_<date>/` and solved with `calibrate_bitcraze.py` (`geometry.yaml` +
-`solve.log`, same files as the wizard). The page grades the report (residual, board fit, 1 m mark,
-baseline vs tape, station tilt vs the OOTX accelerometer from `lh2_factory_calibration.json`).
-**Open run** reloads any solved run. **Angles** re-converts sessions recorded with the old
-`CAL_BS*` firmware (`reconvert_run.py`). **Export header** runs `calibrate_export.py` into
-`<run>/bs_poses_cal_candidate.h`.
+**Same flow from the browser** (Crazyflie-client-style wizard). Run
+`python utils/user_interface/display_real_time_windows.py` and open `bs_pose_editor.html` → **Calib**.
+- *Base station status* shows, per station, Receiving (all four sensors seen), Calibration (OOTX
+  data in `lh2_factory_calibration.json`) and Geometry (solved in this session).
+- *Sample collection*: Origin, X-axis, any number of XY-plane samples, XYZ-space (the sweep;
+  every recording is appended to `sweep.json`) and optional Verification samples
+  (`verify_<n>.json`, never given to the solver). The first measurement creates
+  `calib_runs/run_<date>/`.
+- With origin, x-axis, ≥ 1 xy-plane and ≥ 100 sweep snapshots the session is solved in the
+  background (`calibrate_bitcraze.py` → `geometry.yaml` + `solve.log`, same files as the
+  wizard) and re-solved when an estimation sample changes. `locate_samples.py` then places
+  every sample with the solved geometry: the 3D view shows them with the solved stations, and
+  the board-fit error of the verification samples is the *max verification sample error*.
+- *Sample management*: per-sample details and delete (files go to `_deleted/`), Clear all
+  (to `_cleared_<date>/`), Import / Export of all samples as one JSON file.
+- *Geometry result* grades the report (residual, board fit, 1 m mark, baseline vs tape, station
+  tilt vs the OOTX accelerometer), applies the poses to the editor, and **Export header** runs
+  `calibrate_export.py` into `<run>/bs_poses_cal_candidate.h`. *Settings* holds the link, tape,
+  board height, the `reconvert_run.py` option for old-firmware sessions, and **Open run**.
 
 **3. Into the firmware** (this branch compiles the poses in):
 
