@@ -32,6 +32,8 @@ STEP_NAMES = ("origin", "x_axis", "sweep")
 CALIB_DIR = os.path.dirname(os.path.abspath(lh2cap.__file__)) if lh2cap else os.path.join(_HERE, "..", "calibration")
 RUNS_DIR = os.path.join(CALIB_DIR, "calib_runs")
 FACTORY_CAL = os.path.join(CALIB_DIR, "lh2_factory_calibration.json")
+# Calibration scripts print and write UTF-8 (e.g. headers) also on Windows, where the default is cp1252.
+_CHILD_ENV = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
 
 # Key lines of calibrate_bitcraze.py's report, shown as figures in the pose editor.
 _LOG_METRICS = (
@@ -348,7 +350,7 @@ class CaptureManager:
     def _stream(self, command, log_path):
         """Run a calibration script, appending its output to the live log and to log_path."""
         process = subprocess.Popen(command, cwd=CALIB_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                   text=True, errors="replace")
+                                   text=True, encoding="utf-8", errors="replace", env=_CHILD_ENV)
         with open(log_path, "w", encoding="utf-8") as log:
             for line in process.stdout:
                 log.write(line)
@@ -403,7 +405,8 @@ class CaptureManager:
                                                            os.path.join(CALIB_DIR, "..", "..")),
                                  "-o", output],
                                 cwd=os.path.abspath(os.path.join(CALIB_DIR, "..", "..")),
-                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, errors="replace")
+                                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding="utf-8",
+                                errors="replace", env=_CHILD_ENV)
         if result.returncode != 0:
             raise ValueError("calibrate_export.py failed:\n" + result.stdout)
         return {"path": output, "header": _read_text(output), "log": result.stdout}
