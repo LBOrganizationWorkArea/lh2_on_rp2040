@@ -83,6 +83,13 @@ class LighthouseGeometrySolution:
         # If it did not converge, the solution is probably not good enough to use
         self.success = False
 
+        # Final parameter vector, residual vector [m] and (sparse) Jacobian of the
+        # least-squares fit, kept for covariance estimation. Parameter layout:
+        # 6 per base station (rot vec, translation), then 6 per CF sample 1..n-1.
+        self.params = None
+        self.residuals = None
+        self.jacobian = None
+
 
 class LighthouseGeometrySolver:
     """

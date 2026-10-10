@@ -1,0 +1,11 @@
+Error: the measured sensors do not form the wand in /home/eduardo/Repositories/lh2_on_rp2040/utils/calibration/wand_sensors.json. Check that rows are in firmware order S0..S3 and the coordinates match the board.
+Wand layout (/home/eduardo/Repositories/lh2_on_rp2040/utils/calibration/wand_sensors.json): S0-S1   40.0 mm, S0-S2   56.6 mm, S0-S3   40.0 mm, S1-S2   40.0 mm, S1-S3   56.6 mm, S2-S3   40.0 mm
+Wand-span filter dropped 33/786 snapshots whose sensors spread wider than the wand can at 0.5 m
+Sweep samples with both stations: 753 (age filter dropped 844)
+Warning: utils/calibration/calib_runs/run1/origin.json BS0 angle spread 16.55 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run1/x_axis.json BS0 angle spread 16.14 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run1/x_axis.json BS1 angle spread 12.25 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run1/xy_plane_1.json BS0 angle spread 6.94 deg — was the wand held still?
+IPPE seed kept 148/758; final solve used 744 (14 residual outliers dropped)
+Residual: mean 7.22 mm, max 19.72 mm
+Wand shape check: median rigid-fit error 5.87 mm

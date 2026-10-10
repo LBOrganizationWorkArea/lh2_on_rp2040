@@ -1,0 +1,14 @@
+{
+ "type": "lh2_bitcraze_calibration_session",
+ "origin": "origin.json",
+ "x_axis": [
+  "x_axis.json"
+ ],
+ "x_axis_dist": 1.0,
+ "xy_plane": [
+  "xy_plane_1.json",
+  "xy_plane_2.json",
+  "xy_plane_3.json"
+ ],
+ "sweep": "sweep.json"
+}

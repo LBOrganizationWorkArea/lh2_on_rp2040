@@ -1,0 +1,28 @@
+Error: the measured sensors do not form the wand in /home/eduardo/Repositories/lh2_on_rp2040/utils/calibration/wand_sensors.json (median rigid-fit error 5.54 mm > 5 mm). Check that rows are in firmware order S0..S3 and the coordinates match the board. Geometry not written.
+Wand layout (/home/eduardo/Repositories/lh2_on_rp2040/utils/calibration/wand_sensors.json): S0-S1   40.0 mm, S0-S2   56.6 mm, S0-S3   40.0 mm, S1-S2   40.0 mm, S1-S3   56.6 mm, S2-S3   40.0 mm
+Wand-span filter dropped 42/747 snapshots whose sensors spread wider than the wand can at 0.5 m
+Sweep samples with both stations: 705 (age filter dropped 1008)
+IPPE seed kept 167/710; final solve used 707 (3 residual outliers dropped)
+Residual: mean 6.97 mm, max 25.58 mm
+Wand shape check: median rigid-fit error 5.54 mm
+Wizard frame: x-axis capture is 0.9646 m from the origin by the sensor-spacing scale (marked at 1.0000 m)
+Rescaled by 1.0367 to put the x-axis capture at 1.0000 m (Bitcraze)
+
+Precision (1 sigma, statistical only; residual sigma 6.76 mm per angle):
+  in sensor-spacing units (metres if the board size is right):
+    BS0-BS1 baseline           2.0363 +- 0.0086 m
+    origin -> x-axis capture   0.9646 +- 0.0059 m
+    BS0 in capture frame       [-1.164, +0.649, +2.563] +- [0.017, 0.030, 0.017] m, tilt 19.25 +- 0.62 deg
+    BS1 in capture frame       [+0.871, +0.724, +2.581] +- [0.017, 0.030, 0.015] m, tilt 22.60 +- 0.66 deg
+  scaled by the x-axis mark (1 m): baseline 2.1110 +- 0.0104 m
+Estimated baseline: 2.1110 m
+Tape baseline 2.2600 m -> ratio tape/estimate = 1.0706
+Warning: scale is off by more than 3 % — check the x-axis mark distance, and the tape measurement.
+BS0: origin [-1.2064, +0.6730, +2.6544] m   boresight tilt-down  70.8 deg, heading -103.0 deg
+       R[0] = [-0.074282, +0.995479, +0.059199]
+       R[1] = [-0.321185, +0.032317, -0.946465]
+       R[2] = [-0.944099, -0.089319, +0.317332]
+BS1: origin [+0.9031, +0.7508, +2.6723] m   boresight tilt-down  67.4 deg, heading  -75.4 deg
+       R[0] = [+0.097147, +0.990809, -0.094123]
+       R[1] = [-0.371838, -0.051590, -0.926863]
+       R[2] = [-0.923201, +0.125040, +0.363408]

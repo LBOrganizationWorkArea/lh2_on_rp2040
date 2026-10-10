@@ -1,0 +1,33 @@
+Wand layout (/home/eduardo/Repositories/lh2_on_rp2040/utils/calibration/wand_sensors.json): S0-S1   40.0 mm, S0-S2   56.6 mm, S0-S3   40.0 mm, S1-S2   40.0 mm, S1-S3   56.6 mm, S2-S3   40.0 mm
+Wand-span filter dropped 42/747 snapshots whose sensors spread wider than the wand can at 0.5 m
+Sweep samples with both stations: 705 (age filter dropped 1008)
+Warning: utils/calibration/calib_runs/run2_factory/origin.json BS1 angle spread 7.62 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run2_factory/x_axis.json BS0 angle spread 12.99 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run2_factory/x_axis.json BS1 angle spread 13.60 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run2_factory/xy_plane_1.json BS0 angle spread 12.10 deg — was the wand held still?
+Warning: utils/calibration/calib_runs/run2_factory/xy_plane_1.json BS1 angle spread 7.12 deg — was the wand held still?
+IPPE seed kept 220/710; final solve used 707 (3 residual outliers dropped)
+Residual: mean 5.09 mm, max 17.06 mm
+Wand shape check: median rigid-fit error 4.67 mm
+Wizard frame: x-axis capture is 0.9460 m from the origin by the sensor-spacing scale (marked at 1.0000 m)
+Warning: sensor-spacing scale and the x-axis mark disagree by 1.057x. Either the x-axis mark is not at that distance from the origin mark, or the sensor spacing in /home/eduardo/Repositories/lh2_on_rp2040/utils/calibration/wand_sensors.json is off (40 mm would really be 42.3 mm).
+Rescaled by 1.0570 to put the x-axis capture at 1.0000 m (Bitcraze)
+
+Precision (1 sigma, statistical only; residual sigma 5.09 mm per angle):
+  in sensor-spacing units (metres if the board size is right):
+    BS0-BS1 baseline           2.0965 +- 0.0061 m
+    origin -> x-axis capture   0.9460 +- 0.0041 m
+    BS0 in capture frame       [-1.162, +0.637, +2.631] +- [0.013, 0.021, 0.012] m, tilt 22.32 +- 0.45 deg
+    BS1 in capture frame       [+0.934, +0.690, +2.644] +- [0.013, 0.021, 0.010] m, tilt 27.56 +- 0.46 deg
+  scaled by the x-axis mark (1 m): baseline 2.2160 +- 0.0080 m
+Estimated baseline: 2.2160 m
+Tape baseline 2.2600 m -> ratio tape/estimate = 1.0198
+BS0: origin [-1.2281, +0.6733, +2.7795] m   boresight tilt-down  67.7 deg, heading  -86.0 deg
+       R[0] = [+0.026296, +0.999065, +0.034305]
+       R[1] = [-0.378918, +0.041718, -0.924490]
+       R[2] = [-0.925057, +0.011312, +0.379661]
+BS1: origin [+0.9872, +0.7289, +2.7929] m   boresight tilt-down  62.4 deg, heading  -74.8 deg
+       R[0] = [+0.121268, +0.992395, -0.021114]
+       R[1] = [-0.446516, +0.035541, -0.894070]
+       R[2] = [-0.886520, +0.117850, +0.447430]
+Wrote candidate geometry: utils/calibration/calib_runs/run2_factory/geometry.yaml

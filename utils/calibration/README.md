@@ -128,6 +128,137 @@ Do not flash that header until its positions and boresight directions have been
 checked against physical measurements. The legacy `calibrate_cli.py` acquires
 data through Crazyflie and is not the JSON solver for this Wi-Fi capture path.
 
+### Drone auto-calibration — Bitcraze wizard (`capture_lh2.py` + `calibrate_bitcraze.py`)
+
+There is no separate wand: the drone's own 4-sensor board is the calibration
+target. `wand_sensors.json` is that board (40 mm square, S0 upper-left (D1/E1), S1
+upper-right, S2 lower-right, S3 lower-left, seen from the component side). Both
+scripts use it by default. The drone's reference point is the **centre of the four
+sensors**.
+
+**What you need:** the AUTO-CALIB-EXP firmware (or later) on the Pico, a tape
+measure, and floor tape. Mark these on the floor:
+- an **origin** point, which becomes (0, 0, 0);
+- an **x-axis** point exactly **1 m** from the origin, in the direction that becomes +X;
+- **3 other floor points**, spread out and not on the X axis.
+
+**1. Capture (guided).** Run the wizard for the link the drone uses:
+
+| Link | Command |
+|---|---|
+| Wi-Fi (MavESP8266 / DroneBridge AP), the AUTO-CALIB-EXP setup | `python capture_lh2.py --connect udpin:0.0.0.0:14550 --heartbeat-to 192.168.4.1:14555` |
+| Telemetry radio (SiK) | `python capture_lh2.py --connect /dev/ttyUSB0 --baud 57600` (Windows: `COM5`) |
+| Flight controller USB | `python capture_lh2.py --connect /dev/ttyACM0 --baud 115200` |
+| Pico UART0 → USB-UART adapter, no FC | `python capture_lh2.py --connect /dev/ttyUSB0 --baud 115200` |
+| TCP (MAVProxy / Mission Planner forward) | `python capture_lh2.py --connect tcp:192.168.4.1:5760` |
+
+It prompts for each step. Put the drone in place, press Enter, and keep it still for 5 s:
+
+1. **Origin**: drone flat on the floor, sensor centre on the origin mark.
+2. **X-axis**: the same, on the 1 m mark.
+3. **Floor 1–3**: the same, on each of the other floor marks.
+4. **Sweep**: pick the drone up and walk it slowly through the whole flight volume for
+   2–3 minutes. Cover low, middle and high, tilt it ±30°, and turn it to many headings.
+   All four sensors must stay visible to both stations. Press Ctrl-C to finish.
+
+A static step that gets fewer than 10 good snapshots is repeated. Everything is saved
+in a session directory (`calib_<date>_<time>/`, with `session.json` listing the files).
+Watch the live "physically plausible" percentage. If it stays low, the decoder problem
+described below is present.
+
+Through a flight controller, ArduPilot only forwards the TUNNEL to a link on which it
+has seen the GCS (sysid 255 / compid 190). The script sends that heartbeat every
+second. The Pico's FC port must use MAVLink 2 (e.g. `SERIAL2_PROTOCOL = 2`). If nothing
+arrives, the script lists the message types it *did* hear.
+
+**2. Solve.**
+
+```bash
+python calibrate_bitcraze.py calib_20261009_101500/ --baseline 2.26
+```
+
+The steps follow Bitcraze. The sample matcher pairs the stations' readings. The IPPE
+estimator makes a planar initial guess for each sample, resolving the mirror ambiguity
+by clustering. Their sparse least-squares solver refines it. The aligner then sets the
+frame (origin → (0, 0, 0), x-axis capture → +X, floor captures → Z = 0), and the scaler
+rescales so the x-axis capture is exactly 1 m away. One extra step not in Bitcraze:
+after the first solve, every sample is re-admitted with a drone pose triangulated from
+the solved stations, and the solve is repeated. Without it, IPPE rejects most samples
+when the stations point straight down.
+
+Z = 0 is the **sensor plane** while the drone sits on the floor. Add
+`--board-height <m>` (the height of the sensors above the floor) to make Z = 0 the floor itself.
+
+Check the printout:
+- **Residual** and **wand shape check**: a few mm. Centimetres mean a wrong sensor
+  order or layout.
+- **"x-axis capture is … m by the sensor-spacing scale"**: this should be about 1.0 m. If it
+  isn't, either the 1 m mark is misplaced or the sensor spacing in the JSON is wrong.
+- **Estimated baseline** vs the tape-measured `--baseline`: within about 3 %.
+- **Poses**: right heights, and boresights that match how the stations are mounted.
+
+**3. Into the firmware** (this branch compiles the poses in):
+
+```bash
+python calibrate_export.py --yaml lighthouse_geometry_candidate.yaml -o bs_poses_cal_candidate.h
+```
+
+Compare it with `rp2350_firmware/src/bs_poses_cal.h`. If it's right, copy it over,
+rebuild both UF2s, flash, and commit.
+
+Other modes: `capture_lh2.py --raw -o file.json` records free motion only. Solve such a
+file with `--auto-frame --height 3.45` (BS0 at (0, 0, height), +X toward BS1), or pass
+loose static files with `--origin/--x-axis/--xy-plane`.
+
+Check the pipeline against a known geometry first:
+
+```bash
+python make_synthetic_measurements.py --session synth_session
+python calibrate_bitcraze.py synth_session --baseline 2.26 --truth synth_session/truth.json
+```
+
+#### Sensor geometry
+
+`--sensor-positions` is the **only metric reference** in the whole solve.
+
+- **Scale.** Any error in the sensor spacing scales every station position by the same
+  factor, and the residual stays just as low. A 5 cm wand entered as 4 cm shrinks a
+  2.26 m baseline to 1.80 m. Always pass a tape-measured `--baseline`: the script
+  then prints the spacing correction the data implies. Note that
+  `wand_sensors.json` says 40 mm, while `yaw/yaw.c` (`SENSOR_BASELINE`) and the
+  synthetic firmware assume 50 mm. Only one of them can be right.
+- **Order.** Rows must follow firmware sensor order S0..S3. Any rotation or mirror image
+  of the square fits equally well. A non-cyclic order, such as S2 and S3 swapped,
+  fails the "wand shape check" (median rigid-fit error in the centimetres).
+- **Planarity.** IPPE is a planar estimator. The file must be coplanar to within 2 mm.
+- **Reference point.** The layout is centred on its sensor centroid before solving
+  (the Crazyflie deck is already centred). Otherwise the origin / x-axis marks would
+  refer to S0, which `wand_sensors.json` puts at (0, 0, 0).
+- **Centring in IPPE.** Upstream Bitcraze `_ippe.py` centred 3D models with a scalar
+  (`np.mean(U[:1])`) and did not guard against reflections. That worked for the
+  Crazyflie deck, which is centred on its origin, but returned det = −1 "rotations"
+  for this wand, whose S0 is at (0, 0, 0). Both bugs are fixed in `calibration_lib/_ippe.py`.
+
+#### Data quality gate
+
+Records whose 4 sensors span more angle than the board can subtend at
+`--min-wand-distance` (default 0.5 m) are dropped, since at least one angle in them is corrupt.
+In the current captures (`measurements*.json`), **95–99.9 % of snapshots fail
+this gate**. When the wand is held still, the angles repeat to about 0.01°, but individual
+sensors' *vertical* angles sit ±4–12° away from the others, while the horizontal
+angles agree to within about 1°. A 4 cm wand at about 3 m spans about 0.8°. The vertical angle comes
+from the difference between the two sweeps, so this points to a per-sensor sweep pairing or decode
+problem in the firmware. No solver can calibrate from that data; fix the decoder
+and recapture.
+
+The shape of the error is a clue. About ±8° vertical but only about ±0.5° horizontal
+means both sweeps of one sensor are shifted by about 4.6° in *opposite* directions.
+An error in a single sweep would move the horizontal angle by about half as much as the
+vertical. That rules out the linear `CAL_BS*` constants and a plain sweep-0/1 swap. To diagnose
+it, keep the drone still and log the USB `L,<sensor>,<bs>,<sweep>,<poly>,<lfsr>,<t>`
+lines: for one base station, the four sensors' LFSR counts should differ by only
+a few hundred counts within each sweep.
+
 ### CLI: With Custom World Frame
 
 Define your own world frame using reference points:
