@@ -1,0 +1,1921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BS Pose Editor</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: #181818; color: #ddd;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 13px;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
+}
+#topbar {
+  height: 46px; flex: none; display: flex; align-items: center; gap: 4px;
+  padding: 0 10px; background: #1e1e1e; border-bottom: 1px solid #333; z-index: 20;
+}
+#topbar h1 { margin-right: 14px; white-space: nowrap; }
+button, input, select, textarea { font-family: inherit; }
+.tb-btn { white-space: nowrap; }
+@media (max-width: 1000px) { .tb-btn .lb { display: none; } .odo-row .val { font-size: 30px; min-width: 100px; } }
+.tb-btn {
+  height: 34px; min-width: 38px; padding: 0 10px; display: flex; align-items: center; gap: 6px;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  color: #c8c8c8; font-size: 13px; font-family: inherit; cursor: pointer;
+}
+.tb-btn .ic { font-size: 17px; line-height: 1; }
+.tb-btn:hover { background: #2a2a2a; color: #fff; }
+.tb-btn.open { background: #18313a; border-color: #2c5968; color: #8adcf0; }
+.tb-spacer { flex: 1; }
+#conn-dot { width: 9px; height: 9px; border-radius: 50%; background: #666; flex: none; }
+#conn-dot.live { background: #5adf7a; box-shadow: 0 0 6px #5adf7a; }
+#main { flex: 1; position: relative; min-height: 0; }
+#panel {
+  position: absolute; top: 8px; left: 8px; max-height: calc(100% - 16px); width: 360px; z-index: 10;
+  background: rgba(30,30,30,0.96); border: 1px solid #333; border-radius: 8px; padding: 10px;
+  display: none; flex-direction: column; gap: 8px; overflow-y: auto;
+}
+#panel.open { display: flex; }
+#panel .sec { display: none; flex-direction: column; gap: 8px; }
+#panel .sec.show { display: flex; }
+.sec > .bs-card > .grp-lbl:first-child, #code-wrap > .grp-lbl:first-child { display: none; }
+.sec-title { font-size: 14px; color: #fff; letter-spacing: .5px; font-weight: 600; }
+#odo {
+  position: absolute; top: 12px; right: 14px; z-index: 5; pointer-events: none;
+  background: rgba(20,20,20,0.72); border: 1px solid #2c5968; border-radius: 8px;
+  padding: 10px 16px; text-align: right;
+}
+#odo-title { font-size: 11px; letter-spacing: 2px; color: #688; }
+.odo-row { display: flex; align-items: baseline; justify-content: flex-end; gap: 10px; font-variant-numeric: tabular-nums; }
+.odo-row .ax { font-size: 22px; font-weight: bold; width: 24px; }
+.odo-row .val { font-size: 44px; font-weight: bold; color: #fff; min-width: 150px; }
+.odo-row .un { font-size: 16px; color: #888; }
+#ox .ax { color: #ff5555; } #oy .ax { color: #55ff55; } #oz .ax { color: #5588ff; }
+#odo #tracking-status { font-size: 11px; color: #8adcf0; margin-top: 4px; }
+h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
+.hint { font-size: 12px; color: #9a9a9a; line-height: 1.5; }
+.bs-card {
+  background: #252525; border: 1px solid #383838; border-radius: 5px;
+  padding: 8px; display: flex; flex-direction: column; gap: 5px;
+}
+.bs-head { display: flex; justify-content: space-between; align-items: center; }
+.bs-head input[type=text] {
+  background: transparent; border: none; color: #fff; font-family: inherit;
+  font-size: 13px; font-weight: 600; width: 220px;
+}
+.bs-swatch { width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; flex: none; }
+.row { display: flex; gap: 5px; align-items: center; }
+.row .lbl { font-size: 12px; color: #9a9a9a; width: 14px; flex: none; }
+.row input[type=number] {
+  background: #141414; border: 1px solid #444; border-radius: 3px;
+  color: #fff; font-family: inherit; font-size: 13px; padding: 4px 5px; width: 100%;
+}
+.grp-lbl { font-size: 11px; color: #8a8a8a; letter-spacing: .5px; margin-top: 2px; font-weight: 600; }
+.rm-btn {
+  background: #3a1c1c; border: 1px solid #5a2c2c; color: #f48a8a;
+  border-radius: 3px; font-size: 12px; padding: 2px 8px; cursor: pointer;
+}
+.rm-btn:hover { background: #4a2222; }
+#add-btn, #copy-btn, #meas-btn {
+  background: #1b3824; border: 1px solid #2d5a3c; color: #7adf9c;
+  border-radius: 4px; font-size: 13px; padding: 8px; cursor: pointer; text-align: center;
+}
+#add-btn:hover, #copy-btn:hover, #meas-btn:hover { background: #23472e; }
+#meas-btn.active { background: #382d1b; border-color: #7a6a38; color: #dfc17a; }
+#coverage-btn, #apply-layout-btn {
+  background: #18313a; border: 1px solid #2c5968; color: #8adcf0;
+  border-radius: 4px; font: inherit; font-size: 13px; padding: 8px; cursor: pointer; text-align: center;
+}
+#coverage-btn:hover, #apply-layout-btn:hover:not(:disabled) { background: #214653; }
+#apply-layout-btn:disabled { opacity: 0.4; cursor: default; }
+#coverage-info { font-size: 12px; color: #a9c9d0; line-height: 1.5; white-space: pre-line; }
+#tracking-card input, #tracking-card select {
+  min-width: 0; flex: 1; background: #141414; border: 1px solid #444;
+  border-radius: 3px; color: #fff; font: 13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 4px;
+}
+#tracking-card button {
+  background: #18313a; border: 1px solid #2c5968; color: #8adcf0;
+  border-radius: 4px; font: 13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 7px; cursor: pointer;
+}
+#tracking-card button.active { background: #382d1b; border-color: #7a6a38; color: #dfc17a; }
+#tracking-status { font-size: 12px; color: #9a9a9a; }
+#tracking-position { font-size: 12px; color: #8adcf0; font-variant-numeric: tabular-nums; }
+#tracking-card .tracking-field { width: 68px; flex: none; }
+#meas-info { font-size: 11px; color: #dfc17a; background: #252218; border: 1px solid #3d3520; padding: 5px; border-radius: 3px; display: none; }
+#code-wrap { flex: none; display: flex; flex-direction: column; gap: 4px; }
+#code-out {
+  background: #121212; border: 1px solid #2a2a2a; border-radius: 3px;
+  color: #9ffd90; font-family: ui-monospace, Consolas, 'Courier New', monospace; font-size: 11px; padding: 6px;
+  width: 100%; height: 200px; resize: vertical; white-space: pre; overflow: auto;
+}
+#warn { font-size: 12px; color: #e4b960; display: none; }
+#sec-calib input[type=text], #sec-calib input[type=number], #sec-calib select {
+  min-width: 0; flex: 1; background: #141414; border: 1px solid #484848;
+  border-radius: 4px; color: #fff; font-size: 13px; padding: 5px 6px;
+}
+#sec-calib button {
+  background: #1d3742; border: 1px solid #2f6577; color: #a6e4f5;
+  border-radius: 5px; font-size: 13px; padding: 8px 10px; cursor: pointer;
+}
+#sec-calib button:hover:not(:disabled) { background: #24485a; }
+#sec-calib button:disabled { opacity: 0.45; cursor: default; }
+#sec-calib .bs-card { gap: 8px; padding: 10px; }
+#panel[data-sec=calib] { width: 440px; max-width: calc(100% - 16px); }
+#cal-export, .cal-log {
+  background: #121212; border: 1px solid #2a2a2a; border-radius: 4px; color: #b5d6c0;
+  font: 11px/1.45 ui-monospace, Consolas, 'Courier New', monospace; padding: 6px; width: 100%;
+  white-space: pre; overflow: auto; max-height: 220px; margin: 4px 0 0;
+}
+#cal-export { resize: vertical; color: #9ffd90; }
+/* mode switch, simulation, quality */
+.cal-mode { display: flex; border: 1px solid #444; border-radius: 6px; overflow: hidden; }
+#sec-calib .cal-mode button { flex: 1; border: none; border-radius: 0; background: #1e1e1e; color: #aaa; padding: 7px; }
+#sec-calib .cal-mode button.on { background: #2f5f8a; color: #fff; font-weight: 600; }
+#sec-calib .cal-mode button.on#cal-mode-sim { background: #5a3a8a; }
+.cal-dot.sim { background: #b98cf5; box-shadow: 0 0 6px #b98cf5; }
+.cal-wizard.sim { border-color: #8a5cd6 !important; }
+.cal-simnote { font-size: 12px; color: #d2bdf6; background: #2a2140; border: 1px solid #4b3a73; border-radius: 6px; padding: 6px 8px; }
+.cal-quality { border-top: 1px solid #383838; padding-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+.cal-verdict { font-size: 13px; line-height: 1.45; border-radius: 6px; padding: 8px 10px; }
+.cal-verdict.good { background: #193524; border: 1px solid #2f6a43; color: #b6ecc5; }
+.cal-verdict.warn { background: #3a321a; border: 1px solid #7a6530; color: #f3dc9a; }
+.cal-verdict.bad { background: #3a1c1c; border: 1px solid #7a3434; color: #ffc4c4; }
+.cal-legend { display: flex; align-items: center; gap: 6px; font-size: 11.5px; color: #999; }
+.cal-legend i { display: inline-block; width: 90px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #3fd06a, #f2d33a 45%, #f04a4a); }
+/* connection + stations */
+.cal-connrow { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #ddd; }
+.cal-dot { width: 10px; height: 10px; border-radius: 50%; background: #777; flex: none; }
+.cal-dot.good { background: #4fcf6f; box-shadow: 0 0 6px #4fcf6f; } .cal-dot.warn { background: #e8b84a; } .cal-dot.bad { background: #e05252; }
+#cal-linktext { flex: 1; }
+#sec-calib .cal-link-btn { background: transparent; border-color: #444; color: #bbb; padding: 3px 8px; font-size: 12px; }
+#cal-stations { display: flex; flex-direction: column; gap: 4px; }
+.cal-bs { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.cal-bs b { width: 34px; color: #fff; font-weight: 600; }
+.cal-pill { padding: 2px 8px; border-radius: 10px; background: #2e2e2e; color: #8a8a8a; font-size: 11.5px; white-space: nowrap; }
+.cal-pill.on { background: #1f4a2c; color: #8fe0a5; }
+/* wizard */
+.cal-wizard { border: 2px solid #2f8ee0 !important; border-radius: 10px !important; }
+#cal-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; position: relative; }
+#cal-tiles::before { content: ''; position: absolute; left: 10%; right: 10%; top: 15px; height: 2px; background: #3a3a3a; }
+#sec-calib .cal-tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 0 0 4px; border: none; background: transparent; color: #aaa; font-size: 12px; line-height: 1.2; border-radius: 6px; }
+#sec-calib .cal-tile:hover { background: #262626; }
+.cal-tile .num { width: 30px; height: 30px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  background: #2b2b2b; border: 2px solid #555; color: #ccc; font-weight: 700; font-size: 14px; }
+.cal-tile.done .num { background: #245c35; border-color: #4fcf6f; color: #fff; }
+.cal-tile.sel .num { border-color: #2f8ee0; box-shadow: 0 0 0 3px rgba(47,142,224,.35); }
+.cal-tile.sel .tl { color: #fff; font-weight: 600; }
+.cal-tile .sub { font-size: 11px; color: #7f7f7f; }
+.cal-tile.done .sub { color: #8fe0a5; }
+.cal-stephead { display: flex; align-items: baseline; gap: 8px; margin-top: 2px; }
+#cal-stepno { font-size: 12px; color: #6fb5ee; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+#cal-steptitle { font-size: 16px; color: #fff; font-weight: 600; }
+#cal-instr { font-size: 13.5px; color: #e4e4e4; line-height: 1.5; }
+#cal-instr ul { margin: 4px 0 0 18px; padding: 0; } #cal-instr li { margin: 2px 0; }
+#cal-illus { background: #1c1c1c; border: 1px solid #333; border-radius: 6px; overflow: hidden; }
+#cal-illus svg { display: block; width: 100%; height: auto; }
+#sec-calib .cal-primary { font-size: 15px; font-weight: 600; padding: 12px; background: #1f6fb8; border-color: #3a8fd8; color: #fff; }
+#sec-calib .cal-primary:hover:not(:disabled) { background: #2a7fcc; }
+#sec-calib .cal-primary.rec { background: #a83232; border-color: #d05050; }
+#cal-progress { height: 6px; background: #2a2a2a; border-radius: 3px; overflow: hidden; display: none; }
+#cal-progress > div { height: 100%; width: 0; background: #2f8ee0; transition: width .4s linear; }
+#cal-feedback { font-size: 13px; line-height: 1.45; border-radius: 6px; padding: 8px 10px; display: none; }
+#cal-feedback.good { display: block; background: #193524; border: 1px solid #2f6a43; color: #b6ecc5; }
+#cal-feedback.bad { display: block; background: #3a1c1c; border: 1px solid #7a3434; color: #ffc4c4; }
+#cal-feedback.warn { display: block; background: #3a321a; border: 1px solid #7a6530; color: #f3dc9a; }
+#cal-feedback.info { display: block; background: #182c3c; border: 1px solid #2f5a7a; color: #b8dcf6; }
+.cal-nav { display: flex; justify-content: space-between; }
+#sec-calib .cal-nav button { background: transparent; border-color: #444; color: #bbb; padding: 6px 12px; }
+/* status banner */
+#cal-statusbar { border-radius: 8px; padding: 10px 12px; font-size: 13.5px; line-height: 1.4; display: flex; gap: 8px; align-items: center; }
+#cal-statusbar .ic { font-size: 18px; } #cal-statusbar .tx { flex: 1; }
+#cal-statusbar.bad { background: #3a1c1c; color: #ffc4c4; border: 1px solid #7a3434; }
+#cal-statusbar.warn { background: #3a321a; color: #f3dc9a; border: 1px solid #7a6530; }
+#cal-statusbar.good { background: #193524; color: #b6ecc5; border: 1px solid #2f6a43; }
+#cal-statusbar.info { background: #182c3c; color: #b8dcf6; border: 1px solid #2f5a7a; }
+#cal-statusbar.idle { background: #262626; color: #cfcfcf; border: 1px solid #3a3a3a; }
+#sec-calib #cal-statusbar button { padding: 4px 10px; font-size: 12px; }
+/* collapsibles, fields, lists */
+#sec-calib details > summary { font-size: 13px; color: #ddd; font-weight: 600; cursor: pointer; }
+#sec-calib details details > summary { font-weight: normal; }
+.cal-field { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: #aaa; }
+.cal-field label { width: 132px; flex: none; } .cal-field span { width: 14px; color: #777; }
+.cal-kv { display: flex; justify-content: space-between; gap: 6px; font-size: 12.5px; color: #9a9a9a; }
+.cal-kv b { color: #eee; font-weight: normal; font-variant-numeric: tabular-nums; }
+#cal-details { display: flex; flex-direction: column; gap: 3px; max-height: 220px; overflow-y: auto; }
+.cal-srow { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #ccc; font-variant-numeric: tabular-nums; }
+.cal-srow .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.cal-srow .nm { width: 78px; flex: none; color: #fff; } .cal-srow .info { flex: 1; color: #a5b5c0; }
+#sec-calib .cal-srow button { padding: 1px 7px; font-size: 11px; background: transparent; border-color: #4a4a4a; color: #aaa; }
+#sec-calib .cal-danger { background: #3a1c1c; border-color: #7a3434; color: #ffb0b0; }
+.cal-btns { display: flex; gap: 6px; } .cal-btns button { flex: 1; }
+.cal-variant { border-top: 1px solid #383838; padding-top: 8px; margin-top: 4px; display: flex; flex-direction: column; gap: 6px; }
+.cal-variant .vname { font-size: 13px; color: #fff; font-weight: 600; }
+.cal-metrics { border-collapse: collapse; font-size: 12px; width: 100%; font-variant-numeric: tabular-nums; }
+.cal-metrics td { padding: 2px 6px 2px 0; color: #ddd; vertical-align: top; }
+.cal-metrics td:first-child { color: #999; white-space: nowrap; }
+.cal-metrics td.st { width: 14px; text-align: center; font-weight: 700; }
+.cal-metrics .good { color: #5adf7a; } .cal-metrics .warn { color: #e4b960; } .cal-metrics .bad { color: #f48a8a; }
+
+#scene-container { position: absolute; inset: 0; background: #161616; }
+#scene-container canvas { display: block; }
+.label3d { font-size: 12px; font-family: system-ui, 'Segoe UI', sans-serif; font-weight: bold; pointer-events: none; user-select: none; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+</style>
+</head>
+<body>
+
+<div id="topbar">
+  <h1>BS Pose Editor</h1>
+  <button class="tb-btn" data-sec="drone" title="Drone connection / ODOMETRY"><span class="ic">📡</span><span class="lb">Drone</span></button>
+  <button class="tb-btn" data-sec="bs" title="Base stations: position and orientation"><span class="ic">🗼</span><span class="lb">Base stations</span></button>
+  <button class="tb-btn" data-sec="room" title="Room and colors"><span class="ic">🏠</span><span class="lb">Room</span></button>
+  <button class="tb-btn" data-sec="fov" title="Field of view and range"><span class="ic">🔭</span><span class="lb">FOV</span></button>
+  <button class="tb-btn" data-sec="overlap" title="Overlap analysis"><span class="ic">🎯</span><span class="lb">Overlap</span></button>
+  <button class="tb-btn" data-sec="meas" title="Measure tool"><span class="ic">📏</span><span class="lb">Measure</span></button>
+  <button class="tb-btn" data-sec="code" title="C code for bs_poses_cal.h"><span class="ic">&lt;/&gt;</span><span class="lb">Code</span></button>
+  <button class="tb-btn" data-sec="calib" title="Auto-calibration capture"><span class="ic">🧭</span><span class="lb">Calib</span></button>
+  <button class="tb-btn" data-sec="help" title="Help"><span class="ic">❓</span></button>
+  <div class="tb-spacer"></div>
+  <div id="conn-dot" title="Connection status"></div>
+</div>
+
+<div id="main">
+<div id="panel">
+  <div class="sec" id="sec-drone">
+    <div class="sec-title">DRONE · MAVLINK ODOMETRY</div>
+    <div id="tracking-card" class="bs-card">
+    <div class="grp-lbl">DRONE · MAVLINK ODOMETRY</div>
+    <div class="row">
+      <div class="lbl" style="width:62px;">Link</div>
+      <select id="track-mode">
+        <option value="udp">UDP via bridge (Wi-Fi)</option>
+        <option value="db">DroneBridge WebSocket</option>
+      </select>
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:62px;">Drone IP</div>
+      <input id="track-host" type="text" value="192.168.4.1" spellcheck="false">
+      <div class="lbl" style="width:32px;">Port</div>
+      <input id="track-port" class="tracking-field" type="number" value="14550" min="1" max="65535">
+    </div>
+    <div class="row" id="relay-row" title="display_real_time_windows.py on this PC (avvia.bat). Also used by the Calib tab.">
+      <div class="lbl" style="width:62px;">Bridge</div>
+      <input id="relay-url" type="text" autocomplete="off" value="http://127.0.0.1:8051/api/odometry" spellcheck="false">
+    </div>
+    <div class="row">
+      <button id="track-connect-btn" type="button" style="flex:1;">Connect</button>
+    </div>
+    <div class="hint">One connection for the whole editor: the Calib tab uses the same drone IP and bridge.</div>
+  </div>
+  </div>
+  <div class="sec" id="sec-bs">
+    <div class="sec-title">BASESTATION</div>
+    <div id="bs-list"></div>
+  <button id="add-btn">+ Add base station</button>
+  </div>
+  <div class="sec" id="sec-room">
+    <div class="sec-title">ROOM / ENVIRONMENT</div>
+    <!-- Room Card -->
+  <div class="bs-card">
+    <div class="grp-lbl">ROOM / ENVIRONMENT</div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Size m</div>
+      <div class="lbl">L</div><input id="rm-w" type="number" value="4.26" step="0.1" min="0.5">
+      <div class="lbl">P</div><input id="rm-d" type="number" value="4" step="0.1" min="0.5">
+      <div class="lbl">H</div><input id="rm-h" type="number" value="3.6" step="0.1" min="0.5">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Corner</div>
+      <div class="lbl">X</div><input id="rm-x" type="number" value="-1" step="0.1">
+      <div class="lbl">Y</div><input id="rm-y" type="number" value="-3" step="0.1">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Colors</div>
+      <div class="lbl" style="width:auto;">Room</div><input id="rm-color" type="color" value="#3a5a7a">
+      <div class="lbl" style="width:auto;">Background</div><input id="bg-color" type="color" value="#181818">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Opacity</div>
+      <input id="rm-opacity" type="range" min="0" max="0.6" step="0.02" value="0.18" style="flex:1">
+      <label style="font-size:12px;color:#9a9a9a;"><input id="rm-show" type="checkbox" checked> show</label>
+    </div>
+  </div>
+  </div>
+  <div class="sec" id="sec-fov">
+    <div class="sec-title">FIELD OF VIEW</div>
+    <!-- Global FOV Settings Card -->
+  <div class="bs-card">
+    <div class="grp-lbl">FIELD OF VIEW (FOV) & PORTÉES</div>
+    <div class="row">
+      <div class="lbl" style="width:24px;">H (&deg;)</div>
+      <input type="number" id="fov-h" value="150" step="1">
+      <div class="lbl" style="width:24px;">V (&deg;)</div>
+      <input type="number" id="fov-v" value="110" step="1">
+    </div>
+    <div class="row" style="margin-top:4px;">
+      <div class="lbl" style="width:72px;" title="Maximum distance from the lighthouse">Max range</div>
+      <input type="number" id="fov-range" value="5.2" step="0.1">
+    </div>
+  </div>
+  </div>
+  <div class="sec" id="sec-overlap">
+    <div class="sec-title">OVERLAP / PLACEMENT</div>
+    <div class="bs-card">
+    <div class="grp-lbl">OVERLAP / PLACEMENT</div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Area X</div>
+      <input type="number" id="room-x" min="0.5" step="0.1" value="4.0">
+      <div class="lbl" style="width:38px;">Area Y</div>
+      <input type="number" id="room-y" min="0.5" step="0.1" value="4.0">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Z min</div>
+      <input type="number" id="room-z-min" step="0.1" value="0">
+      <div class="lbl" style="width:38px;">Z max</div>
+      <input type="number" id="room-z-max" step="0.1" value="2.5">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Step</div>
+      <input type="number" id="grid-step" min="0.1" step="0.05" value="0.25">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:70px;">Min distance</div>
+      <input type="number" id="min-spacing" min="0.1" step="0.1" value="1.0">
+    </div>
+    <button id="coverage-btn">Analyze overlap &amp; suggest</button>
+    <button id="apply-layout-btn" disabled>Apply suggested positions</button>
+    <div id="coverage-info">Define the useful volume and analyze the common coverage.</div>
+  </div>
+  </div>
+  <div class="sec" id="sec-meas">
+    <div class="sec-title">MEASURE TOOL</div>
+    <button id="meas-btn">📏 Measure tool: OFF</button>
+  <div id="meas-info">Click two points in the 3D view to measure.</div>
+  </div>
+  <div class="sec" id="sec-code">
+    <div class="sec-title">C CODE</div>
+    <div id="code-wrap">
+    <div class="grp-lbl">C CODE — bs_poses_cal.h</div>
+    <div id="warn">NUM_BS &ne; 2 &mdash; also update NUM_BS in angle_decoder.h.</div>
+    <textarea id="code-out" readonly spellcheck="false"></textarea>
+    <button id="copy-btn">Copy</button>
+  </div>
+  </div>
+  <div class="sec" id="sec-calib">
+    <div class="sec-title">LIGHTHOUSE CALIBRATION</div>
+
+    <div class="bs-card cal-conn">
+      <div class="cal-mode" role="tablist">
+        <button id="cal-mode-real" class="on" title="Measure with the real drone">Real drone</button>
+        <button id="cal-mode-sim" title="Replay a recorded run as a virtual drone — try the whole calibration without hardware">Simulation</button>
+      </div>
+      <div id="cal-simpick" style="display:none;">
+        <div class="hint">Pick a recorded run: each Start replays its matching capture, exactly as if the drone were there. Floor points you don't use become independent check points.</div>
+        <div class="cal-field"><label for="cal-simsrc">Recorded run</label><select id="cal-simsrc"></select></div>
+        <button id="cal-simstart">Start simulation</button>
+      </div>
+      <div class="cal-connrow">
+        <span class="cal-dot" id="cal-linkdot"></span>
+        <span id="cal-linktext">Checking the bridge…</span>
+        <button id="cal-conn-edit" class="cal-link-btn" title="The connection is set in the Drone tab">Drone tab ›</button>
+      </div>
+      <div id="cal-stations"></div>
+    </div>
+
+    <div class="bs-card cal-wizard">
+      <div id="cal-tiles"></div>
+      <div class="cal-stephead"><span id="cal-stepno"></span><span id="cal-steptitle"></span></div>
+      <div id="cal-instr"></div>
+      <div id="cal-illus"></div>
+      <button id="cal-measure" class="cal-primary">Start</button>
+      <div id="cal-progress"><div></div></div>
+      <div id="cal-feedback"></div>
+      <div class="cal-nav">
+        <button id="cal-prev">← Back</button>
+        <button id="cal-next">Next →</button>
+      </div>
+    </div>
+
+    <div id="cal-statusbar"></div>
+
+    <details class="bs-card" id="cal-results-card">
+      <summary>Result</summary>
+      <div id="cal-state" class="hint"></div>
+      <div id="cal-variants"></div>
+      <div class="cal-quality">
+        <div class="grp-lbl" style="display:block;">QUALITY CHECK</div>
+        <div class="hint">Recalculates the calibration 12 times, each with a different 70% of the room recording, to see how stable the result is and how well it explains readings it never saw (about 30 s).</div>
+        <button id="cal-evaluate">Evaluate quality</button>
+        <div id="cal-qreport"></div>
+      </div>
+      <button id="cal-resolve">Calculate again</button>
+      <details><summary class="hint">Solver log</summary>
+        <pre id="cal-log" class="cal-log"></pre></details>
+    </details>
+    <div class="bs-card" id="cal-export-card" style="display:none;">
+      <div class="grp-lbl" style="display:block;">bs_poses_cal.h — calibrate_export.py</div>
+      <div id="cal-export-path" class="hint"></div>
+      <textarea id="cal-export" readonly spellcheck="false" style="height:180px;"></textarea>
+      <button id="cal-export-copy">Copy</button>
+    </div>
+
+    <details class="bs-card" id="cal-manage">
+      <summary>Samples <span id="cal-samplecount" class="hint"></span></summary>
+      <div id="cal-details"></div>
+      <div class="cal-kv"><span>Largest estimation error</span><b id="cal-esterr">--</b></div>
+      <div class="cal-kv"><span>Largest verification error</span><b id="cal-vererr">--</b></div>
+      <label class="hint"><input type="checkbox" id="cal-show3d" checked> Show samples and solved stations in 3D</label>
+      <div class="cal-btns">
+        <button id="cal-import">Import…</button>
+        <button id="cal-exportsamples">Export</button>
+        <button id="cal-clear" class="cal-danger">Clear all</button>
+      </div>
+      <input type="file" id="cal-importfile" accept=".json,application/json" hidden>
+    </details>
+
+    <details class="bs-card" id="cal-settings">
+      <summary>Settings &amp; previous runs</summary>
+      <div class="cal-field"><label for="cal-xdist">X-axis mark distance</label>
+        <input id="cal-xdist" type="number" step="0.1" value="1.0"><span>m</span></div>
+      <div class="cal-field"><label for="cal-baseline" title="Tape-measured distance between the two base stations, used as a check">Tape BS0 – BS1</label>
+        <input id="cal-baseline" type="number" step="0.01" value="2.26"><span>m</span></div>
+      <div class="cal-field"><label for="cal-bh" title="Height of the sensor board above the floor while on the marks: Z = 0 becomes the floor">Board height</label>
+        <input id="cal-bh" type="number" step="0.01" value="0"><span>m</span></div>
+      <div class="cal-field"><label for="cal-secs">Static measurement</label>
+        <input id="cal-secs" type="number" step="1" min="1" value="5"><span>s</span></div>
+      <div class="cal-field"><label for="cal-reconvert" title="Only for sessions recorded with the old fitted CAL_BS* firmware; current firmware already applies the period + factory model.">Angles</label>
+        <select id="cal-reconvert">
+          <option value="">As recorded (current firmware)</option>
+          <option value="factory">Re-convert: factory (old firmware)</option>
+          <option value="period">Re-convert: period (old firmware)</option>
+        </select></div>
+      <label class="hint"><input type="checkbox" id="cal-auto" checked> Calculate automatically when there are enough samples</label>
+      <div class="grp-lbl" style="display:block;margin-top:6px;">SESSION</div>
+      <div id="cal-session" class="hint"></div>
+      <div class="cal-field"><label for="cal-dir">New folder</label>
+        <input id="cal-dir" type="text" placeholder="calib_runs/run_&lt;date&gt;" spellcheck="false"></div>
+      <button id="cal-new">Start a new session</button>
+      <div class="cal-field"><label for="cal-runs">Previous run</label>
+        <select id="cal-runs"><option value="">— choose —</option></select></div>
+      <button id="cal-open">Open run</button>
+      <div class="grp-lbl" style="display:block;margin-top:6px;">FACTORY CALIBRATION (OOTX)</div>
+      <div id="cal-factory" class="cal-log" style="max-height:none;">—</div>
+    </details>
+  </div>
+  <div class="sec" id="sec-help">
+    <div class="sec-title">HELP</div>
+    <div class="hint">
+    Position (m, Z-up world). Angles in degrees.<br>
+    <b>Inc</b> tilt from vertical (0&deg;=straight down, 90&deg;=horizontal).<br>
+    <b>Dir</b> tilt direction (0&deg;=+X, 90&deg;=+Y, 270&deg;=-Y). <b>Rol</b> roll about its own axis.<br>
+    Convention: <code>.claude/rules/solve3d_rotation.md</code>.
+  </div>
+  </div>
+</div>
+
+<div id="odo">
+  <div id="odo-title">ODOMETRY · m</div>
+  <div class="odo-row" id="ox"><span class="ax">X</span><span class="val" id="odo-x">—</span><span class="un">m</span></div>
+  <div class="odo-row" id="oy"><span class="ax">Y</span><span class="val" id="odo-y">—</span><span class="un">m</span></div>
+  <div class="odo-row" id="oz"><span class="ax">Z</span><span class="val" id="odo-z">—</span><span class="un">m</span></div>
+  <div id="tracking-status">Disconnected</div>
+</div>
+
+<div id="scene-container"></div>
+</div>
+
+<script type="importmap">
+{
+  "imports": {
+    "three":         "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+
+<script type="module">
+import * as THREE        from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+
+const ODOMETRY_ID = 331;
+const ODOMETRY_CRC_EXTRA = 91;
+const ODOMETRY_FULL_LEN = 233;
+let trackingSocket = null;
+let trackingTimer = null;
+let trackingPolling = false;
+let relayConnected = false;
+let lastOdomPos = null;
+let lastOdomAt = 0;
+let odometryCount = 0;
+
+function mavlinkCrc(bytes) {
+  let crc = 0xffff;
+  for (const value of bytes) {
+    let tmp = (value ^ (crc & 0xff)) & 0xff;
+    tmp ^= (tmp << 4) & 0xff;
+    crc = ((crc >>> 8) ^ (tmp << 8) ^ (tmp << 3) ^ (tmp >>> 4)) & 0xffff;
+  }
+  return crc;
+}
+
+class OdomTelemetryParser {
+  constructor(onOdometry) { this.bytes = []; this.onOdometry = onOdometry; }
+
+  feed(data) {
+    for (const byte of data) this.bytes.push(byte);
+    while (this.bytes.length >= 12) {
+      const start = this.bytes.indexOf(0xfd);
+      if (start < 0) { this.bytes.length = 0; return; }
+      if (start > 0) this.bytes.splice(0, start);
+      if (this.bytes.length < 10) return;
+
+      const payloadLength = this.bytes[1];
+      const signed = (this.bytes[2] & 0x01) !== 0;
+      const frameLength = 12 + payloadLength + (signed ? 13 : 0);
+      if (this.bytes.length < frameLength) return;
+      const frame = this.bytes.splice(0, frameLength);
+      const messageId = frame[7] | (frame[8] << 8) | (frame[9] << 16);
+      if (messageId !== ODOMETRY_ID || payloadLength < 230) continue;
+
+      const crcOffset = 10 + payloadLength;
+      const checksum = frame[crcOffset] | (frame[crcOffset + 1] << 8);
+      const checksumInput = frame.slice(1, crcOffset).concat(ODOMETRY_CRC_EXTRA);
+      if (mavlinkCrc(checksumInput) !== checksum) continue;
+
+      const payload = new DataView(new Uint8Array(frame.slice(10, crcOffset)).buffer);
+      const frameId = payload.getUint8(228);
+      const childFrameId = payload.getUint8(229);
+      if (frameId !== 20 || childFrameId !== 12) continue;
+
+      const x = payload.getFloat32(8, true);
+      const y = payload.getFloat32(12, true);
+      const z = -payload.getFloat32(16, true);
+      if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(z))
+        this.onOdometry({ x, y, z });
+    }
+  }
+}
+
+// ─── State ──────────────────────────────────────────────────────────────────
+const PALETTE = [0xFF66FF, 0x66FFFF, 0xFFCC44, 0x88FF66, 0xFF6666, 0x6699FF];
+let uid = 0;
+const bsList = [
+  // Firmware bs_poses_cal.h (calib_runs/run_20261009_180300/geometry.yaml)
+  { id: uid++, name: 'BS0 (poly 8/9, BS4)',   x: -1.2310, y: 0.3843, z: 2.8033, tilt: 22.293, dir: 272.306, roll: 1.565 },
+  { id: uid++, name: 'BS1 (poly 20/21, BS10)', x: 1.0045,  y: 0.3763, z: 2.8123, tilt: 27.433, dir: 283.494, roll: 14.616 },
+];
+
+const fovHInp = document.getElementById('fov-h');
+const fovVInp = document.getElementById('fov-v');
+const fovRangeInp = document.getElementById('fov-range');
+const roomXInp = document.getElementById('room-x');
+const roomYInp = document.getElementById('room-y');
+const roomZMinInp = document.getElementById('room-z-min');
+const roomZMaxInp = document.getElementById('room-z-max');
+const gridStepInp = document.getElementById('grid-step');
+const minSpacingInp = document.getElementById('min-spacing');
+const coverageInfo = document.getElementById('coverage-info');
+const applyLayoutBtn = document.getElementById('apply-layout-btn');
+let suggestedLayout = null;
+
+[fovHInp, fovVInp, fovRangeInp].forEach(inp => inp.addEventListener('input', () => rebuild()));
+[roomXInp, roomYInp, roomZMinInp, roomZMaxInp, gridStepInp, minSpacingInp].forEach(inp =>
+  inp.addEventListener('input', () => resetCoverageDisplay()));
+
+// ─── Math: tilt/dir/roll + world rotations -> R ─────────────────────────────
+function cross(a, b) {
+  return [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+}
+function norm(v) {
+  const l = Math.hypot(v[0], v[1], v[2]) || 1;
+  return [v[0]/l, v[1]/l, v[2]/l];
+}
+// tilt: degrees from straight down; dir: azimuth (deg from +X, CCW) of the tilt;
+// roll: spin around the boresight.
+function bsCols(bs) {
+  const d2r = Math.PI / 180;
+  const t = bs.tilt*d2r, f = bs.dir*d2r, r = bs.roll*d2r;
+  const col0 = [Math.sin(t)*Math.cos(f), Math.sin(t)*Math.sin(f), -Math.cos(t)];
+  const h = [-Math.sin(f), Math.cos(f), 0];
+  const c0xh = cross(col0, h);
+  const cr = Math.cos(r), sr = Math.sin(r);
+  const col1 = [h[0]*cr + c0xh[0]*sr, h[1]*cr + c0xh[1]*sr, h[2]*cr + c0xh[2]*sr];
+  const col2 = cross(col0, col1);
+  return { col0, col1, col2 };
+}
+function colsToR(cols) {
+  const { col0, col1, col2 } = cols;
+  return [
+    [col0[0], col1[0], col2[0]],
+    [col0[1], col1[1], col2[1]],
+    [col0[2], col1[2], col2[2]],
+  ];
+}
+// ─── UI: BS cards ───────────────────────────────────────────────────────────
+const listEl = document.getElementById('bs-list');
+
+function fieldRow(lbl, obj, key, step) {
+  const row = document.createElement('div'); row.className = 'row';
+  const l = document.createElement('div'); l.className = 'lbl'; l.textContent = lbl;
+  const inp = document.createElement('input');
+  inp.type = 'number'; inp.step = step; inp.value = obj[key];
+  inp.addEventListener('input', () => { obj[key] = parseFloat(inp.value) || 0; rebuild(); });
+  row.appendChild(l); row.appendChild(inp);
+  return row;
+}
+
+function renderList() {
+  listEl.innerHTML = '';
+  bsList.forEach((bs, i) => {
+    const card = document.createElement('div'); card.className = 'bs-card';
+    const head = document.createElement('div'); head.className = 'bs-head';
+    const nameWrap = document.createElement('div'); nameWrap.style.display = 'flex'; nameWrap.style.alignItems = 'center';
+    const sw = document.createElement('div'); sw.className = 'bs-swatch';
+    sw.style.background = '#' + PALETTE[i % PALETTE.length].toString(16).padStart(6, '0');
+    const nameInp = document.createElement('input'); nameInp.type = 'text'; nameInp.value = bs.name;
+    nameInp.addEventListener('input', () => { bs.name = nameInp.value; rebuild(); });
+    nameWrap.appendChild(sw); nameWrap.appendChild(nameInp);
+    const rm = document.createElement('button'); rm.className = 'rm-btn'; rm.textContent = 'delete';
+    rm.addEventListener('click', () => { bsList.splice(i, 1); renderList(); rebuild(); });
+    head.appendChild(nameWrap); head.appendChild(rm);
+    card.appendChild(head);
+
+    const posLbl = document.createElement('div'); posLbl.className = 'grp-lbl'; posLbl.textContent = 'POSITION (m)';
+    card.appendChild(posLbl);
+    const posRow = document.createElement('div'); posRow.style.display = 'flex'; posRow.style.gap = '5px';
+    posRow.appendChild(fieldRow('X', bs, 'x', 0.01));
+    posRow.appendChild(fieldRow('Y', bs, 'y', 0.01));
+    posRow.appendChild(fieldRow('Z', bs, 'z', 0.01));
+    card.appendChild(posRow);
+
+    const oriLbl = document.createElement('div'); oriLbl.className = 'grp-lbl'; oriLbl.textContent = 'ORIENTATION (deg)';
+    card.appendChild(oriLbl);
+    const oriRow = document.createElement('div'); oriRow.style.display = 'flex'; oriRow.style.gap = '5px';
+    oriRow.appendChild(fieldRow('Inc', bs, 'tilt', 0.5));
+    oriRow.appendChild(fieldRow('Dir', bs, 'dir', 0.5));
+    oriRow.appendChild(fieldRow('Rol', bs, 'roll', 0.5));
+    card.appendChild(oriRow);
+
+    listEl.appendChild(card);
+  });
+}
+
+document.getElementById('add-btn').addEventListener('click', () => {
+  bsList.push({ id: uid++, name: `BS${bsList.length}`, x: 0, y: -0.7, z: 3.45, tilt: 30, dir: 270, roll: 0 });
+  renderList(); rebuild();
+});
+
+// ─── C code generation ────────────────────────────────────────────────────────
+const codeOut = document.getElementById('code-out');
+const warnEl = document.getElementById('warn');
+function fmt(v) { return v.toFixed(6) + 'f'; }
+
+function generateCode() {
+  warnEl.style.display = bsList.length === 2 ? 'none' : 'block';
+  const entries = bsList.map(bs => {
+    const R = colsToR(bsCols(bs));
+    return `    {  /* ${bs.name} */\n` +
+      `        .origin = {${fmt(bs.x)}, ${fmt(bs.y)}, ${fmt(bs.z)}},\n` +
+      `        .R = { {${fmt(R[0][0])}, ${fmt(R[0][1])}, ${fmt(R[0][2])}},\n` +
+      `               {${fmt(R[1][0])}, ${fmt(R[1][1])}, ${fmt(R[1][2])}},\n` +
+      `               {${fmt(R[2][0])}, ${fmt(R[2][1])}, ${fmt(R[2][2])}} },\n` +
+      `    },`;
+  }).join('\n');
+  codeOut.value =
+`/* bs_poses_cal.h */
+#ifndef BS_POSES_CAL_H
+#define BS_POSES_CAL_H
+#include "solve3d/solve3d.h"
+#define BS_POSE_SOURCE "bs_pose_editor"
+static const lh2_bs_pose_t BS_POSES[NUM_BS] = {\n${entries}\n};
+#endif
+`;
+}
+document.getElementById('copy-btn').addEventListener('click', () => navigator.clipboard.writeText(codeOut.value));
+
+// ─── Three.js scene ───────────────────────────────────────────────────────────
+const container = document.getElementById('scene-container');
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x181818);
+const W = () => container.clientWidth, H = () => container.clientHeight;
+
+const camera = new THREE.PerspectiveCamera(45, W()/H(), 0.01, 200);
+camera.position.set(3.0, 2.5, -3.0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio); renderer.setSize(W(), H());
+container.appendChild(renderer.domElement);
+
+const labelRend = new CSS2DRenderer();
+labelRend.setSize(W(), H()); labelRend.domElement.style.position = 'absolute';
+labelRend.domElement.style.top = '0'; labelRend.domElement.style.pointerEvents = 'none';
+container.appendChild(labelRend.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.target.set(1.0, 0.0, -1.7); controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.update();
+
+const tv = (x, y, z) => new THREE.Vector3(x, z, -y);
+const revTv = (v) => [v.x, -v.z, v.y];
+
+function addLine(ax, ay, az, bx, by, bz, col, w = 2) {
+  const l = new THREE.Line(
+    new THREE.BufferGeometry().setFromPoints([tv(ax, ay, az), tv(bx, by, bz)]),
+    new THREE.LineBasicMaterial({ color: col, linewidth: w }));
+  scene.add(l);
+  return l;
+}
+function addLabel(txt, x, y, z, col) {
+  const d = document.createElement('div');
+  d.className = 'label3d'; d.textContent = txt; d.style.color = col;
+  const o = new CSS2DObject(d); o.position.copy(tv(x, y, z)); scene.add(o);
+  return o;
+}
+
+const droneMarker = new THREE.Mesh(
+  new THREE.OctahedronGeometry(0.09),
+  new THREE.MeshBasicMaterial({ color: 0xffb347 })
+);
+droneMarker.visible = false;
+scene.add(droneMarker);
+const droneLabel = addLabel('DRONE', 0, 0, 0, '#ffb347');
+droneLabel.visible = false;
+const droneTrailPoints = [];
+const droneTrailLine = new THREE.Line(
+  new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.7 })
+);
+scene.add(droneTrailLine);
+
+function updateDronePosition(position) {
+  const point = tv(position.x, position.y, position.z);
+  droneMarker.position.copy(point);
+  droneMarker.visible = true;
+  droneLabel.position.copy(point).add(new THREE.Vector3(0, 0.14, 0));
+  droneLabel.visible = true;
+
+  droneTrailPoints.push(point.clone());
+  if (droneTrailPoints.length > 600) droneTrailPoints.shift();
+  droneTrailLine.geometry.dispose();
+  droneTrailLine.geometry = new THREE.BufferGeometry().setFromPoints(droneTrailPoints);
+
+  lastOdomAt = Date.now();
+  lastOdomPos = position;
+  odometryCount++;
+  document.getElementById('odo-x').textContent = position.x.toFixed(3);
+  document.getElementById('odo-y').textContent = position.y.toFixed(3);
+  document.getElementById('odo-z').textContent = position.z.toFixed(3);
+  document.getElementById('tracking-status').textContent = `ODOMETRY live · ${odometryCount}`;
+}
+
+const panelEl = document.getElementById('panel');
+const tbBtns = [...document.querySelectorAll('.tb-btn[data-sec]')];
+function openSection(id) {
+  const same = panelEl.classList.contains('open') && panelEl.dataset.sec === id;
+  panelEl.classList.toggle('open', !same);
+  panelEl.dataset.sec = same ? '' : id;
+  document.querySelectorAll('#panel .sec').forEach(e => e.classList.toggle('show', !same && e.id === 'sec-' + id));
+  tbBtns.forEach(b => b.classList.toggle('open', !same && b.dataset.sec === id));
+}
+tbBtns.forEach(b => b.addEventListener('click', () => openSection(b.dataset.sec)));
+setInterval(() => {
+  document.getElementById('conn-dot').classList.toggle('live', lastOdomAt && Date.now() - lastOdomAt < 2000);
+}, 300);
+
+const trackMode = document.getElementById('track-mode');
+const relayRow = document.getElementById('relay-row');
+const trackConnectButton = document.getElementById('track-connect-btn');
+const trackingStatus = document.getElementById('tracking-status');
+
+
+
+function disconnectTracking() {
+  if (trackingSocket) {
+    const socket = trackingSocket;
+    trackingSocket = null;
+    socket.close();
+  }
+  if (trackingTimer) clearInterval(trackingTimer);
+  trackingTimer = null;
+  trackingPolling = false;
+  relayConnected = false;
+  trackConnectButton.textContent = 'Connect';
+  trackConnectButton.classList.remove('active');
+  trackingStatus.textContent = 'Disconnected';
+}
+
+trackConnectButton.addEventListener('click', () => {
+  if (trackingSocket || trackingPolling) {
+    disconnectTracking();
+    return;
+  }
+
+  const mode = trackMode.value;
+  const host = document.getElementById('track-host').value.trim();
+  const port = Number(document.getElementById('track-port').value) || 14550;
+  let url;
+  try {
+    if (mode === 'udp') {
+      const api = new URL(document.getElementById('relay-url').value.trim());
+      if (api.protocol !== 'http:' && api.protocol !== 'https:')
+        throw new Error('L’API locale deve usare http:// o https://');
+      if (host) api.searchParams.set('host', host);
+      else api.searchParams.delete('host');
+      api.searchParams.set('port', String(port));
+
+      trackingPolling = true;
+      relayConnected = false;
+      trackConnectButton.textContent = 'Disconnect';
+      trackConnectButton.classList.add('active');
+      trackingStatus.textContent = 'Connecting to relay…';
+      let lastSequence = 0;
+      let requestPending = false;
+      const poll = async () => {
+        if (!trackingPolling || requestPending) return;
+        requestPending = true;
+        try {
+          const response = await fetch(api, { cache: 'no-store' });
+          if (!response.ok) throw new Error('Relay non disponibile');
+          const state = await response.json();
+          if (!trackingPolling) return;
+          relayConnected = true;
+          if (state.odometry && state.sequence !== lastSequence) {
+            lastSequence = state.sequence;
+            updateDronePosition(state.odometry);
+          }
+        } catch (_error) {
+          if (trackingPolling) {
+            relayConnected = false;
+            trackingStatus.textContent = 'Relay unreachable';
+          }
+        } finally {
+          requestPending = false;
+        }
+      };
+      poll();
+      trackingTimer = setInterval(poll, 100);
+      return;
+    } else {
+      if (!host) throw new Error('Enter the DroneBridge IP address');
+      const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+      url = `${scheme}//${host}:${port}/mavlink`;
+    }
+  } catch (error) {
+    trackingStatus.textContent = error.message;
+    return;
+  }
+
+  trackingStatus.textContent = 'Connecting…';
+  const socket = new WebSocket(url);
+  trackingSocket = socket;
+  socket.binaryType = 'arraybuffer';
+  const parser = new OdomTelemetryParser(updateDronePosition);
+  socket.onopen = () => {
+    if (trackingSocket !== socket) return;
+    trackConnectButton.textContent = 'Disconnect';
+    trackConnectButton.classList.add('active');
+    trackingStatus.textContent = 'Connected · waiting for ODOMETRY';
+  };
+  socket.onmessage = event => {
+    if (typeof event.data === 'string') {
+      trackingStatus.textContent = event.data;
+      return;
+    }
+    parser.feed(new Uint8Array(event.data));
+  };
+  socket.onerror = () => { trackingStatus.textContent = 'MAVLink connection error'; };
+  socket.onclose = () => {
+    if (trackingSocket !== socket) return;
+    trackingSocket = null;
+    trackConnectButton.textContent = 'Connect';
+    trackConnectButton.classList.remove('active');
+    trackingStatus.textContent = 'Disconnected';
+  };
+});
+
+addLine(0,0,0, 0.5,0,0, 0xFF3333, 4); addLabel('X', 0.58,0,0, '#FF5555');
+addLine(0,0,0, 0,0.5,0, 0x33FF33, 4); addLabel('Y', 0,0.58,0, '#55FF55');
+addLine(0,0,0, 0,0,0.5, 0x3388FF, 4); addLabel('Z', 0,0,0.58, '#5588FF');
+scene.add(new THREE.GridHelper(20, 20, 0x444444, 0x282828));
+
+let roomObjs = [];
+function drawRoom() {
+  roomObjs.forEach(o => { scene.remove(o); o.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); });
+  roomObjs = [];
+  const g = id => document.getElementById(id);
+  scene.background = new THREE.Color(g('bg-color').value);
+  if (!g('rm-show').checked) return;
+  const num = (id, d) => { const v = parseFloat(g(id).value); return Number.isFinite(v) ? v : d; };
+  const w = Math.max(0.1, num('rm-w', 4)), d = Math.max(0.1, num('rm-d', 4)), h = Math.max(0.1, num('rm-h', 3));
+  const x0 = num('rm-x', 0), y0 = num('rm-y', 0);
+  const color = new THREE.Color(g('rm-color').value);
+  const group = new THREE.Group();
+  const box = new THREE.BoxGeometry(w, h, d);
+  group.add(new THREE.Mesh(box, new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: parseFloat(g('rm-opacity').value), side: THREE.BackSide, depthWrite: false })));
+  group.add(new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color })));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: Math.min(1, parseFloat(g('rm-opacity').value) * 2), side: THREE.DoubleSide, depthWrite: false }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -h / 2 + 0.002;
+  group.add(floor);
+  group.position.copy(tv(x0 + w / 2, y0 + d / 2, h / 2));
+  scene.add(group); roomObjs.push(group);
+}
+['rm-w','rm-d','rm-h','rm-x','rm-y','rm-color','bg-color','rm-opacity','rm-show']
+  .forEach(id => { const e = document.getElementById(id); e.addEventListener('input', drawRoom); e.addEventListener('change', drawRoom); });
+drawRoom();
+
+let bsSceneObjs = [];
+
+// Valve Index base station model. MODEL_AXES maps the model's own axes onto the
+// BS frame: which model axis is boresight (front), horizontal sweep, vertical sweep.
+const BS_MODEL_URL = 'docs/valve-index-lighthousebasestation-gen2/source/lh_basestation_valve_gen2.obj';
+const BS_MODEL_TEX = 'docs/valve-index-lighthousebasestation-gen2/textures/lh_basestation_valve_gen2.png';
+const MODEL_AXES = { front: [0, 0, -1], horiz: [-1, 0, 0], vert: [0, 1, 0] };
+let bsModel = null;
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.6); keyLight.position.set(2, 4, 3); scene.add(keyLight);
+new OBJLoader().load(BS_MODEL_URL, obj => {
+  const tex = new THREE.TextureLoader().load(BS_MODEL_TEX, () => rebuild());
+  tex.colorSpace = THREE.SRGBColorSpace;
+  obj.traverse(o => { if (o.isMesh) o.material = new THREE.MeshLambertMaterial({ map: tex }); });
+  const box = new THREE.Box3().setFromObject(obj);
+  const c = box.getCenter(new THREE.Vector3());
+  obj.position.sub(c);
+  bsModel = obj;
+  rebuild();
+}, undefined, err => console.warn('BS model not loaded, using placeholder', err));
+let coverageOverlay = null;
+
+function drawBasestations() {
+  bsSceneObjs.forEach(o => { scene.remove(o); if (o.geometry) o.geometry.dispose(); });
+  bsSceneObjs = [];
+  const push = o => { scene.add(o); bsSceneObjs.push(o); };
+
+  const fovHVal = parseFloat(fovHInp.value) || 150;
+  const fovVVal = parseFloat(fovVInp.value) || 110;
+  const maxRange = parseFloat(fovRangeInp.value) || 5.2;
+
+  bsList.forEach((bs, i) => {
+    const col = PALETTE[i % PALETTE.length];
+    const { col0, col1, col2 } = bsCols(bs);
+    const [px, py, pz] = [bs.x, bs.y, bs.z];
+
+    if (bsModel) {
+      const dirOf = k => tv(
+        col0[0]*MODEL_AXES.front[k] + col1[0]*MODEL_AXES.horiz[k] + col2[0]*MODEL_AXES.vert[k],
+        col0[1]*MODEL_AXES.front[k] + col1[1]*MODEL_AXES.horiz[k] + col2[1]*MODEL_AXES.vert[k],
+        col0[2]*MODEL_AXES.front[k] + col1[2]*MODEL_AXES.horiz[k] + col2[2]*MODEL_AXES.vert[k]);
+      const holder = new THREE.Group();
+      holder.matrixAutoUpdate = false;
+      holder.matrix.makeBasis(dirOf(0), dirOf(1), dirOf(2)).setPosition(tv(px, py, pz));
+      holder.add(bsModel.clone());
+      push(holder);
+    } else {
+      const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.08), new THREE.MeshBasicMaterial({ color: col }));
+      m.position.copy(tv(px, py, pz)); push(m);
+    }
+
+    const d = document.createElement('div');
+    d.className = 'label3d'; d.textContent = bs.name;
+    d.style.color = '#' + col.toString(16).padStart(6, '0');
+    const lo = new CSS2DObject(d); lo.position.copy(tv(px, py, pz + 0.2)); push(lo);
+
+    const axes = [[col0, 0xff4444, 'X'], [col1, 0x44ff44, 'Y'], [col2, 0x4488ff, 'Z']];
+    axes.forEach(([v, ac, name]) => {
+      const tip = [px + v[0]*0.45, py + v[1]*0.45, pz + v[2]*0.45];
+      push(new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(px, py, pz), tv(...tip)]),
+        new THREE.LineBasicMaterial({ color: ac })));
+      const al = document.createElement('div');
+      al.className = 'label3d'; al.textContent = name; al.style.color = '#' + ac.toString(16).padStart(6, '0');
+      const alo = new CSS2DObject(al); alo.position.copy(tv(...tip)); push(alo);
+    });
+
+    const halfH = (fovHVal / 2) * (Math.PI / 180);
+    const halfV = (fovVVal / 2) * (Math.PI / 180);
+
+    const getDir = (ah, av) => {
+      const x = col0[0] * Math.cos(ah) * Math.cos(av) + col1[0] * Math.sin(ah) + col2[0] * Math.sin(av);
+      const y = col0[1] * Math.cos(ah) * Math.cos(av) + col1[1] * Math.sin(ah) + col2[1] * Math.sin(av);
+      const z = col0[2] * Math.cos(ah) * Math.cos(av) + col1[2] * Math.sin(ah) + col2[2] * Math.sin(av);
+      const len = Math.hypot(x, y, z) || 1;
+      return [x/len, y/len, z/len];
+    };
+
+    const fovMat = new THREE.LineDashedMaterial({ color: col, transparent: true, opacity: 0.6, dashSize: 0.1, gapSize: 0.05 });
+
+    // Ellisse di contorno basata sul raggio calcolato
+    const segs = 40;
+    const ellipsePoints = [];
+    const cardinalPts = [];
+    for (let s = 0; s <= segs; s++) {
+      const theta = (s / segs) * Math.PI * 2;
+      const ah = halfH * Math.cos(theta);
+      const av = halfV * Math.sin(theta);
+      const dir = getDir(ah, av);
+      const pt = [px + dir[0]*maxRange, py + dir[1]*maxRange, pz + dir[2]*maxRange];
+      ellipsePoints.push(tv(...pt));
+
+      if (s % (segs / 4) === 0 && s < segs) {
+        cardinalPts.push(pt);
+      }
+    }
+
+    const perimGeom = new THREE.BufferGeometry().setFromPoints(ellipsePoints);
+    push(new THREE.Line(perimGeom, fovMat));
+
+    // Raggi dai vertici cardinali dell'ellisse al sensore e montanti a terra
+    cardinalPts.forEach(pt => {
+      const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(px, py, pz), tv(...pt)]), fovMat);
+      line.computeLineDistances(); push(line);
+
+      const leg = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(...pt), tv(pt[0], pt[1], 0)]), fovMat);
+      leg.computeLineDistances(); push(leg);
+    });
+
+    // Asse centrale verticale di riferimento
+    const dashLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(px, py, pz), tv(px, py, 0)]),
+      new THREE.LineDashedMaterial({ color: 0x666666, dashSize: 0.08, gapSize: 0.04 }));
+    dashLine.computeLineDistances(); push(dashLine);
+  });
+}
+
+function clearCoverageOverlay() {
+  if (!coverageOverlay) return;
+  scene.remove(coverageOverlay);
+  coverageOverlay.geometry.dispose();
+  coverageOverlay.material.dispose();
+  coverageOverlay = null;
+}
+
+function resetCoverageDisplay() {
+  suggestedLayout = null;
+  applyLayoutBtn.disabled = true;
+  coverageInfo.textContent = 'Parameters changed: recompute the coverage.';
+  clearCoverageOverlay();
+}
+
+function makeCoverageGrid(roomX, roomY, zMin, zMax, step) {
+  const points = [];
+  for (let x = step / 2; x < roomX; x += step) {
+    for (let y = step / 2; y < roomY; y += step) {
+      for (let z = zMin + step / 2; z < zMax; z += step) points.push([x, y, z]);
+    }
+  }
+  return points;
+}
+
+function evaluateCoverage(poses, points, keepOverlapPoints = false) {
+  const halfH = (parseFloat(fovHInp.value) || 150) * Math.PI / 360;
+  const halfV = (parseFloat(fovVInp.value) || 110) * Math.PI / 360;
+  const maxRange = parseFloat(fovRangeInp.value) || 5.2;
+  const basis = poses.map(bs => bsCols(bs));
+  let overlapCount = 0;
+  let tripleCount = 0;
+  let fullCount = 0;
+  let goodGeometryCount = 0;
+  let qualitySum = 0;
+  const overlapPoints = keepOverlapPoints ? [] : null;
+
+  for (const point of points) {
+    const visibleDirections = [];
+    for (let i = 0; i < poses.length; i++) {
+      const bs = poses[i];
+      const dx = point[0] - bs.x, dy = point[1] - bs.y, dz = point[2] - bs.z;
+      if (Math.hypot(dx, dy, dz) > maxRange) continue;
+      const { col0, col1, col2 } = basis[i];
+      const forward = dx * col0[0] + dy * col0[1] + dz * col0[2];
+      if (forward <= 0) continue;
+      const horizontal = Math.atan2(dx * col1[0] + dy * col1[1] + dz * col1[2], forward);
+      const vertical = Math.atan2(dx * col2[0] + dy * col2[1] + dz * col2[2], forward);
+      if (Math.abs(horizontal) > halfH || Math.abs(vertical) > halfV) continue;
+      const distance = Math.hypot(dx, dy, dz);
+      visibleDirections.push([dx / distance, dy / distance, dz / distance]);
+    }
+
+    if (visibleDirections.length < 2) continue;
+    overlapCount++;
+    if (visibleDirections.length >= 3) tripleCount++;
+    if (visibleDirections.length === poses.length) fullCount++;
+    let bestParallax = 0;
+    for (let a = 0; a < visibleDirections.length; a++) {
+      for (let b = a + 1; b < visibleDirections.length; b++) {
+        const da = visibleDirections[a], db = visibleDirections[b];
+        bestParallax = Math.max(bestParallax, Math.hypot(
+          da[1] * db[2] - da[2] * db[1],
+          da[2] * db[0] - da[0] * db[2],
+          da[0] * db[1] - da[1] * db[0]
+        ));
+      }
+    }
+    const parallaxQuality = Math.min(bestParallax / Math.sin(Math.PI / 6), 1);
+    const anchorCountQuality = Math.min(1, (visibleDirections.length - 1) / Math.max(poses.length - 1, 1));
+    const quality = parallaxQuality * anchorCountQuality;
+    qualitySum += quality;
+    if (bestParallax >= Math.sin(Math.PI / 12)) goodGeometryCount++;
+    if (overlapPoints) overlapPoints.push(point);
+  }
+
+  return {
+    overlapCount,
+    tripleCount,
+    fullCount,
+    overlapRatio: overlapCount / Math.max(points.length, 1),
+    tripleRatio: tripleCount / Math.max(points.length, 1),
+    fullRatio: fullCount / Math.max(points.length, 1),
+    goodGeometryRatio: goodGeometryCount / Math.max(points.length, 1),
+    quality: qualitySum / Math.max(points.length, 1),
+    overlapPoints,
+  };
+}
+
+function layoutIsBetter(candidate, current) {
+  if (!current) return true;
+  if (candidate.quality > current.quality + 1e-9) return true;
+  if (Math.abs(candidate.quality - current.quality) > 1e-9) return false;
+  if (candidate.fullCount !== current.fullCount) return candidate.fullCount > current.fullCount;
+  if (candidate.tripleCount !== current.tripleCount) return candidate.tripleCount > current.tripleCount;
+  return candidate.overlapCount > current.overlapCount;
+}
+
+function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
+  const roomX = parseFloat(roomXInp.value), roomY = parseFloat(roomYInp.value);
+  const centerX = currentLayout.reduce((sum, bs) => sum + bs.x, 0) / currentLayout.length;
+  const centerY = currentLayout.reduce((sum, bs) => sum + bs.y, 0) / currentLayout.length;
+  const offsets = currentLayout.map(bs => [bs.x - centerX, bs.y - centerY]);
+  const centerStep = Math.max(0.5, candidateStep);
+  const angleStep = 30;
+  const centers = [];
+  for (let x = 0; x <= roomX + 1e-9; x += centerStep) {
+    for (let y = 0; y <= roomY + 1e-9; y += centerStep) centers.push([x, y]);
+  }
+  if (centers.length * (360 / angleStep) > 2500) {
+    throw new Error('Search too dense; increase the grid step or reduce the volume.');
+  }
+
+  let bestLayout = null;
+  let bestScore = null;
+  let bestMove = Infinity;
+  for (let degrees = 0; degrees < 360; degrees += angleStep) {
+    const angle = degrees * Math.PI / 180;
+    const c = Math.cos(angle), s = Math.sin(angle);
+    const rotatedOffsets = offsets.map(([x, y]) => [x * c - y * s, x * s + y * c]);
+    for (const [cx, cy] of centers) {
+      const candidate = currentLayout.map((bs, index) => ({
+        ...bs,
+        x: cx + rotatedOffsets[index][0],
+        y: cy + rotatedOffsets[index][1],
+        dir: bs.dir + degrees,
+      }));
+      if (candidate.some(bs => bs.x < 0 || bs.x > roomX || bs.y < 0 || bs.y > roomY)) continue;
+      let spacingValid = true;
+      for (let a = 0; a < candidate.length && spacingValid; a++) {
+        for (let b = a + 1; b < candidate.length; b++) {
+          if (Math.hypot(candidate[a].x - candidate[b].x, candidate[a].y - candidate[b].y) < minSpacing) {
+            spacingValid = false;
+            break;
+          }
+        }
+      }
+      if (!spacingValid) continue;
+
+      const score = evaluateCoverage(candidate, points);
+      const move = candidate.reduce((sum, bs, index) =>
+        sum + (bs.x - currentLayout[index].x) ** 2 + (bs.y - currentLayout[index].y) ** 2, 0);
+      if (layoutIsBetter(score, bestScore) ||
+          (bestScore && !layoutIsBetter(bestScore, score) && move < bestMove)) {
+        bestLayout = candidate;
+        bestScore = score;
+        bestMove = move;
+      }
+    }
+  }
+  if (!bestLayout) throw new Error('No rigid layout fits in the volume with the required minimum distance.');
+  if (bestScore.overlapCount === 0) {
+    throw new Error('No overlap in the selected volume: check Z min/max, FOV and lighthouse orientation.');
+  }
+  return { layout: bestLayout, score: bestScore, rotationDegrees: bestLayout[0].dir - currentLayout[0].dir };
+}
+
+function showOverlapPoints(points) {
+  clearCoverageOverlay();
+  if (!points.length) return;
+  const geometry = new THREE.BufferGeometry().setFromPoints(points.map(p => tv(...p)));
+  coverageOverlay = new THREE.Points(geometry, new THREE.PointsMaterial({
+    color: 0x55e6a5, size: 0.055, sizeAttenuation: true, transparent: true, opacity: 0.55,
+  }));
+  scene.add(coverageOverlay);
+}
+
+function formatCoverage(score) {
+  return `≥2 anchors ${(score.overlapRatio * 100).toFixed(1)}% · ≥3 ${(score.tripleRatio * 100).toFixed(1)}% · all ${(score.fullRatio * 100).toFixed(1)}% · parallax ≥15° ${(score.goodGeometryRatio * 100).toFixed(1)}%`;
+}
+
+document.getElementById('coverage-btn').addEventListener('click', () => {
+  if (bsList.length < 2) {
+    coverageInfo.textContent = 'At least two lighthouses are needed to compute the overlap.';
+    return;
+  }
+  const roomX = parseFloat(roomXInp.value), roomY = parseFloat(roomYInp.value);
+  const zMin = parseFloat(roomZMinInp.value), zMax = parseFloat(roomZMaxInp.value);
+  const step = parseFloat(gridStepInp.value);
+  const minSpacing = parseFloat(minSpacingInp.value);
+  if (![roomX, roomY, zMin, zMax, step, minSpacing].every(Number.isFinite) ||
+      roomX <= 0 || roomY <= 0 || zMax <= zMin || step <= 0 || minSpacing < 0) {
+    coverageInfo.textContent = 'Enter valid X/Y/Z limits, Z max > Z min and a positive step.';
+    return;
+  }
+
+  try {
+    const points = makeCoverageGrid(roomX, roomY, zMin, zMax, step);
+    if (points.length > 30000) throw new Error('Too many grid points; increase the step.');
+    const currentScore = evaluateCoverage(bsList, points, true);
+    const candidateStep = Math.max(0.5, step * 2);
+    const suggestion = findSuggestedLayout(bsList, points, minSpacing, candidateStep);
+    suggestedLayout = suggestion.layout;
+    applyLayoutBtn.disabled = false;
+    showOverlapPoints(currentScore.overlapPoints);
+    coverageInfo.textContent =
+      `Volume: ${points.length} points (${roomX} × ${roomY} m, Z ${zMin}…${zMax} m, step ${step} m)\n` +
+      `Current: ${formatCoverage(currentScore)}\n` +
+      `Suggested (+${suggestion.rotationDegrees.toFixed(0)}°): ${formatCoverage(suggestion.score)}\n` +
+      `Rigid layout: relative distances between anchors preserved\n` +
+      suggestion.layout.map((bs, i) => `${bs.name}: X ${bs.x.toFixed(2)} · Y ${bs.y.toFixed(2)} · Z ${bs.z.toFixed(2)} m`).join('\n');
+  } catch (error) {
+    coverageInfo.textContent = error.message;
+  }
+});
+
+applyLayoutBtn.addEventListener('click', () => {
+  if (!suggestedLayout) return;
+  suggestedLayout.forEach((suggestion, index) => {
+    bsList[index].x = suggestion.x;
+    bsList[index].y = suggestion.y;
+  });
+  renderList();
+  rebuild();
+});
+
+// ─── Measurement Tool Logic ───────────────────────────────────────────────────
+let measuringActive = false;
+let measPointA = null;
+let measPointB = null;
+let measObjects = [];
+
+const measBtn = document.getElementById('meas-btn');
+const measInfo = document.getElementById('meas-info');
+
+measBtn.addEventListener('click', () => {
+  measuringActive = !measuringActive;
+  measBtn.classList.toggle('active', measuringActive);
+  measBtn.textContent = measuringActive ? '📏 Measure tool: ON (click)' : '📏 Measure tool: OFF';
+  measInfo.style.display = measuringActive ? 'block' : 'none';
+  if (!measuringActive) clearMeasurement();
+});
+
+function clearMeasurement() {
+  measPointA = null; measPointB = null;
+  measObjects.forEach(o => { scene.remove(o); if(o.geometry) o.geometry.dispose(); });
+  measObjects = [];
+  measInfo.textContent = 'Click two points in the 3D view to measure.';
+}
+
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+const planeZ0 = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  if (!measuringActive) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(mouse, camera);
+  const target = new THREE.Vector3();
+  raycaster.ray.intersectPlane(planeZ0, target);
+
+  if (!measPointA) {
+    measPointA = revTv(target);
+    measInfo.textContent = `Point A set (${measPointA[0].toFixed(2)}, ${measPointA[1].toFixed(2)}, ${measPointA[2].toFixed(2)}). Click point B.`;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.05), new THREE.MeshBasicMaterial({color: 0xdfc17a}));
+    m.position.copy(target); scene.add(m); measObjects.push(m);
+  } else if (!measPointB) {
+    measPointB = revTv(target);
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.05), new THREE.MeshBasicMaterial({color: 0xdfc17a}));
+    m.position.copy(target); scene.add(m); measObjects.push(m);
+
+    const dist = Math.hypot(measPointB[0]-measPointA[0], measPointB[1]-measPointA[1], measPointB[2]-measPointA[2]);
+    measInfo.textContent = `Distance: ${dist.toFixed(3)} m (A -> B)`;
+
+    const line = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([tv(...measPointA), tv(...measPointB)]),
+      new THREE.LineBasicMaterial({color: 0xdfc17a, linewidth: 3})
+    );
+    scene.add(line); measObjects.push(line);
+
+    const mid = [(measPointA[0]+measPointB[0])/2, (measPointA[1]+measPointB[1])/2, (measPointA[2]+measPointB[2])/2];
+    const lbl = addLabel(`${dist.toFixed(2)}m`, mid[0], mid[1], mid[2] + 0.1, '#dfc17a');
+    measObjects.push(lbl);
+
+    measPointA = null; measPointB = null;
+  }
+});
+
+function rebuild() {
+  suggestedLayout = null;
+  applyLayoutBtn.disabled = true;
+  coverageInfo.textContent = 'Parameters changed: recompute the coverage.';
+  clearCoverageOverlay();
+  drawBasestations();
+  generateCode();
+}
+renderList();
+rebuild();
+
+function onResize() {
+  camera.aspect = W() / H(); camera.updateProjectionMatrix();
+  renderer.setSize(W(), H()); labelRend.setSize(W(), H());
+}
+window.addEventListener('resize', onResize);
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  const socketConnected = trackingSocket && trackingSocket.readyState === WebSocket.OPEN;
+  if ((trackingPolling && relayConnected) || socketConnected) {
+    const status = lastOdomAt && Date.now() - lastOdomAt > 2000
+      ? `Telemetry stalled · ${odometryCount} ODOMETRY`
+      : lastOdomAt ? `ODOMETRY live · ${odometryCount}` : 'Connected · waiting for ODOMETRY';
+    if (trackingStatus.textContent !== status) trackingStatus.textContent = status;
+  }
+  renderer.render(scene, camera);
+  labelRend.render(scene, camera);
+}
+animate();
+
+// ─── Auto-calibration: Bitcraze-style wizard (drives the bridge /api/lh2/*) ───
+// One connection for the whole editor: the bridge URL and drone IP come from the Drone tab.
+const calEl = id => document.getElementById(id);
+const ESP_GCS_PORT = 14555;  // MavESP8266 / DroneBridge learn the GCS address from heartbeats sent here
+function calApi(action, params = {}, body) {
+  const base = new URL(document.getElementById('relay-url').value.trim());
+  const url = new URL('/api/lh2/' + action, base.origin);
+  const host = document.getElementById('track-host').value.trim();
+  if (host) { url.searchParams.set('host', host); url.searchParams.set('port', ESP_GCS_PORT); }
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  return fetch(url, { method: 'POST', body }).then(async r => {
+    const data = await r.json().catch(() => ({ error: r.statusText }));
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    return data;
+  });
+}
+const calSettings = () => ({
+  x_axis_dist: calEl('cal-xdist').value, static_seconds: calEl('cal-secs').value,
+  baseline: calEl('cal-baseline').value, board_height: calEl('cal-bh').value,
+  reconvert: calEl('cal-reconvert').value, auto_solve: calEl('cal-auto').checked ? 1 : 0 });
+
+const CAL_STEPS = [
+  { kind: 'origin',   short: 'Origin',  title: 'Origin',               color: 0xff5555 },
+  { kind: 'x_axis',   short: 'X axis',  title: 'X axis',               color: 0x55ee66 },
+  { kind: 'xy_plane', short: 'Floor',   title: 'Floor points',         color: 0x55a0ff },
+  { kind: 'sweep',    short: 'Volume',  title: 'Move through the room', color: 0x9a9a9a },
+  { kind: 'verify',   short: 'Check',   title: 'Check the accuracy',   color: 0xffcc44 },
+];
+const CAL_KIND_COLOR = Object.fromEntries(CAL_STEPS.map(s => [s.kind, s.color]));
+let calStep = 0, calStatus = null, calSolve = null, calSolveVersion = -1, calResultKey = '', calBridgeError = '';
+let calSimMode = false, calRunsCache = [];
+
+function calInstr(kind) {
+  const d = (+calEl('cal-xdist').value || 1).toFixed(2), secs = +calEl('cal-secs').value || 5;
+  return {
+    origin: `Put the drone <b>flat on the floor</b> with the centre of its sensors on the <b>origin mark</b>.
+      <ul><li>Press <b>Start</b> and don't touch it for ${secs} s.</li><li>This point becomes (0, 0, 0).</li></ul>`,
+    x_axis: `Put the drone flat on the floor on the <b>+X mark, exactly ${d} m</b> from the origin.
+      <ul><li>Press <b>Start</b> and don't touch it for ${secs} s.</li><li>This sets the direction of X and the scale.</li></ul>`,
+    xy_plane: `Put the drone flat on the floor at <b>another spot</b>, away from the X axis, and press <b>Add point</b>.
+      <ul><li>Do it for <b>3 or more</b> spots, spread out.</li><li>They define the floor (Z = 0).</li></ul>`,
+    sweep: `Pick the drone up, press <b>Start</b> and walk it <b>slowly through the whole flight space</b>.
+      <ul><li>Low, middle and high; tilted a bit; turning it around.</li><li>Keep the sensors visible to both stations.</li>
+      <li>Press <b>Stop</b> after 1–3 minutes. You can add more later.</li></ul>`,
+    verify: `Optional: put the drone on spots you can check (e.g. marked points) and press <b>Add check</b>.
+      <ul><li>These are <b>not used</b> for the calibration.</li><li>They show how accurate the result is.</li></ul>`,
+  }[kind];
+}
+
+// Small floor-scene drawings in place of the Crazyflie client's photos.
+function calIllus(kind) {
+  const ring = (x, y, on = true) => `<ellipse cx="${x}" cy="${y}" rx="30" ry="9" fill="none" stroke="${on ? '#f2f2f2' : '#5a5a5a'}" stroke-width="2.2"/>`;
+  const drone = (x, y, tilt = 0) => `<g transform="translate(${x},${y}) rotate(${tilt})">
+      <line x1="-20" y1="-4" x2="20" y2="4" stroke="#9aa" stroke-width="3"/><line x1="-20" y1="4" x2="20" y2="-4" stroke="#9aa" stroke-width="3"/>
+      ${[[-20, -4], [20, 4], [-20, 4], [20, -4]].map(([a, b]) => `<ellipse cx="${a}" cy="${b - 3}" rx="9" ry="2.5" fill="#8adcf0" opacity=".8"/>`).join('')}
+      <rect x="-7" y="-5" width="14" height="9" rx="2" fill="#ccd"/><line x1="0" y1="4" x2="0" y2="12" stroke="#ccd" stroke-width="2" stroke-dasharray="2 2"/></g>`;
+  const station = (x, lbl) => `<g transform="translate(${x},8)"><rect x="-11" y="0" width="22" height="16" rx="4" fill="#3a3a3a" stroke="#777"/>
+      <circle cx="0" cy="8" r="4" fill="#111" stroke="#8adcf0"/><text x="0" y="30" fill="#777" font-size="9" text-anchor="middle">${lbl}</text></g>`;
+  const label = (x, y, t, c = '#bbb') => `<text x="${x}" y="${y}" fill="${c}" font-size="11" text-anchor="middle" font-family="system-ui, Segoe UI, sans-serif">${t}</text>`;
+  const floor = `<polygon points="10,165 390,165 335,70 65,70" fill="#262626" stroke="#3a3a3a"/>` +
+    [0.25, 0.5, 0.75].map(f => `<line x1="${10 + 380 * f}" y1="165" x2="${65 + 270 * f}" y2="70" stroke="#303030"/>`).join('') +
+    [100, 130].map(y => { const t = (165 - y) / 95; return `<line x1="${10 + 55 * t}" y1="${y}" x2="${390 - 55 * t}" y2="${y}" stroke="#303030"/>`; }).join('');
+  const arrow = (x1, y1, x2, y2, c) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="2.5" marker-end="url(#cal-ah-${c.slice(1)})"/>`;
+  const defs = `<defs>${['ff5555', '55ee66', '8adcf0'].map(c => `<marker id="cal-ah-${c}" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#${c}"/></marker>`).join('')}</defs>`;
+  let body = '';
+  if (kind === 'origin') body = ring(200, 140) + drone(200, 118) + arrow(200, 140, 262, 140, '#ff5555') + arrow(200, 140, 150, 122, '#55ee66') + label(140, 117, '+Y', '#55ee66') + label(270, 158, '+X', '#ff5555') + label(200, 162, '(0, 0, 0)');
+  else if (kind === 'x_axis') body = ring(120, 140, false) + label(120, 162, 'origin', '#777') + arrow(152, 140, 248, 140, '#ff5555') +
+    label(200, 132, (+calEl('cal-xdist').value || 1).toFixed(2) + ' m', '#ff8888') + ring(280, 140) + drone(280, 118) + label(280, 162, '+X');
+  else if (kind === 'xy_plane') body = ring(120, 140, false) + ring(280, 140, false) + ring(150, 95) + ring(255, 92) + ring(330, 128) + drone(255, 70) + label(200, 162, 'any floor spots · Z = 0');
+  else if (kind === 'sweep') body = `<path d="M70,130 C110,40 170,150 210,70 S300,30 340,110" fill="none" stroke="#8adcf0" stroke-width="2" stroke-dasharray="4 5"/>` +
+    drone(210, 66, -18) + arrow(372, 120, 372, 52, '#8adcf0') + arrow(372, 70, 372, 140, '#8adcf0') + label(200, 162, 'low · middle · high · tilted · all headings');
+  else body = ring(140, 120) + ring(270, 110) + drone(140, 98) + '<path d="M260,108 l7,7 l14,-16" fill="none" stroke="#ffcc44" stroke-width="3"/>' + label(200, 162, 'not used by the solver');
+  return `<svg viewBox="0 0 400 170" xmlns="http://www.w3.org/2000/svg">${defs}${floor}${station(70, 'BS0')}${station(330, 'BS1')}${body}</svg>`;
+}
+
+function calStepState(kind, s) {
+  const sm = s && s.samples;
+  if (!sm) return { done: false, sub: '' };
+  if (kind === 'origin' || kind === 'x_axis') return { done: sm[kind], sub: sm[kind] ? 'done' : 'to do' };
+  if (kind === 'xy_plane') return { done: sm.xy_plane.length >= 1, sub: sm.xy_plane.length ? `${sm.xy_plane.length} point${sm.xy_plane.length > 1 ? 's' : ''}` : 'to do' };
+  if (kind === 'sweep') return { done: sm.sweep >= sm.sweep_min, sub: sm.sweep ? `${sm.sweep} readings` : 'to do' };
+  return { done: sm.verify.length > 0, sub: sm.verify.length ? `${sm.verify.length} checks` : 'optional' };
+}
+
+// Plain-language outcome of the last measurement.
+function calFeedbackText(lr, s) {
+  if (lr.complete === undefined)  // delete / clear: no measurement behind it
+    return ['info', lr.step === 'clear' ? 'All samples moved aside (_cleared_…) — start again from step 1.' : `Removed ${lr.step} (moved to _deleted/).`];
+  const step = CAL_STEPS.find(t => t.kind === lr.step);
+  const what = step ? step.title : lr.step;
+  if (lr.ok) {
+    if (lr.step === 'sweep') {
+      const share = lr.complete ? Math.round(100 * lr.plausible / lr.complete) : 0;
+      return share < 50
+        ? ['warn', `⚠ Recorded ${lr.complete} readings, but only ${share}% look physically possible. The calculation will ignore the bad ones — check the sensors.`]
+        : ['good', `✔ Recorded ${lr.complete} readings (${lr.total} in total).` + (s && s.samples.sweep < s.samples.sweep_min ? ' Record a bit more.' : '')];
+    }
+    if (lr.step === 'xy_plane') return ['good', `✔ Floor point ${lr.name.split('_').pop()} saved (${lr.complete} good readings). Move to another spot and add more, or press Next.`];
+    if (lr.step === 'verify') return ['good', `✔ Check point saved — its error appears under Samples once the result is ready.`];
+    return ['good', `✔ ${what} saved (${lr.complete} good readings).`];
+  }
+  return ['bad', {
+    no_data: '✘ No readings with both stations. Check the drone is connected and both base stations see all four sensors, then retry.',
+    few: `✘ Only ${lr.complete} readings with both stations (10 needed). Make sure nothing blocks the sensors, then retry.`,
+    implausible: '✘ Most readings were inconsistent between the sensors. Check the sensor board, then retry.',
+    moving: '✘ The drone moved during the measurement. Keep it still and retry.',
+  }[lr.reason] || ('✘ ' + lr.message)];
+}
+
+function calRender() {
+  const s = calStatus, step = CAL_STEPS[calStep], cap = s && s.capture, sv = calSolve;
+  // Connection (the one from the Drone tab) and base stations
+  const sim = s && s.simulation;
+  const age = s && s.last_packet_age, live = !!sim || !!(s && s.packets && age < 2);
+  if (sim) calSimMode = true;
+  calEl('cal-mode-real').classList.toggle('on', !calSimMode);
+  calEl('cal-mode-sim').classList.toggle('on', calSimMode);
+  calEl('cal-simpick').style.display = calSimMode && !sim ? '' : 'none';
+  document.querySelector('#sec-calib .cal-wizard').classList.toggle('sim', !!sim);
+  calEl('cal-conn-edit').textContent = sim ? 'Exit simulation' : 'Drone tab ›';
+  const dot = calEl('cal-linkdot');
+  dot.className = 'cal-dot ' + (!s ? 'bad' : sim ? 'sim' : live ? 'good' : 'warn');
+  calEl('cal-linktext').textContent = !s ? 'Bridge not running — start avvia.bat'
+    : sim ? `Simulation · virtual drone replaying ${sim.source}`
+    : calSimMode ? 'Simulation not started — pick a recorded run below'
+    : !s.available ? 'Bridge has no capture module (install numpy)'
+    : !live ? `No data from the drone (${document.getElementById('track-host').value.trim() || 'no IP set'})`
+    : 'Drone connected' + (s.quality != null ? ` · ${s.quality.toFixed(0)}% good readings` : '');
+  const st = (s && s.stations) || [0, 1].map(id => ({ id }));
+  const pill = (on, txt, tip) => `<span class="cal-pill${on ? ' on' : ''}" title="${tip}">${on ? '✓' : '·'} ${txt}</span>`;
+  calEl('cal-stations').innerHTML = st.map(b => `<div class="cal-bs"><b>BS${b.id}</b>` +
+    pill(b.receiving, 'sees drone', 'All four sensors seen by this station in the last second') +
+    pill(b.calibration, 'factory data', 'Factory calibration (OOTX) decoded in lh2_factory_calibration.json') +
+    pill(b.geometry, 'position found', 'Position solved in this session') + '</div>').join('');
+
+  // Stepper
+  calEl('cal-tiles').innerHTML = CAL_STEPS.map((t, i) => {
+    const ss = calStepState(t.kind, s);
+    return `<button class="cal-tile${i === calStep ? ' sel' : ''}${ss.done ? ' done' : ''}" data-i="${i}">` +
+      `<span class="num">${ss.done ? '✓' : i + 1}</span><span class="tl">${t.short}</span><span class="sub">${ss.sub}</span></button>`;
+  }).join('');
+  calEl('cal-stepno').textContent = step.kind === 'verify' ? 'Optional' : `Step ${calStep + 1} of 4`;
+  calEl('cal-steptitle').textContent = step.title;
+  const simNote = !sim ? '' : step.kind === 'sweep' ? `Simulation: Start replays the room recording of ${sim.source} (4× faster); Stop early to see what a short recording gives.`
+    : step.kind === 'xy_plane' ? `Simulation: each point replays a recorded floor point of ${sim.source} — ${sim.floor_left} left. Leave some unused to replay them as check points.`
+    : step.kind === 'verify' ? `Simulation: replays a recorded floor point you did not use (${sim.floor_left} left) — an independent check: its height should read 0.`
+    : `Simulation: Start replays the recorded ${step.title.toLowerCase()} capture of ${sim.source}.`;
+  const instrKey = step.kind + calEl('cal-xdist').value + calEl('cal-secs').value + simNote;
+  if (calEl('cal-instr').dataset.key !== instrKey) {
+    calEl('cal-instr').innerHTML = calInstr(step.kind) + (simNote ? `<div class="cal-simnote">${calEsc(simNote)}</div>` : '');
+    calEl('cal-illus').innerHTML = calIllus(step.kind);
+    calEl('cal-instr').dataset.key = instrKey;
+  }
+  calEl('cal-prev').style.visibility = calStep === 0 ? 'hidden' : '';
+  calEl('cal-next').style.visibility = calStep === CAL_STEPS.length - 1 ? 'hidden' : '';
+
+  // Main button, progress, feedback
+  const btn = calEl('cal-measure'), bar = calEl('cal-progress'), fb = calEl('cal-feedback');
+  btn.classList.toggle('rec', !!(cap && cap.step === 'sweep'));
+  let feedback = null;
+  if (cap) {
+    btn.disabled = cap.step !== 'sweep';
+    btn.textContent = cap.step === 'sweep' ? `■ Stop  (${cap.complete} readings)` : `Hold still… ${Math.max(0, Math.ceil(cap.seconds - cap.elapsed))} s`;
+    bar.style.display = cap.seconds ? 'block' : 'none';
+    bar.firstElementChild.style.width = cap.seconds ? `${Math.min(100, 100 * cap.elapsed / cap.seconds)}%` : '0';
+    feedback = ['info', cap.step === 'sweep' ? `Recording — keep moving the drone through the room. ${cap.complete} readings so far.`
+      : `Measuring — ${cap.complete} readings so far.`];
+  } else {
+    const sm = s && s.samples;
+    btn.disabled = !s || !s.available;
+    btn.textContent = step.kind === 'xy_plane' ? (sm && sm.xy_plane.length ? '＋ Add another floor point' : '▶ Add floor point')
+      : step.kind === 'verify' ? '＋ Add check point'
+      : step.kind === 'sweep' ? (sm && sm.sweep ? '▶ Record more' : '▶ Start recording')
+      : (sm && sm[step.kind] ? '↻ Measure again' : '▶ Start');
+    bar.style.display = 'none';
+    if (s && s.last_result) feedback = calFeedbackText(s.last_result, s);
+    else if (s && live && st.some(b => !b.receiving)) feedback = ['warn', `⚠ ${st.filter(b => !b.receiving).map(b => 'BS' + b.id).join(' and ')} can't see the drone's sensors right now.`];
+  }
+  if (calBridgeError) feedback = ['bad', calBridgeError];
+  fb.className = feedback ? feedback[0] : '';
+  fb.textContent = feedback ? feedback[1] : '';
+
+  // One status banner for the whole calibration
+  const sb = calEl('cal-statusbar');
+  let cls, ic, txt, action = '';
+  if (!s) [cls, ic, txt] = ['bad', '⛔', 'The bridge is not running. Start avvia.bat (display_real_time_windows.py) on this PC.'];
+  else if (cap) [cls, ic, txt] = ['info', '●', 'Recording…'];
+  else if (sv && sv.state === 'running') [cls, ic, txt] = ['warn', '⏳', 'Calculating the base-station positions…'];
+  else if (sv && sv.ok) {
+    const m = sv.variants[sv.primary].metrics;
+    [cls, ic, txt] = ['good', '✔', `Calibration ready — average error ${m.residual_mean_mm != null ? m.residual_mean_mm.toFixed(1) : '?'} mm.`];
+    action = '<button data-open="cal-results-card">See result</button>';
+  } else if (!s.ready) {
+    const left = s.missing.map(m => m.replace('xy-plane', 'floor point').replace('x-axis', 'X axis').replace(/XYZ-space \((\d+)\/(\d+)\)/, 'room recording ($1/$2)'));
+    [cls, ic, txt] = ['idle', '○', 'Still needed: ' + left.join(', ') + '.'];
+  } else if (sv && sv.state === 'done') {
+    [cls, ic, txt] = ['bad', '✘', 'The calculation failed.'];
+    action = '<button data-open="cal-results-card">Details</button>';
+  } else {
+    [cls, ic, txt] = ['warn', '▶', 'Enough samples.'];
+    action = '<button data-solve="1">Calculate</button>';
+  }
+  sb.className = cls;
+  const html = `<span class="ic">${ic}</span><span class="tx">${txt}</span>${action}`;
+  if (sb.dataset.html !== html) { sb.innerHTML = html; sb.dataset.html = html; }
+  calEl('cal-session').textContent = s && s.session_dir ? s.session_dir : 'No session yet — the first measurement creates calib_runs/run_<date>.';
+  calRenderManagement();
+}
+
+function calQuatToPose(q) {
+  const [x, y, z, w] = q;
+  const R = [[1-2*(y*y+z*z), 2*(x*y-z*w), 2*(x*z+y*w)],
+             [2*(x*y+z*w), 1-2*(x*x+z*z), 2*(y*z-x*w)],
+             [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x*x+y*y)]];
+  const c0 = [R[0][0], R[1][0], R[2][0]], c1 = [R[0][1], R[1][1], R[2][1]];
+  const tilt = Math.acos(Math.max(-1, Math.min(1, -c0[2])));
+  const dir = Math.atan2(c0[1], c0[0]);
+  const h = [-Math.sin(dir), Math.cos(dir), 0];
+  const cx = [c0[1]*h[2]-c0[2]*h[1], c0[2]*h[0]-c0[0]*h[2], c0[0]*h[1]-c0[1]*h[0]];
+  const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+  const roll = Math.atan2(dot(c1, cx), dot(c1, h));
+  const deg = r => r * 180 / Math.PI;
+  const norm = a => ((a % 360) + 360) % 360;
+  return { R, tilt: deg(tilt), dir: norm(deg(dir)), roll: deg(roll) };
+}
+let calVariants = [], calFactory = {};
+const calEsc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// Grade a figure against the checks in utils/calibration/README.md / calib_runs/RESULTS.md.
+const calGrade = (v, good, warn) => v == null ? '' : Math.abs(v) <= good ? 'good' : Math.abs(v) <= warn ? 'warn' : 'bad';
+const calMark = g => g === 'good' ? '✔' : g === 'warn' ? '!' : g === 'bad' ? '✘' : '';
+function calVariantHtml(v, i) {
+  const m = v.metrics, pr = v.precision, rows = [];
+  const row = (label, value, grade = '') =>
+    rows.push(`<tr><td>${label}</td><td>${value}</td><td class="st ${grade}">${calMark(grade)}</td></tr>`);
+  const sd = (key, k = 0, digits = 3) => pr[key] ? ` ± ${pr[key].std[k].toFixed(digits)}` : '';
+  if (m.samples != null) row('Samples', m.samples.toFixed(0), m.samples >= 300 ? 'good' : m.samples >= 100 ? 'warn' : 'bad');
+  if (m.residual_mean_mm != null) row('Residual', `${m.residual_mean_mm.toFixed(2)} mm mean / ${m.residual_max_mm != null ? m.residual_max_mm.toFixed(1) : "?"} max`,
+    calGrade(m.residual_mean_mm, 5, 10));
+  if (m.board_fit_mm != null) row('Board fit', `${m.board_fit_mm.toFixed(2)} mm`, calGrade(m.board_fit_mm, 5, 10));
+  if (m.mark_dist_m != null) row('1 m mark (sensor scale)', `${m.mark_dist_m.toFixed(3)} m${sd('mark_dist')}`,
+    calGrade(m.mark_dist_m - 1, 0.05, 0.1));
+  if (m.baseline_m != null) {
+    const tape = m.tape_m, err = tape ? 100 * (m.baseline_m - tape) / tape : null;
+    row('Baseline BS0–BS1', `${m.baseline_m.toFixed(3)} m${sd('baseline_per_mark')}` +
+      (err != null ? ` (${err >= 0 ? '+' : ''}${err.toFixed(1)} % vs tape ${tape.toFixed(2)})` : ''), calGrade(err, 3, 6));
+  }
+  if (v.ok) v.poses.forEach(p => {
+    const accel = calFactory[p.id] && calFactory[p.id].accel_tilt_deg;
+    const d = accel != null ? p.tilt - accel : null;
+    row(`BS${p.id} tilt`, `${p.tilt.toFixed(2)}°${sd(`bs${p.id}_tilt_deg`, 0, 2)}` +
+      (accel != null ? ` (accel ${accel.toFixed(1)}°, Δ ${d >= 0 ? '+' : ''}${d.toFixed(2)}°)` : ''), calGrade(d, 1, 3));
+    row(`BS${p.id} pos`, p.pos.map(c => (c >= 0 ? '+' : '') + c.toFixed(3)).join(' ') + ' m');
+    row('', `Inc ${p.tilt.toFixed(1)}°  Dir ${p.dir.toFixed(1)}°  Roll ${p.roll.toFixed(1)}°`);
+  });
+  return `<div class="cal-variant"><div class="vname">${calEsc(v.name)}${v.ok ? '' : ' — solver failed, see log'}</div>` +
+    `<div class="hint">${calEsc(v.dir)}</div>` +
+    `<table class="cal-metrics">${rows.join('')}</table>` +
+    (v.ok ? `<div class="cal-btns"><button data-apply="${i}">Apply to editor</button>` +
+            `<button data-export="${i}">Export header</button></div>` : '') + `</div>`;
+}
+
+function calRenderManagement() {
+  const s = calStatus, sv = calSolve;
+  const located = Object.fromEntries(((sv && sv.samples && sv.samples.statics) || []).map(x => [x.name, x]));
+  const sm = s && s.samples;
+  const names = !sm ? [] : [...(sm.origin ? ['origin'] : []), ...(sm.x_axis ? ['x_axis'] : []), ...sm.xy_plane,
+    ...(sm.sweep ? ['sweep'] : []), ...sm.verify];
+  const kindOf = n => n.startsWith('xy_plane') ? 'xy_plane' : n.startsWith('verify') ? 'verify' : n;
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  calEl('cal-samplecount').textContent = names.length ? `(${names.length})` : '';
+  {
+    const html = names.length ? names.map(n => {
+      const l = located[n];
+      const info = n === 'sweep' ? `${sm.sweep} snapshots` + (sv && sv.samples ? ` · ${sv.samples.cloud.length} shown` : '')
+        : l && l.position ? `${l.position.map(c => (c >= 0 ? '+' : '') + c.toFixed(3)).join(' ')} m · fit ${l.error_mm.toFixed(2)} mm` +
+          (l.kind === 'verify' ? ` · height ${(l.position[2] * 1000).toFixed(0)} mm` : '')
+        : l && l.error ? l.error : 'not located yet';
+      return `<div class="cal-srow"><span class="dot" style="background:${hex(CAL_KIND_COLOR[kindOf(n)])}"></span>` +
+        `<span class="nm">${n}</span><span class="info">${calEsc(info)}</span><button data-del="${n}">✕</button></div>`;
+    }).join('') : '<div class="hint">No samples yet.</div>';
+    if (calEl('cal-details').dataset.html !== html) { calEl('cal-details').innerHTML = html; calEl('cal-details').dataset.html = html; }
+  }
+  const primary = sv && sv.ok ? sv.variants[sv.primary] : null;
+  const m = primary && primary.metrics;
+  calEl('cal-esterr').textContent = m && m.residual_max_mm != null
+    ? `${m.residual_max_mm.toFixed(1)} mm (mean ${m.residual_mean_mm.toFixed(2)} mm)` : '--';
+  const ver = Object.values(located).filter(x => x.kind === 'verify' && x.error_mm != null);
+  calEl('cal-vererr').textContent = ver.length ? `${Math.max(...ver.map(x => x.error_mm)).toFixed(2)} mm (${ver.length} samples)` : '--';
+}
+
+// 3D: samples placed with the solved geometry + the solved stations, as in the Crazyflie client.
+const calGroup = new THREE.Group();
+scene.add(calGroup);
+function calDraw3d() {
+  calGroup.children.forEach(o => { if (o.geometry) o.geometry.dispose(); });
+  calGroup.clear();
+  const sv = calSolve;
+  if (!calEl('cal-show3d').checked || !sv || !sv.ok) return;
+  const add = o => calGroup.add(o);
+  const label = (txt, p, col) => {
+    const d = document.createElement('div'); d.className = 'label3d'; d.textContent = txt; d.style.color = col;
+    const o = new CSS2DObject(d); o.position.copy(p); add(o);
+  };
+  const hex = c => '#' + c.toString(16).padStart(6, '0');
+  const samples = sv.samples || { statics: [], cloud: [] };
+  samples.statics.filter(x => x.position).forEach(x => {
+    const col = CAL_KIND_COLOR[x.kind] || 0xffffff;
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), new THREE.MeshBasicMaterial({ color: col }));
+    m.position.copy(tv(...x.position)); add(m);
+    if (x.kind === 'origin' || x.kind === 'x_axis' || x.kind === 'verify')
+      label(x.kind === 'origin' ? 'O' : x.kind === 'x_axis' ? 'X' : x.name.replace('verify_', 'V'), tv(x.position[0], x.position[1], x.position[2] + 0.12), hex(col));
+  });
+  const q = sv.quality && sv.quality.result;
+  if (q && calEl('cal-qmap') && calEl('cal-qmap').checked) {
+    // Hold-out error per reading: green <= 3 mm, yellow ~6 mm, red >= 12 mm.
+    const g = new THREE.BufferGeometry().setFromPoints(q.points.map(p => tv(p[0], p[1], p[2])));
+    const colors = [];
+    q.points.forEach(p => {
+      const t = Math.max(0, Math.min(1, (p[3] - 3) / 9));
+      const c = new THREE.Color().setHSL((1 - t) * 0.33, 0.85, 0.52);
+      colors.push(c.r, c.g, c.b);
+    });
+    g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    add(new THREE.Points(g, new THREE.PointsMaterial({ vertexColors: true, size: 0.04 })));
+  } else if (samples.cloud.length) {
+    const g = new THREE.BufferGeometry().setFromPoints(samples.cloud.map(p => tv(...p)));
+    add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9a9a9a, size: 0.025 })));
+  }
+  sv.variants[sv.primary].poses.forEach(p => {
+    const pose = calQuatToPose(p.quat), c0 = [pose.R[0][0], pose.R[1][0], pose.R[2][0]];
+    const at = tv(...p.position);
+    const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.07), new THREE.MeshBasicMaterial({ color: 0xff55ff, wireframe: true }));
+    m.position.copy(at); add(m);
+    add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([at, tv(p.position[0] + c0[0] * 0.8, p.position[1] + c0[1] * 0.8, p.position[2] + c0[2] * 0.8)]),
+      new THREE.LineBasicMaterial({ color: 0xff55ff })));
+    label(`BS${p.id} solved`, tv(p.position[0], p.position[1], p.position[2] - 0.18), '#ff77ff');
+  });
+}
+calEl('cal-show3d').addEventListener('change', calDraw3d);
+
+// Status polling. The solve result (log, sample cloud) is only re-sent when it changed.
+async function calCall(action, params = {}, body) {
+  try {
+    const s = await calApi(action, { ...params, since: calSolveVersion }, body);
+    if (!s.solve.unchanged) {
+      calSolve = s.solve;
+      calSolveVersion = s.solve_version;
+      calRenderSolve(calSolve);
+      calDraw3d();
+      if (calSolve.state === 'done') calLoadRuns();
+    }
+    calStatus = s;
+    calBridgeError = '';
+    const key = s.last_result ? JSON.stringify(s.last_result) : '';
+    if (key !== calResultKey) {  // like the client: a good origin / x-axis sample moves on to the next step
+      calResultKey = key;
+      const lr = s.last_result;
+      const here = CAL_STEPS[calStep].kind;
+      if (lr && lr.ok && here === lr.step && (here === 'origin' || here === 'x_axis' ||
+          (here === 'xy_plane' && s.samples.xy_plane.length === 3))) calStep++;
+    }
+    calRender();
+    return s;
+  } catch (e) {
+    if (/fetch|network/i.test(e.message)) { calStatus = null; calBridgeError = ''; }
+    else calBridgeError = '✘ ' + e.message;
+    calRender();
+  }
+}
+async function calNewSession(dir = '') {
+  calEl('cal-export-card').style.display = 'none';
+  calSolveVersion = -1;
+  const s = await calCall('session', { dir, ...calSettings() });
+  calLoadRuns();
+  return s;
+}
+
+calEl('cal-tiles').addEventListener('click', e => {
+  const t = e.target.closest('.cal-tile');
+  if (t) { calStep = +t.dataset.i; calRender(); }
+});
+calEl('cal-prev').addEventListener('click', () => { calStep = Math.max(0, calStep - 1); calRender(); });
+calEl('cal-next').addEventListener('click', () => { calStep = Math.min(CAL_STEPS.length - 1, calStep + 1); calRender(); });
+calEl('cal-measure').addEventListener('click', async () => {
+  if (calStatus && calStatus.capture) { if (calStatus.capture.step === 'sweep') await calCall('stop'); return; }
+  if (!calStatus || !calStatus.session_dir) { if (!(await calNewSession())) return; }
+  await calCall('start', { step: CAL_STEPS[calStep].kind, seconds: calEl('cal-secs').value });
+});
+calEl('cal-conn-edit').addEventListener('click', () => {
+  if (calStatus && calStatus.simulation) calExitSimulation(); else openSection('drone');
+});
+async function calExitSimulation() {
+  calSimMode = false;
+  if (calStatus && calStatus.simulation) {
+    await calCall('simulate');
+    await calNewSession();  // back to the real drone in a fresh session, not inside the sim_ folder
+  }
+  calRender();
+}
+calEl('cal-mode-real').addEventListener('click', calExitSimulation);
+calEl('cal-mode-sim').addEventListener('click', () => { calSimMode = true; calLoadRuns(); calRender(); });
+calEl('cal-simstart').addEventListener('click', async () => {
+  const source = calEl('cal-simsrc').value;
+  if (!source) return;
+  calSolveVersion = -1; calStep = 0; calResultKey = '';
+  calEl('cal-export-card').style.display = 'none';
+  await calCall('simulate', { source, ...calSettings() });
+  calLoadRuns();
+});
+calEl('cal-statusbar').addEventListener('click', e => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.solve) calCall('solve', calSettings());
+  if (b.dataset.open) { const d = calEl(b.dataset.open); d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+});
+// Destructive buttons ask for a second click instead of a dialog.
+function calConfirm(btn, text, action) {
+  if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = btn.dataset.text; action(); return; }
+  btn.dataset.armed = '1'; btn.dataset.text = btn.textContent; btn.textContent = text;
+  setTimeout(() => { if (btn.dataset.armed) { delete btn.dataset.armed; btn.textContent = btn.dataset.text; } }, 3000);
+}
+calEl('cal-details').addEventListener('click', e => {
+  const b = e.target.closest('button[data-del]');
+  if (b) calConfirm(b, 'sure?', () => calCall('delete', { name: b.dataset.del }));
+});
+calEl('cal-clear').addEventListener('click', e =>
+  calConfirm(e.currentTarget, 'Sure? Click again', () => calCall('clear')));
+calEl('cal-exportsamples').addEventListener('click', async () => {
+  try {
+    const data = await calApi('export_samples');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(data)], { type: 'application/json' }));
+    a.download = `${data.session}_samples.json`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } catch (err) { calBridgeError = '✘ Export failed: ' + err.message; calRender(); }
+});
+calEl('cal-import').addEventListener('click', () => calEl('cal-importfile').click());
+calEl('cal-importfile').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  calSolveVersion = -1;
+  await calCall('import_samples', calSettings(), await file.text());
+  calLoadRuns();
+});
+['cal-xdist', 'cal-secs', 'cal-baseline', 'cal-bh', 'cal-reconvert', 'cal-auto'].forEach(id =>
+  calEl(id).addEventListener('change', () => calCall('config', calSettings())));
+
+let calVariantsKey = '';
+function calRenderSolve(sv) {
+  const log = calEl('cal-log');
+  const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 5;
+  if (log.textContent !== (sv.log || '')) log.textContent = sv.log || '';
+  if (atBottom) log.scrollTop = log.scrollHeight;
+  calEl('cal-resolve').disabled = sv.state === 'running';
+  calEl('cal-state').textContent = sv.state === 'idle' ? 'Not calculated yet.' : sv.state === 'running' ? 'Calculating…'
+    : sv.ok ? 'Check the figures (✔ good · ! borderline · ✘ out of range), then "Apply to editor" to see the stations in 3D, or "Export header" for the firmware.'
+    : 'The calculation failed — see the solver log.';
+  calVariants = sv.state === 'running' ? [] : (sv.variants || []).map(v => ({
+    ...v, poses: v.ok ? v.poses.map(p => ({ id: p.id, pos: p.position, ...calQuatToPose(p.quat) })) : null }));
+  calRenderQuality(sv);
+  const key = JSON.stringify([sv.state, sv.variants, calFactory]);
+  if (key !== calVariantsKey) { calVariantsKey = key; calEl('cal-variants').innerHTML = calVariants.map(calVariantHtml).join(''); }
+}
+function calRenderQuality(sv) {
+  const q = sv.quality, btn = calEl('cal-evaluate'), box = calEl('cal-qreport');
+  btn.disabled = !sv.ok || sv.state === 'running' || (q && q.state === 'running');
+  btn.textContent = q && q.state === 'running' ? `Evaluating… ${q.progress}` : q && q.result ? 'Evaluate again' : 'Evaluate quality';
+  let html = '';
+  if (q && q.error) html = `<div class="cal-verdict bad">✘ Evaluation failed: ${calEsc(q.error)}</div>`;
+  else if (q && q.result) {
+    const r = q.result, rows = [], grades = [];
+    const row = (label, value, grade) => { grades.push(grade);
+      rows.push(`<tr><td>${label}</td><td>${value}</td><td class="st ${grade}">${calMark(grade)}</td></tr>`); };
+    const st = Object.entries(r.stations);
+    row('Station position spread', st.map(([b, v]) => `BS${b} ${v.position_spread_mm.toFixed(1)} mm`).join(' · '),
+      calGrade(Math.max(...st.map(([, v]) => v.position_spread_mm)), 10, 30));
+    row('Station tilt spread', st.map(([b, v]) => `BS${b} ±${v.tilt_deg.std.toFixed(2)}°`).join(' · '),
+      calGrade(Math.max(...st.map(([, v]) => v.tilt_deg.std)), 0.2, 0.5));
+    row('Baseline BS0–BS1', `${r.baseline_m.mean.toFixed(3)} m ± ${(r.baseline_m.std * 1000).toFixed(1)} mm`,
+      calGrade(r.baseline_m.std * 1000, 5, 15));
+    row('Error on unseen readings', `${r.holdout.median_mm.toFixed(1)} mm typical · ${r.holdout.p90_mm.toFixed(1)} mm (90%)`,
+      calGrade(r.holdout.median_mm, 5, 8));
+    row('Bad readings ignored', `${(100 * r.holdout.outlier_share).toFixed(1)} %`, calGrade(100 * r.holdout.outlier_share, 10, 30));
+    const worst = grades.includes('bad') ? 'bad' : grades.includes('warn') ? 'warn' : 'good';
+    const verdict = { good: '✔ Stable and consistent: the calibration explains readings it never saw to a few millimetres.',
+      warn: '! Usable, but some figures are borderline — a longer room recording usually helps.',
+      bad: '✘ Not reliable: the result changes too much with the data. Record the room again, longer and covering the whole volume.' }[worst];
+    html = `<div class="cal-verdict ${worst}">${verdict}</div><table class="cal-metrics">${rows.join('')}</table>` +
+      `<div class="hint">${r.solved}/${r.runs} recalculations on ${Math.round(r.fraction * 100)}% of ${r.snapshots} readings. ` +
+      `This shows how much the result depends on the room recording; mistakes in placing the marks are not included — use check points for that.</div>` +
+      `<label class="hint"><input type="checkbox" id="cal-qmap" checked> Colour the room recording by error in 3D</label>` +
+      `<div class="cal-legend">≤ 3 mm <i></i> ≥ 12 mm</div>`;
+  }
+  if (box.dataset.html !== html) {
+    const keep = calEl('cal-qmap') ? calEl('cal-qmap').checked : true;
+    box.innerHTML = html; box.dataset.html = html;
+    if (calEl('cal-qmap')) { calEl('cal-qmap').checked = keep; calEl('cal-qmap').addEventListener('change', calDraw3d); }
+  }
+}
+calEl('cal-evaluate').addEventListener('click', () => calCall('evaluate'));
+calEl('cal-variants').addEventListener('click', async e => {
+  const apply = e.target.dataset.apply, exp = e.target.dataset.export;
+  if (apply != null) {
+    calVariants[+apply].poses.forEach(p => {
+      while (bsList.length <= p.id) {
+        bsList.push({ id: uid++, name: `BS${bsList.length}`, x: 0, y: 0, z: 0, tilt: 0, dir: 0, roll: 0 });
+      }
+      Object.assign(bsList[p.id], { x: +p.pos[0].toFixed(4), y: +p.pos[1].toFixed(4), z: +p.pos[2].toFixed(4),
+        tilt: +p.tilt.toFixed(3), dir: +p.dir.toFixed(3), roll: +p.roll.toFixed(3) });
+    });
+    renderList(); rebuild(); openSection('bs');
+  } else if (exp != null) {
+    try {
+      const r = await calApi('export', { variant: calVariants[+exp].dir });
+      calEl('cal-export-card').style.display = '';
+      calEl('cal-export-path').textContent = 'Written to ' + r.path + ' — compare with rp2350_firmware/src/bs_poses_cal.h, copy it over, rebuild both UF2s.';
+      calEl('cal-export').value = r.header;
+    } catch (err) { calBridgeError = '✘ Export failed: ' + err.message; calRender(); }
+  }
+});
+calEl('cal-export-copy').addEventListener('click', () => navigator.clipboard.writeText(calEl('cal-export').value));
+calEl('cal-resolve').addEventListener('click', () => calCall('solve', calSettings()));
+async function calLoadRuns() {
+  try {
+    const r = await calApi('runs');
+    calFactory = r.factory || {};
+    const sel = calEl('cal-runs'), keep = sel.value;
+    sel.innerHTML = '<option value="">— previous runs —</option>' + r.runs.slice().reverse().map(run =>
+      `<option value="${calEsc(run.dir)}">${calEsc(run.name)}${run.solved ? ' ✔' : ''}</option>`).join('');
+    sel.value = keep;
+    calRunsCache = r.runs;
+    const src = calEl('cal-simsrc'), keepSrc = src.value;
+    const sources = r.runs.filter(run => !run.name.startsWith('sim_')).reverse();
+    src.innerHTML = sources.map(run => `<option value="${calEsc(run.dir)}">${calEsc(run.name)}${run.solved ? ' ✔' : ''}</option>`).join('');
+    src.value = keepSrc || (sources.find(run => run.name === 'run_20261009_180300') || sources[0] || {}).dir || '';
+    const ids = Object.keys(calFactory);
+    calEl('cal-factory').textContent = ids.length ? ids.map(id => {
+      const f = calFactory[id];
+      const planes = f.planes.map((p, k) => `  plane${k}: phase ${p.phase.toFixed(3)}°  tilt ${p.tilt.toFixed(2)}°  gib ${p.gibmag.toFixed(2)}°`).join('\n');
+      return `BS${id}  uid ${f.uid}  polys ${(f.polynomials || []).join('/')}  accel tilt ${f.accel_tilt_deg != null ? f.accel_tilt_deg.toFixed(1) + '°' : '—'}\n${planes}`;
+    }).join('\n') : 'lh2_factory_calibration.json not found — run lh2_ootx.py.';
+    calVariantsKey = '';
+    if (calSolve) calRenderSolve(calSolve);
+  } catch (e) { /* bridge offline: calRender shows it */ }
+}
+calEl('cal-new').addEventListener('click', () => calNewSession(calEl('cal-dir').value.trim()));
+calEl('cal-open').addEventListener('click', () => {
+  const dir = calEl('cal-runs').value;
+  if (dir) calNewSession(dir);
+});
+let calWasOpen = false, calTick = 0;
+setInterval(async () => {
+  const open = panelEl.dataset.sec === 'calib';
+  if (open && !calWasOpen) calLoadRuns();  // refresh run list + factory data each time the section opens
+  calWasOpen = open;
+  const busy = calStatus && (calStatus.capture || (calSolve && calSolve.state === 'running'));
+  if (open || busy || (++calTick % 6 === 0 && calStatus)) await calCall('status');
+}, 500);
+calRender();
+</script>
+</body>
+</html>

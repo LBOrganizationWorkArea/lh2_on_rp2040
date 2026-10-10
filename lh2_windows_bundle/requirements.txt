@@ -1,0 +1,5 @@
+pymavlink
+numpy
+scipy
+pyyaml
+pyserial

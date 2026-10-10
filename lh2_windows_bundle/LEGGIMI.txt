@@ -1,0 +1,62 @@
+LH2 — bundle Windows (merge-autocalib-bitcraze @ afe6386)
+=====================================
+
+Avvio
+-----
+Doppio clic su avvia.bat.
+ - La prima volta crea .venv e installa le dipendenze (serve Python 3.10+ e internet).
+ - Apre il BS Pose Editor su http://127.0.0.1:8765/bs_pose_editor.html
+ - Avvia il bridge MAVLink: UDP 14550 -> HTTP 127.0.0.1:8051. Tieni aperta la finestra.
+I modelli 3D e la toolbar sono nell'editor; three.js arriva da cdn.jsdelivr.net,
+quindi il PC deve avere internet (o averlo in cache) quando apri la pagina.
+
+Collegamento al drone
+---------------------
+PC sulla Wi-Fi del MavESP8266 / DroneBridge (192.168.4.1).
+Editor -> Drone: Link "UDP relay", Relay http://127.0.0.1:8051/api/odometry, Connect.
+Windows Firewall deve permettere a Python di ricevere su UDP 14550.
+
+Auto-calibrazione (Editor -> Calib), come il wizard del Crazyflie client
+-----------------------------------------------------------------------
+1. Firmware: flasha firmware\crossing_beams.uf2 (angoli con modello period + factory).
+2. Tab Drone: IP del drone e Bridge (unica connessione, la usa anche Calib). In Calib ->
+   "Settings": Tape BS0 - BS1 = distanza misurata col metro.
+   In alto: pallino verde "Drone connected" e "sees drone" verde per BS0 e BS1.
+3. Segui i passi 1-4 (Back / Next per spostarsi), il pulsante blu fa la misura:
+   Origin -> X-axis (1 m) -> XY-plane (3 o piu' punti a terra) -> XYZ-space (sweep, Stop
+   quando hai finito; si puo' aggiungere altro dopo). La prima misura crea
+   utils\calibration\calib_runs\run_<data>.
+4. Appena i campioni bastano il solver parte da solo. Barra verde = geometria risolta.
+   Nel 3D: campioni (O, X, punti blu, nuvola grigia) e stazioni risolte (magenta).
+5. Verification (opzionale): misure in punti noti, non usate dal solver; errore in
+   "Max verification sample error".
+6. GEOMETRY RESULT: controlla le spunte, "Apply to editor", "Export header" ->
+   utils\calibration\calib_runs\<run>\bs_poses_cal_candidate.h da copiare in
+   rp2350_firmware\src\bs_poses_cal.h nel repo, ricompilare e committare.
+SAMPLE MANAGEMENT: dettagli e cancellazione dei singoli campioni, Clear (sposta i file in
+_cleared_<data>\, non li cancella), Import / Export dei campioni in un file .json.
+"Open run" (SETTINGS) riapre una run gia' fatta (c'e' run_20261009_180300, quella nel firmware).
+
+Simulazione e qualita'
+-----------------------
+Calib -> "Simulation": scegli una run registrata (es. run_20261009_180300). Ogni Start
+riproduce la cattura corrispondente come se il drone fosse li' (cartella sim_<data>_<run>).
+Serve per provare il wizard senza hardware e vedere l'effetto delle scelte: sweep fermato
+presto, meno punti a terra. I punti a terra registrati che non usi diventano punti di
+verifica indipendenti (la loro altezza deve risultare 0).
+Result -> "Evaluate quality": ricalcola 12 volte con il 70% della registrazione (~30 s) e
+mostra stabilita' delle stazioni, errore su letture mai viste e la mappa colorata nel 3D.
+Non include gli errori nel posizionare i segni a terra: per quelli usa i punti di verifica.
+
+Da riga di comando (dalla cartella del bundle)
+----------------------------------------------
+.venv\Scripts\python utils\calibration\capture_lh2.py                    wizard da terminale
+.venv\Scripts\python utils\calibration\calibrate_bitcraze.py <run> --baseline 2.26
+.venv\Scripts\python utils\calibration\lh2_ootx.py --port COM5           calibrazione di fabbrica (USB Pico)
+
+Contenuto
+---------
+bs_pose_editor.html   editor 3D + auto-calibrazione
+docs\                 GCS (index.html, richiede display_real_time.py dal repo), logview.html, modello 3D
+utils\                bridge e strumenti di calibrazione
+firmware\             UF2 attuali + bs_poses_cal.h / lh2_factory_cal.h compilati dentro
