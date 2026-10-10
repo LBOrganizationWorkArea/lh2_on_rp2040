@@ -8,13 +8,49 @@
 body {
   background: #181818; color: #ddd;
   font-family: 'Courier New', monospace;
-  display: flex; height: 100vh; overflow: hidden;
+  display: flex; flex-direction: column; height: 100vh; overflow: hidden;
 }
+#topbar {
+  height: 46px; flex: none; display: flex; align-items: center; gap: 4px;
+  padding: 0 10px; background: #1e1e1e; border-bottom: 1px solid #333; z-index: 20;
+}
+#topbar h1 { margin-right: 14px; white-space: nowrap; }
+.tb-btn { white-space: nowrap; }
+@media (max-width: 1000px) { .tb-btn .lb { display: none; } .odo-row .val { font-size: 30px; min-width: 100px; } }
+.tb-btn {
+  height: 34px; min-width: 38px; padding: 0 10px; display: flex; align-items: center; gap: 6px;
+  background: transparent; border: 1px solid transparent; border-radius: 6px;
+  color: #bbb; font: 12px 'Courier New', monospace; cursor: pointer;
+}
+.tb-btn .ic { font-size: 17px; line-height: 1; }
+.tb-btn:hover { background: #2a2a2a; color: #fff; }
+.tb-btn.open { background: #18313a; border-color: #2c5968; color: #8adcf0; }
+.tb-spacer { flex: 1; }
+#conn-dot { width: 9px; height: 9px; border-radius: 50%; background: #666; flex: none; }
+#conn-dot.live { background: #5adf7a; box-shadow: 0 0 6px #5adf7a; }
+#main { flex: 1; position: relative; min-height: 0; }
 #panel {
-  width: 380px; min-width: 380px; background: #1e1e1e;
-  border-right: 1px solid #333; padding: 10px;
-  display: flex; flex-direction: column; gap: 8px; overflow-y: auto;
+  position: absolute; top: 8px; left: 8px; max-height: calc(100% - 16px); width: 360px; z-index: 10;
+  background: rgba(30,30,30,0.96); border: 1px solid #333; border-radius: 8px; padding: 10px;
+  display: none; flex-direction: column; gap: 8px; overflow-y: auto;
 }
+#panel.open { display: flex; }
+#panel .sec { display: none; flex-direction: column; gap: 8px; }
+#panel .sec.show { display: flex; }
+.sec > .bs-card > .grp-lbl:first-child, #code-wrap > .grp-lbl:first-child { display: none; }
+.sec-title { font-size: 13px; color: #fff; letter-spacing: 1px; }
+#odo {
+  position: absolute; top: 12px; right: 14px; z-index: 5; pointer-events: none;
+  background: rgba(20,20,20,0.72); border: 1px solid #2c5968; border-radius: 8px;
+  padding: 10px 16px; text-align: right;
+}
+#odo-title { font-size: 10px; letter-spacing: 2px; color: #688; }
+.odo-row { display: flex; align-items: baseline; justify-content: flex-end; gap: 10px; font-variant-numeric: tabular-nums; }
+.odo-row .ax { font-size: 22px; font-weight: bold; width: 24px; }
+.odo-row .val { font-size: 44px; font-weight: bold; color: #fff; min-width: 150px; }
+.odo-row .un { font-size: 16px; color: #888; }
+#ox .ax { color: #ff5555; } #oy .ax { color: #55ff55; } #oz .ax { color: #5588ff; }
+#odo #tracking-status { font-size: 11px; color: #8adcf0; margin-top: 4px; }
 h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 .hint { font-size: 10px; color: #888; line-height: 1.5; }
 .bs-card {
@@ -72,31 +108,33 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   width: 100%; height: 200px; resize: vertical; white-space: pre; overflow: auto;
 }
 #warn { font-size: 10px; color: #e4b960; display: none; }
-#scene-container { flex: 1; position: relative; background: #161616; }
+#scene-container { position: absolute; inset: 0; background: #161616; }
 #scene-container canvas { display: block; }
 .label3d { font-size: 12px; font-family: monospace; font-weight: bold; pointer-events: none; user-select: none; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
-@media (max-width: 760px) {
-  body { width: 100vw; height: 100vh; flex-direction: column; }
-  #panel {
-    width: 100%; min-width: 0; height: 48vh; max-height: 54vh; flex: none;
-    border-right: 0; border-bottom: 1px solid #333;
-  }
-  #scene-container { width: 100%; min-height: 46vh; }
-}
 </style>
 </head>
 <body>
 
-<div id="panel">
+<div id="topbar">
   <h1>BS Pose Editor</h1>
-  <div class="hint">
-    Position (m, mondo Z-up). Angoli in gradi.<br>
-    <b>Inc</b> inclinazione dalla verticale (0&deg;=punta dritto gi&ugrave;, 90&deg;=orizzontale).<br>
-    <b>Dir</b> direzione dell'inclinazione (0&deg;=+X, 90&deg;=+Y, 270&deg;=-Y). <b>Rol</b> rotazione sul proprio asse.<br>
-    Convention : <code>.claude/rules/solve3d_rotation.md</code>.
-  </div>
+  <button class="tb-btn" data-sec="drone" title="Drone connection / ODOMETRY"><span class="ic">📡</span><span class="lb">Drone</span></button>
+  <button class="tb-btn" data-sec="bs" title="Base stations: position and orientation"><span class="ic">🗼</span><span class="lb">Base stations</span></button>
+  <button class="tb-btn" data-sec="room" title="Room and colors"><span class="ic">🏠</span><span class="lb">Room</span></button>
+  <button class="tb-btn" data-sec="fov" title="Field of view and range"><span class="ic">🔭</span><span class="lb">FOV</span></button>
+  <button class="tb-btn" data-sec="overlap" title="Overlap analysis"><span class="ic">🎯</span><span class="lb">Overlap</span></button>
+  <button class="tb-btn" data-sec="meas" title="Measure tool"><span class="ic">📏</span><span class="lb">Measure</span></button>
+  <button class="tb-btn" data-sec="code" title="C code for bs_poses_cal.h"><span class="ic">&lt;/&gt;</span><span class="lb">Code</span></button>
+  <button class="tb-btn" data-sec="calib" title="Auto-calibration capture"><span class="ic">🧭</span><span class="lb">Calib</span></button>
+  <button class="tb-btn" data-sec="help" title="Help"><span class="ic">❓</span></button>
+  <div class="tb-spacer"></div>
+  <div id="conn-dot" title="Connection status"></div>
+</div>
 
-  <div class="bs-card" id="tracking-card">
+<div id="main">
+<div id="panel">
+  <div class="sec" id="sec-drone">
+    <div class="sec-title">DRONE · MAVLINK ODOMETRY</div>
+    <div id="tracking-card" class="bs-card">
     <div class="grp-lbl">DRONE · MAVLINK ODOMETRY</div>
     <div class="row">
       <div class="lbl" style="width:38px;">Link</div>
@@ -107,7 +145,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     </div>
     <div class="row" id="relay-row">
       <div class="lbl" style="width:38px;">Relay</div>
-      <input id="relay-url" type="text" value="ws://127.0.0.1:8050/ws/udp" spellcheck="false">
+      <input id="relay-url" type="text" autocomplete="off" value="http://127.0.0.1:8051/api/odometry" spellcheck="false">
     </div>
     <div class="row">
       <div class="lbl" style="width:38px;">IP</div>
@@ -116,13 +154,47 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <input id="track-port" class="tracking-field" type="number" value="14550" min="1" max="65535">
     </div>
     <div class="row">
-      <button id="track-connect-btn" type="button">Connetti</button>
-      <span id="tracking-status">Disconnesso</span>
+      <button id="track-connect-btn" type="button">Connect</button>
+      
     </div>
-    <div id="tracking-position">ODOMETRY: in attesa</div>
   </div>
-
-  <!-- Global FOV Settings Card -->
+  </div>
+  <div class="sec" id="sec-bs">
+    <div class="sec-title">BASESTATION</div>
+    <div id="bs-list"></div>
+  <button id="add-btn">+ Add base station</button>
+  </div>
+  <div class="sec" id="sec-room">
+    <div class="sec-title">ROOM / ENVIRONMENT</div>
+    <!-- Room Card -->
+  <div class="bs-card">
+    <div class="grp-lbl">ROOM / ENVIRONMENT</div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Size m</div>
+      <div class="lbl">L</div><input id="rm-w" type="number" value="4.26" step="0.1" min="0.5">
+      <div class="lbl">P</div><input id="rm-d" type="number" value="4" step="0.1" min="0.5">
+      <div class="lbl">H</div><input id="rm-h" type="number" value="3.6" step="0.1" min="0.5">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Corner</div>
+      <div class="lbl">X</div><input id="rm-x" type="number" value="-1" step="0.1">
+      <div class="lbl">Y</div><input id="rm-y" type="number" value="-3" step="0.1">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Colors</div>
+      <div class="lbl" style="width:auto;">Room</div><input id="rm-color" type="color" value="#3a5a7a">
+      <div class="lbl" style="width:auto;">Background</div><input id="bg-color" type="color" value="#181818">
+    </div>
+    <div class="row">
+      <div class="lbl" style="width:38px;">Opacity</div>
+      <input id="rm-opacity" type="range" min="0" max="0.6" step="0.02" value="0.18" style="flex:1">
+      <label style="font-size:10px;color:#888;"><input id="rm-show" type="checkbox" checked> show</label>
+    </div>
+  </div>
+  </div>
+  <div class="sec" id="sec-fov">
+    <div class="sec-title">FIELD OF VIEW</div>
+    <!-- Global FOV Settings Card -->
   <div class="bs-card">
     <div class="grp-lbl">FIELD OF VIEW (FOV) & PORTÉES</div>
     <div class="row">
@@ -132,13 +204,15 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <input type="number" id="fov-v" value="110" step="1">
     </div>
     <div class="row" style="margin-top:4px;">
-      <div class="lbl" style="width:72px;" title="Distanza massima dalla lighthouse">Portata max</div>
+      <div class="lbl" style="width:72px;" title="Maximum distance from the lighthouse">Max range</div>
       <input type="number" id="fov-range" value="5.2" step="0.1">
     </div>
   </div>
-
-  <div class="bs-card">
-    <div class="grp-lbl">OVERLAP / POSIZIONAMENTO</div>
+  </div>
+  <div class="sec" id="sec-overlap">
+    <div class="sec-title">OVERLAP / PLACEMENT</div>
+    <div class="bs-card">
+    <div class="grp-lbl">OVERLAP / PLACEMENT</div>
     <div class="row">
       <div class="lbl" style="width:38px;">Area X</div>
       <input type="number" id="room-x" min="0.5" step="0.1" value="4.0">
@@ -152,33 +226,90 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <input type="number" id="room-z-max" step="0.1" value="2.5">
     </div>
     <div class="row">
-      <div class="lbl" style="width:38px;">Passo</div>
+      <div class="lbl" style="width:38px;">Step</div>
       <input type="number" id="grid-step" min="0.1" step="0.05" value="0.25">
     </div>
     <div class="row">
-      <div class="lbl" style="width:70px;">Distanza min.</div>
+      <div class="lbl" style="width:70px;">Min distance</div>
       <input type="number" id="min-spacing" min="0.1" step="0.1" value="1.0">
     </div>
-    <button id="coverage-btn">Analizza overlap e suggerisci</button>
-    <button id="apply-layout-btn" disabled>Applica posizioni suggerite</button>
-    <div id="coverage-info">Definisci il volume utile e analizza la copertura comune.</div>
+    <button id="coverage-btn">Analyze overlap &amp; suggest</button>
+    <button id="apply-layout-btn" disabled>Apply suggested positions</button>
+    <div id="coverage-info">Define the useful volume and analyze the common coverage.</div>
   </div>
-
-  <button id="meas-btn">📏 Strumento Misura: OFF</button>
-  <div id="meas-info">Clicca due punti nel 3D per misurare.</div>
-
-  <div id="bs-list"></div>
-  <button id="add-btn">+ Ajouter une basestation</button>
-
-  <div id="code-wrap">
-    <div class="grp-lbl">CODE C — bs_poses_cal.h</div>
-    <div id="warn">NUM_BS &ne; 2 &mdash; il faut aussi mettre à jour NUM_BS dans angle_decoder.h.</div>
+  </div>
+  <div class="sec" id="sec-meas">
+    <div class="sec-title">MEASURE TOOL</div>
+    <button id="meas-btn">📏 Measure tool: OFF</button>
+  <div id="meas-info">Click two points in the 3D view to measure.</div>
+  </div>
+  <div class="sec" id="sec-code">
+    <div class="sec-title">C CODE</div>
+    <div id="code-wrap">
+    <div class="grp-lbl">C CODE — bs_poses_cal.h</div>
+    <div id="warn">NUM_BS &ne; 2 &mdash; also update NUM_BS in angle_decoder.h.</div>
     <textarea id="code-out" readonly spellcheck="false"></textarea>
-    <button id="copy-btn">Copier</button>
+    <button id="copy-btn">Copy</button>
+  </div>
+  </div>
+  <div class="sec" id="sec-calib">
+    <div class="sec-title">AUTO-CALIBRATION CAPTURE</div>
+    <div class="bs-card">
+      <div class="row"><div class="lbl" style="width:38px;">IP</div>
+        <input id="cal-host" type="text" value="192.168.4.1" spellcheck="false">
+        <div class="lbl" style="width:22px;">Port</div>
+        <input id="cal-port" type="number" value="14555"></div>
+      <div class="row"><div class="lbl" style="width:72px;">X-axis dist</div>
+        <input id="cal-xdist" type="number" step="0.1" value="1.0">
+        <div class="lbl" style="width:60px;">Floor pts</div>
+        <input id="cal-xy" type="number" min="1" value="3"></div>
+      <div class="row"><div class="lbl" style="width:72px;">Static secs</div>
+        <input id="cal-secs" type="number" step="1" value="5"></div>
+      <div class="row"><div class="lbl" style="width:72px;">Tape BS0-BS1</div>
+        <input id="cal-baseline" type="number" step="0.01" value="2.26">
+        <div class="lbl" style="width:60px;">Board h</div>
+        <input id="cal-bh" type="number" step="0.01" value="0"></div>
+      <div class="row"><div class="lbl" style="width:38px;">Dir</div>
+        <input id="cal-dir" type="text" placeholder="auto: calib_runs/run_&lt;date&gt;" spellcheck="false"></div>
+      <button id="cal-new">New session</button>
+      <div id="cal-link" class="hint">Link: —</div>
+    </div>
+    <div class="bs-card" id="cal-steps-card" style="display:none;">
+      <div id="cal-steps" class="hint"></div>
+      <div id="cal-prompt" style="font-size:12px;color:#fff;line-height:1.5;"></div>
+      <button id="cal-go">Capture</button>
+      <button id="cal-stop" style="display:none;">Stop sweep</button>
+      <div id="cal-solve" style="display:none;">
+        <div id="cal-poses" style="font-size:11px;color:#fff;line-height:1.6;white-space:pre;font-family:inherit;"></div>
+        <button id="cal-apply" style="display:none;">Apply to editor (BS poses)</button>
+        <button id="cal-resolve">Re-run solver</button>
+        <details><summary class="hint" style="cursor:pointer;">Solver log</summary>
+          <pre id="cal-log" style="font-size:9px;color:#9ab;max-height:220px;overflow:auto;margin:4px 0 0;"></pre></details>
+      </div>
+      <div id="cal-result" style="font-size:10px;color:#a9c9d0;line-height:1.5;white-space:pre-line;"></div>
+    </div>
+  </div>
+  <div class="sec" id="sec-help">
+    <div class="sec-title">HELP</div>
+    <div class="hint">
+    Position (m, Z-up world). Angles in degrees.<br>
+    <b>Inc</b> tilt from vertical (0&deg;=straight down, 90&deg;=horizontal).<br>
+    <b>Dir</b> tilt direction (0&deg;=+X, 90&deg;=+Y, 270&deg;=-Y). <b>Rol</b> roll about its own axis.<br>
+    Convention: <code>.claude/rules/solve3d_rotation.md</code>.
+  </div>
   </div>
 </div>
 
+<div id="odo">
+  <div id="odo-title">ODOMETRY · m</div>
+  <div class="odo-row" id="ox"><span class="ax">X</span><span class="val" id="odo-x">—</span><span class="un">m</span></div>
+  <div class="odo-row" id="oy"><span class="ax">Y</span><span class="val" id="odo-y">—</span><span class="un">m</span></div>
+  <div class="odo-row" id="oz"><span class="ax">Z</span><span class="val" id="odo-z">—</span><span class="un">m</span></div>
+  <div id="tracking-status">Disconnected</div>
+</div>
+
 <div id="scene-container"></div>
+</div>
 
 <script type="importmap">
 {
@@ -193,11 +324,15 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 import * as THREE        from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 
 const ODOMETRY_ID = 331;
 const ODOMETRY_CRC_EXTRA = 91;
 const ODOMETRY_FULL_LEN = 233;
 let trackingSocket = null;
+let trackingTimer = null;
+let trackingPolling = false;
+let relayConnected = false;
 let lastOdomAt = 0;
 let odometryCount = 0;
 
@@ -327,7 +462,7 @@ function renderList() {
     const nameInp = document.createElement('input'); nameInp.type = 'text'; nameInp.value = bs.name;
     nameInp.addEventListener('input', () => { bs.name = nameInp.value; rebuild(); });
     nameWrap.appendChild(sw); nameWrap.appendChild(nameInp);
-    const rm = document.createElement('button'); rm.className = 'rm-btn'; rm.textContent = 'suppr.';
+    const rm = document.createElement('button'); rm.className = 'rm-btn'; rm.textContent = 'delete';
     rm.addEventListener('click', () => { bsList.splice(i, 1); renderList(); rebuild(); });
     head.appendChild(nameWrap); head.appendChild(rm);
     card.appendChild(head);
@@ -340,7 +475,7 @@ function renderList() {
     posRow.appendChild(fieldRow('Z', bs, 'z', 0.01));
     card.appendChild(posRow);
 
-    const oriLbl = document.createElement('div'); oriLbl.className = 'grp-lbl'; oriLbl.textContent = 'ORIENTAMENTO (deg)';
+    const oriLbl = document.createElement('div'); oriLbl.className = 'grp-lbl'; oriLbl.textContent = 'ORIENTATION (deg)';
     card.appendChild(oriLbl);
     const oriRow = document.createElement('div'); oriRow.style.display = 'flex'; oriRow.style.gap = '5px';
     oriRow.appendChild(fieldRow('Inc', bs, 'tilt', 0.5));
@@ -391,7 +526,7 @@ const scene = new THREE.Scene(); scene.background = new THREE.Color(0x181818);
 const W = () => container.clientWidth, H = () => container.clientHeight;
 
 const camera = new THREE.PerspectiveCamera(45, W()/H(), 0.01, 200);
-camera.position.set(3.0, 2.5, 3.0);
+camera.position.set(3.0, 2.5, -3.0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(window.devicePixelRatio); renderer.setSize(W(), H());
@@ -403,11 +538,11 @@ labelRend.domElement.style.top = '0'; labelRend.domElement.style.pointerEvents =
 container.appendChild(labelRend.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(1.0, 0.0, 1.7); controls.enableDamping = true; controls.dampingFactor = 0.08;
+controls.target.set(1.0, 0.0, -1.7); controls.enableDamping = true; controls.dampingFactor = 0.08;
 controls.update();
 
-const tv = (x, y, z) => new THREE.Vector3(x, z, y);
-const revTv = (v) => [v.x, v.z, v.y];
+const tv = (x, y, z) => new THREE.Vector3(x, z, -y);
+const revTv = (v) => [v.x, -v.z, v.y];
 
 function addLine(ax, ay, az, bx, by, bz, col, w = 2) {
   const l = new THREE.Line(
@@ -452,33 +587,52 @@ function updateDronePosition(position) {
 
   lastOdomAt = Date.now();
   odometryCount++;
-  document.getElementById('tracking-position').textContent =
-    `X ${position.x.toFixed(3)} · Y ${position.y.toFixed(3)} · Z ${position.z.toFixed(3)} m`;
+  document.getElementById('odo-x').textContent = position.x.toFixed(3);
+  document.getElementById('odo-y').textContent = position.y.toFixed(3);
+  document.getElementById('odo-z').textContent = position.z.toFixed(3);
   document.getElementById('tracking-status').textContent = `ODOMETRY live · ${odometryCount}`;
 }
+
+const panelEl = document.getElementById('panel');
+const tbBtns = [...document.querySelectorAll('.tb-btn[data-sec]')];
+function openSection(id) {
+  const same = panelEl.classList.contains('open') && panelEl.dataset.sec === id;
+  panelEl.classList.toggle('open', !same);
+  panelEl.dataset.sec = same ? '' : id;
+  document.querySelectorAll('#panel .sec').forEach(e => e.classList.toggle('show', !same && e.id === 'sec-' + id));
+  tbBtns.forEach(b => b.classList.toggle('open', !same && b.dataset.sec === id));
+}
+tbBtns.forEach(b => b.addEventListener('click', () => openSection(b.dataset.sec)));
+setInterval(() => {
+  document.getElementById('conn-dot').classList.toggle('live', lastOdomAt && Date.now() - lastOdomAt < 2000);
+}, 300);
 
 const trackMode = document.getElementById('track-mode');
 const relayRow = document.getElementById('relay-row');
 const trackConnectButton = document.getElementById('track-connect-btn');
 const trackingStatus = document.getElementById('tracking-status');
-const trackingPosition = document.getElementById('tracking-position');
 
 trackMode.addEventListener('change', () => {
   relayRow.style.display = trackMode.value === 'udp' ? '' : 'none';
 });
 
 function disconnectTracking() {
-  if (!trackingSocket) return;
-  const socket = trackingSocket;
-  trackingSocket = null;
-  socket.close();
-  trackConnectButton.textContent = 'Connetti';
+  if (trackingSocket) {
+    const socket = trackingSocket;
+    trackingSocket = null;
+    socket.close();
+  }
+  if (trackingTimer) clearInterval(trackingTimer);
+  trackingTimer = null;
+  trackingPolling = false;
+  relayConnected = false;
+  trackConnectButton.textContent = 'Connect';
   trackConnectButton.classList.remove('active');
-  trackingStatus.textContent = 'Disconnesso';
+  trackingStatus.textContent = 'Disconnected';
 }
 
 trackConnectButton.addEventListener('click', () => {
-  if (trackingSocket) {
+  if (trackingSocket || trackingPolling) {
     disconnectTracking();
     return;
   }
@@ -489,15 +643,47 @@ trackConnectButton.addEventListener('click', () => {
   let url;
   try {
     if (mode === 'udp') {
-      const relay = new URL(document.getElementById('relay-url').value.trim());
-      if (relay.protocol !== 'ws:' && relay.protocol !== 'wss:')
-        throw new Error('Il relay deve usare ws:// o wss://');
-      if (host) relay.searchParams.set('host', host);
-      else relay.searchParams.delete('host');
-      relay.searchParams.set('port', String(port));
-      url = relay.toString();
+      const api = new URL(document.getElementById('relay-url').value.trim());
+      if (api.protocol !== 'http:' && api.protocol !== 'https:')
+        throw new Error('L’API locale deve usare http:// o https://');
+      if (host) api.searchParams.set('host', host);
+      else api.searchParams.delete('host');
+      api.searchParams.set('port', String(port));
+
+      trackingPolling = true;
+      relayConnected = false;
+      trackConnectButton.textContent = 'Disconnect';
+      trackConnectButton.classList.add('active');
+      trackingStatus.textContent = 'Connecting to relay…';
+      let lastSequence = 0;
+      let requestPending = false;
+      const poll = async () => {
+        if (!trackingPolling || requestPending) return;
+        requestPending = true;
+        try {
+          const response = await fetch(api, { cache: 'no-store' });
+          if (!response.ok) throw new Error('Relay non disponibile');
+          const state = await response.json();
+          if (!trackingPolling) return;
+          relayConnected = true;
+          if (state.odometry && state.sequence !== lastSequence) {
+            lastSequence = state.sequence;
+            updateDronePosition(state.odometry);
+          }
+        } catch (_error) {
+          if (trackingPolling) {
+            relayConnected = false;
+            trackingStatus.textContent = 'Relay unreachable';
+          }
+        } finally {
+          requestPending = false;
+        }
+      };
+      poll();
+      trackingTimer = setInterval(poll, 100);
+      return;
     } else {
-      if (!host) throw new Error('Inserisci l’indirizzo IP DroneBridge');
+      if (!host) throw new Error('Enter the DroneBridge IP address');
       const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
       url = `${scheme}//${host}:${port}/mavlink`;
     }
@@ -506,16 +692,16 @@ trackConnectButton.addEventListener('click', () => {
     return;
   }
 
-  trackingStatus.textContent = 'Connessione…';
+  trackingStatus.textContent = 'Connecting…';
   const socket = new WebSocket(url);
   trackingSocket = socket;
   socket.binaryType = 'arraybuffer';
   const parser = new OdomTelemetryParser(updateDronePosition);
   socket.onopen = () => {
     if (trackingSocket !== socket) return;
-    trackConnectButton.textContent = 'Disconnetti';
+    trackConnectButton.textContent = 'Disconnect';
     trackConnectButton.classList.add('active');
-    trackingStatus.textContent = 'Connesso · attendo ODOMETRY';
+    trackingStatus.textContent = 'Connected · waiting for ODOMETRY';
   };
   socket.onmessage = event => {
     if (typeof event.data === 'string') {
@@ -524,13 +710,13 @@ trackConnectButton.addEventListener('click', () => {
     }
     parser.feed(new Uint8Array(event.data));
   };
-  socket.onerror = () => { trackingStatus.textContent = 'Errore connessione MAVLink'; };
+  socket.onerror = () => { trackingStatus.textContent = 'MAVLink connection error'; };
   socket.onclose = () => {
     if (trackingSocket !== socket) return;
     trackingSocket = null;
-    trackConnectButton.textContent = 'Connetti';
+    trackConnectButton.textContent = 'Connect';
     trackConnectButton.classList.remove('active');
-    trackingStatus.textContent = 'Disconnesso';
+    trackingStatus.textContent = 'Disconnected';
   };
 });
 
@@ -539,7 +725,53 @@ addLine(0,0,0, 0,0.5,0, 0x33FF33, 4); addLabel('Y', 0,0.58,0, '#55FF55');
 addLine(0,0,0, 0,0,0.5, 0x3388FF, 4); addLabel('Z', 0,0,0.58, '#5588FF');
 scene.add(new THREE.GridHelper(20, 20, 0x444444, 0x282828));
 
+let roomObjs = [];
+function drawRoom() {
+  roomObjs.forEach(o => { scene.remove(o); o.traverse(c => { if (c.geometry) c.geometry.dispose(); if (c.material) c.material.dispose(); }); });
+  roomObjs = [];
+  const g = id => document.getElementById(id);
+  scene.background = new THREE.Color(g('bg-color').value);
+  if (!g('rm-show').checked) return;
+  const num = (id, d) => { const v = parseFloat(g(id).value); return Number.isFinite(v) ? v : d; };
+  const w = Math.max(0.1, num('rm-w', 4)), d = Math.max(0.1, num('rm-d', 4)), h = Math.max(0.1, num('rm-h', 3));
+  const x0 = num('rm-x', 0), y0 = num('rm-y', 0);
+  const color = new THREE.Color(g('rm-color').value);
+  const group = new THREE.Group();
+  const box = new THREE.BoxGeometry(w, h, d);
+  group.add(new THREE.Mesh(box, new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: parseFloat(g('rm-opacity').value), side: THREE.BackSide, depthWrite: false })));
+  group.add(new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color })));
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshBasicMaterial({
+    color, transparent: true, opacity: Math.min(1, parseFloat(g('rm-opacity').value) * 2), side: THREE.DoubleSide, depthWrite: false }));
+  floor.rotation.x = -Math.PI / 2; floor.position.y = -h / 2 + 0.002;
+  group.add(floor);
+  group.position.copy(tv(x0 + w / 2, y0 + d / 2, h / 2));
+  scene.add(group); roomObjs.push(group);
+}
+['rm-w','rm-d','rm-h','rm-x','rm-y','rm-color','bg-color','rm-opacity','rm-show']
+  .forEach(id => { const e = document.getElementById(id); e.addEventListener('input', drawRoom); e.addEventListener('change', drawRoom); });
+drawRoom();
+
 let bsSceneObjs = [];
+
+// Valve Index base station model. MODEL_AXES maps the model's own axes onto the
+// BS frame: which model axis is boresight (front), horizontal sweep, vertical sweep.
+const BS_MODEL_URL = 'docs/valve-index-lighthousebasestation-gen2/source/lh_basestation_valve_gen2.obj';
+const BS_MODEL_TEX = 'docs/valve-index-lighthousebasestation-gen2/textures/lh_basestation_valve_gen2.png';
+const MODEL_AXES = { front: [0, 0, -1], horiz: [-1, 0, 0], vert: [0, 1, 0] };
+let bsModel = null;
+scene.add(new THREE.AmbientLight(0xffffff, 1.4));
+const keyLight = new THREE.DirectionalLight(0xffffff, 1.6); keyLight.position.set(2, 4, 3); scene.add(keyLight);
+new OBJLoader().load(BS_MODEL_URL, obj => {
+  const tex = new THREE.TextureLoader().load(BS_MODEL_TEX, () => rebuild());
+  tex.colorSpace = THREE.SRGBColorSpace;
+  obj.traverse(o => { if (o.isMesh) o.material = new THREE.MeshLambertMaterial({ map: tex }); });
+  const box = new THREE.Box3().setFromObject(obj);
+  const c = box.getCenter(new THREE.Vector3());
+  obj.position.sub(c);
+  bsModel = obj;
+  rebuild();
+}, undefined, err => console.warn('BS model not loaded, using placeholder', err));
 let coverageOverlay = null;
 
 function drawBasestations() {
@@ -556,8 +788,20 @@ function drawBasestations() {
     const { col0, col1, col2 } = bsCols(bs);
     const [px, py, pz] = [bs.x, bs.y, bs.z];
 
-    const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.08), new THREE.MeshBasicMaterial({ color: col }));
-    m.position.copy(tv(px, py, pz)); push(m);
+    if (bsModel) {
+      const dirOf = k => tv(
+        col0[0]*MODEL_AXES.front[k] + col1[0]*MODEL_AXES.horiz[k] + col2[0]*MODEL_AXES.vert[k],
+        col0[1]*MODEL_AXES.front[k] + col1[1]*MODEL_AXES.horiz[k] + col2[1]*MODEL_AXES.vert[k],
+        col0[2]*MODEL_AXES.front[k] + col1[2]*MODEL_AXES.horiz[k] + col2[2]*MODEL_AXES.vert[k]);
+      const holder = new THREE.Group();
+      holder.matrixAutoUpdate = false;
+      holder.matrix.makeBasis(dirOf(0), dirOf(1), dirOf(2)).setPosition(tv(px, py, pz));
+      holder.add(bsModel.clone());
+      push(holder);
+    } else {
+      const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.08), new THREE.MeshBasicMaterial({ color: col }));
+      m.position.copy(tv(px, py, pz)); push(m);
+    }
 
     const d = document.createElement('div');
     d.className = 'label3d'; d.textContent = bs.name;
@@ -634,7 +878,7 @@ function clearCoverageOverlay() {
 function resetCoverageDisplay() {
   suggestedLayout = null;
   applyLayoutBtn.disabled = true;
-  coverageInfo.textContent = 'Parametri modificati: ricalcola la copertura.';
+  coverageInfo.textContent = 'Parameters changed: recompute the coverage.';
   clearCoverageOverlay();
 }
 
@@ -733,7 +977,7 @@ function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
     for (let y = 0; y <= roomY + 1e-9; y += centerStep) centers.push([x, y]);
   }
   if (centers.length * (360 / angleStep) > 2500) {
-    throw new Error('Ricerca troppo fitta; aumenta il passo di griglia o riduci il volume.');
+    throw new Error('Search too dense; increase the grid step or reduce the volume.');
   }
 
   let bestLayout = null;
@@ -773,9 +1017,9 @@ function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
       }
     }
   }
-  if (!bestLayout) throw new Error('Nessun layout rigido entra nel volume con la distanza minima richiesta.');
+  if (!bestLayout) throw new Error('No rigid layout fits in the volume with the required minimum distance.');
   if (bestScore.overlapCount === 0) {
-    throw new Error('Nessun overlap nel volume selezionato: controlla Z min/max, FOV e orientamento delle lighthouse.');
+    throw new Error('No overlap in the selected volume: check Z min/max, FOV and lighthouse orientation.');
   }
   return { layout: bestLayout, score: bestScore, rotationDegrees: bestLayout[0].dir - currentLayout[0].dir };
 }
@@ -791,12 +1035,12 @@ function showOverlapPoints(points) {
 }
 
 function formatCoverage(score) {
-  return `≥2 ancore ${(score.overlapRatio * 100).toFixed(1)}% · ≥3 ${(score.tripleRatio * 100).toFixed(1)}% · tutte ${(score.fullRatio * 100).toFixed(1)}% · parallasse ≥15° ${(score.goodGeometryRatio * 100).toFixed(1)}%`;
+  return `≥2 anchors ${(score.overlapRatio * 100).toFixed(1)}% · ≥3 ${(score.tripleRatio * 100).toFixed(1)}% · all ${(score.fullRatio * 100).toFixed(1)}% · parallax ≥15° ${(score.goodGeometryRatio * 100).toFixed(1)}%`;
 }
 
 document.getElementById('coverage-btn').addEventListener('click', () => {
   if (bsList.length < 2) {
-    coverageInfo.textContent = 'Servono almeno due lighthouse per calcolare l’overlap.';
+    coverageInfo.textContent = 'At least two lighthouses are needed to compute the overlap.';
     return;
   }
   const roomX = parseFloat(roomXInp.value), roomY = parseFloat(roomYInp.value);
@@ -805,13 +1049,13 @@ document.getElementById('coverage-btn').addEventListener('click', () => {
   const minSpacing = parseFloat(minSpacingInp.value);
   if (![roomX, roomY, zMin, zMax, step, minSpacing].every(Number.isFinite) ||
       roomX <= 0 || roomY <= 0 || zMax <= zMin || step <= 0 || minSpacing < 0) {
-    coverageInfo.textContent = 'Inserisci limiti X/Y/Z validi, Z max > Z min e un passo positivo.';
+    coverageInfo.textContent = 'Enter valid X/Y/Z limits, Z max > Z min and a positive step.';
     return;
   }
 
   try {
     const points = makeCoverageGrid(roomX, roomY, zMin, zMax, step);
-    if (points.length > 30000) throw new Error('Troppi punti di griglia; aumenta il passo.');
+    if (points.length > 30000) throw new Error('Too many grid points; increase the step.');
     const currentScore = evaluateCoverage(bsList, points, true);
     const candidateStep = Math.max(0.5, step * 2);
     const suggestion = findSuggestedLayout(bsList, points, minSpacing, candidateStep);
@@ -819,10 +1063,10 @@ document.getElementById('coverage-btn').addEventListener('click', () => {
     applyLayoutBtn.disabled = false;
     showOverlapPoints(currentScore.overlapPoints);
     coverageInfo.textContent =
-      `Volume: ${points.length} punti (${roomX} × ${roomY} m, Z ${zMin}…${zMax} m, passo ${step} m)\n` +
-      `Attuale: ${formatCoverage(currentScore)}\n` +
-      `Suggerito (+${suggestion.rotationDegrees.toFixed(0)}°): ${formatCoverage(suggestion.score)}\n` +
-      `Layout rigido: distanze relative fra le ancore conservate\n` +
+      `Volume: ${points.length} points (${roomX} × ${roomY} m, Z ${zMin}…${zMax} m, step ${step} m)\n` +
+      `Current: ${formatCoverage(currentScore)}\n` +
+      `Suggested (+${suggestion.rotationDegrees.toFixed(0)}°): ${formatCoverage(suggestion.score)}\n` +
+      `Rigid layout: relative distances between anchors preserved\n` +
       suggestion.layout.map((bs, i) => `${bs.name}: X ${bs.x.toFixed(2)} · Y ${bs.y.toFixed(2)} · Z ${bs.z.toFixed(2)} m`).join('\n');
   } catch (error) {
     coverageInfo.textContent = error.message;
@@ -851,7 +1095,7 @@ const measInfo = document.getElementById('meas-info');
 measBtn.addEventListener('click', () => {
   measuringActive = !measuringActive;
   measBtn.classList.toggle('active', measuringActive);
-  measBtn.textContent = measuringActive ? '📏 Strumento Misura: ON (Clicca)' : '📏 Strumento Misura: OFF';
+  measBtn.textContent = measuringActive ? '📏 Measure tool: ON (click)' : '📏 Measure tool: OFF';
   measInfo.style.display = measuringActive ? 'block' : 'none';
   if (!measuringActive) clearMeasurement();
 });
@@ -860,7 +1104,7 @@ function clearMeasurement() {
   measPointA = null; measPointB = null;
   measObjects.forEach(o => { scene.remove(o); if(o.geometry) o.geometry.dispose(); });
   measObjects = [];
-  measInfo.textContent = 'Clicca due punti nel 3D per misurare.';
+  measInfo.textContent = 'Click two points in the 3D view to measure.';
 }
 
 const raycaster = new THREE.Raycaster();
@@ -879,7 +1123,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 
   if (!measPointA) {
     measPointA = revTv(target);
-    measInfo.textContent = `Punto A impostato (${measPointA[0].toFixed(2)}, ${measPointA[1].toFixed(2)}, ${measPointA[2].toFixed(2)}). Clicca Punto B.`;
+    measInfo.textContent = `Point A set (${measPointA[0].toFixed(2)}, ${measPointA[1].toFixed(2)}, ${measPointA[2].toFixed(2)}). Click point B.`;
     const m = new THREE.Mesh(new THREE.SphereGeometry(0.05), new THREE.MeshBasicMaterial({color: 0xdfc17a}));
     m.position.copy(target); scene.add(m); measObjects.push(m);
   } else if (!measPointB) {
@@ -888,7 +1132,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
     m.position.copy(target); scene.add(m); measObjects.push(m);
 
     const dist = Math.hypot(measPointB[0]-measPointA[0], measPointB[1]-measPointA[1], measPointB[2]-measPointA[2]);
-    measInfo.textContent = `Distanza: ${dist.toFixed(3)} m (A -> B)`;
+    measInfo.textContent = `Distance: ${dist.toFixed(3)} m (A -> B)`;
 
     const line = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([tv(...measPointA), tv(...measPointB)]),
@@ -907,7 +1151,7 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 function rebuild() {
   suggestedLayout = null;
   applyLayoutBtn.disabled = true;
-  coverageInfo.textContent = 'Parametri modificati: ricalcola la copertura.';
+  coverageInfo.textContent = 'Parameters changed: recompute the coverage.';
   clearCoverageOverlay();
   drawBasestations();
   generateCode();
@@ -924,16 +1168,135 @@ window.addEventListener('resize', onResize);
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
-  if (trackingSocket && trackingSocket.readyState === WebSocket.OPEN) {
+  const socketConnected = trackingSocket && trackingSocket.readyState === WebSocket.OPEN;
+  if ((trackingPolling && relayConnected) || socketConnected) {
     const status = lastOdomAt && Date.now() - lastOdomAt > 2000
-      ? `Telemetria ferma · ${odometryCount} ODOMETRY`
-      : lastOdomAt ? `ODOMETRY live · ${odometryCount}` : 'Connesso · attendo ODOMETRY';
+      ? `Telemetry stalled · ${odometryCount} ODOMETRY`
+      : lastOdomAt ? `ODOMETRY live · ${odometryCount}` : 'Connected · waiting for ODOMETRY';
     if (trackingStatus.textContent !== status) trackingStatus.textContent = status;
   }
   renderer.render(scene, camera);
   labelRend.render(scene, camera);
 }
 animate();
+
+// ─── Auto-calibration capture (drives the bridge /api/lh2/*) ──────────────────
+const calApi = (action, params = {}) => {
+  const base = new URL(document.getElementById('relay-url').value.trim());
+  const url = new URL('/api/lh2/' + action, base.origin);
+  url.searchParams.set('host', document.getElementById('cal-host').value.trim());
+  url.searchParams.set('port', document.getElementById('cal-port').value);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  return fetch(url, { method: 'POST' }).then(async r => {
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || r.statusText);
+    return data;
+  });
+};
+const calEl = id => document.getElementById(id);
+let calStatus = null, calSteps = [];
+const calLabel = st => st === 'origin' ? 'Origin: drone flat at (0,0,0)'
+  : st === 'x_axis' ? `X-axis: drone flat ${calEl('cal-xdist').value} m from the origin along +X`
+  : st === 'sweep' ? 'Sweep: walk the drone through the whole volume (low/mid/high, tilted ≤30°, many headings), then press Stop'
+  : `Floor ${st.split('_')[2]}: drone flat elsewhere on the floor, off the X axis`;
+
+function calRender() {
+  const s = calStatus;
+  if (!s) return;
+  const age = s.last_packet_age;
+  calEl('cal-link').textContent = !s.available ? 'Bridge has no capture module (install numpy).'
+    : s.packets === 0 ? 'Link: no LH2 TUNNEL received yet'
+    : `Link: ${s.packets} snapshots · last ${age.toFixed(1)} s ago` + (s.quality != null ? ` · plausible ${s.quality.toFixed(0)}%` : '');
+  if (!s.session_dir) return;
+  const n = s.config.xy_points;
+  calSteps = ['origin', 'x_axis', ...Array.from({ length: n }, (_, i) => 'xy_plane_' + (i + 1)), 'sweep'];
+  const next = calSteps.find(st => !s.done.includes(st));
+  calEl('cal-steps-card').style.display = '';
+  calEl('cal-steps').textContent = calSteps.map(st => (s.done.includes(st) ? '✔ ' : st === next ? '▶ ' : '○ ') + st).join('\n');
+  calEl('cal-steps').style.whiteSpace = 'pre-line';
+  const cap = s.capture;
+  calRenderSolve(s.solve);
+  const go = calEl('cal-go'), stop = calEl('cal-stop');
+  stop.style.display = cap && cap.step === 'sweep' ? '' : 'none';
+  if (cap) {
+    calEl('cal-prompt').textContent = `Recording ${cap.step}… ${cap.elapsed.toFixed(0)} s · both stations ${cap.complete} · plausible ${cap.plausible}`;
+    go.disabled = true;
+  } else if (next) {
+    calEl('cal-prompt').textContent = calLabel(next);
+    go.disabled = false;
+    go.textContent = s.last_result && !s.last_result.ok && s.last_result.step === next ? 'Retry capture' : (next === 'sweep' ? 'Start sweep' : 'Capture');
+    go.dataset.step = next;
+  } else {
+    calEl('cal-prompt').textContent = s.solve && s.solve.state !== 'idle' ? 'Session complete.' : 'All steps captured. Finish to write session.json and solve.';
+    go.disabled = false; go.textContent = 'Finish & solve'; go.dataset.step = 'finish';
+    if (s.solve && s.solve.state !== 'idle') go.style.display = 'none';
+  }
+  calEl('cal-result').textContent = (s.last_result ? s.last_result.message + '\n' : '') + 'Session: ' + s.session_dir;
+}
+function calQuatToPose(q) {
+  const [x, y, z, w] = q;
+  const R = [[1-2*(y*y+z*z), 2*(x*y-z*w), 2*(x*z+y*w)],
+             [2*(x*y+z*w), 1-2*(x*x+z*z), 2*(y*z-x*w)],
+             [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x*x+y*y)]];
+  const c0 = [R[0][0], R[1][0], R[2][0]], c1 = [R[0][1], R[1][1], R[2][1]];
+  const tilt = Math.acos(Math.max(-1, Math.min(1, -c0[2])));
+  const dir = Math.atan2(c0[1], c0[0]);
+  const h = [-Math.sin(dir), Math.cos(dir), 0];
+  const cx = [c0[1]*h[2]-c0[2]*h[1], c0[2]*h[0]-c0[0]*h[2], c0[0]*h[1]-c0[1]*h[0]];
+  const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+  const roll = Math.atan2(dot(c1, cx), dot(c1, h));
+  const deg = r => r * 180 / Math.PI;
+  const norm = a => ((a % 360) + 360) % 360;
+  return { R, tilt: deg(tilt), dir: norm(deg(dir)), roll: deg(roll) };
+}
+let calPoses = null;
+function calRenderSolve(sv) {
+  const box = calEl('cal-solve');
+  if (!sv || sv.state === 'idle') { box.style.display = 'none'; return; }
+  box.style.display = '';
+  const log = calEl('cal-log');
+  const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 5;
+  log.textContent = sv.log;
+  if (atBottom) log.scrollTop = log.scrollHeight;
+  const apply = calEl('cal-apply'), out = calEl('cal-poses');
+  calEl('cal-resolve').disabled = sv.state === 'running';
+  if (sv.state === 'running') { out.textContent = 'Solving…'; apply.style.display = 'none'; return; }
+  if (!sv.ok || !sv.poses) { out.textContent = 'Solver failed — see log.'; apply.style.display = 'none'; return; }
+  calPoses = sv.poses.map(p => ({ id: p.id, pos: p.position, ...calQuatToPose(p.quat) }));
+  out.textContent = calPoses.map(p =>
+    `BS${p.id}  X ${p.pos[0].toFixed(3)}  Y ${p.pos[1].toFixed(3)}  Z ${p.pos[2].toFixed(3)} m\n` +
+    `     Inc ${p.tilt.toFixed(1)}°  Dir ${p.dir.toFixed(1)}°  Roll ${p.roll.toFixed(1)}°`).join('\n');
+  apply.style.display = '';
+}
+calEl('cal-apply').addEventListener('click', () => {
+  if (!calPoses) return;
+  calPoses.forEach(p => {
+    while (bsList.length <= p.id) {
+      bsList.push({ id: uid++, name: `BS${bsList.length}`, x: 0, y: 0, z: 0, tilt: 0, dir: 0, roll: 0 });
+    }
+    Object.assign(bsList[p.id], { x: +p.pos[0].toFixed(4), y: +p.pos[1].toFixed(4), z: +p.pos[2].toFixed(4),
+      tilt: +p.tilt.toFixed(2), dir: +p.dir.toFixed(2), roll: +p.roll.toFixed(2) });
+  });
+  renderList(); rebuild(); openSection('bs');
+});
+const calSolve = () => calCall('solve', { baseline: calEl('cal-baseline').value, board_height: calEl('cal-bh').value });
+calEl('cal-resolve').addEventListener('click', calSolve);
+async function calCall(action, params) {
+  try { calStatus = await calApi(action, params); calRender(); return calStatus; }
+  catch (e) { calEl('cal-link').textContent = 'Bridge error: ' + e.message; }
+}
+calEl('cal-new').addEventListener('click', () => calCall('session', {
+  dir: calEl('cal-dir').value.trim(), x_axis_dist: calEl('cal-xdist').value,
+  xy_points: calEl('cal-xy').value, static_seconds: calEl('cal-secs').value }));
+calEl('cal-go').addEventListener('click', async () => {
+  const step = calEl('cal-go').dataset.step;
+  if (step === 'finish') { if (await calCall('finish')) await calSolve(); }
+  else await calCall('start', { step, seconds: calEl('cal-secs').value });
+});
+calEl('cal-stop').addEventListener('click', () => calCall('stop'));
+setInterval(() => {
+  if (panelEl.dataset.sec === 'calib' || (calStatus && (calStatus.capture || (calStatus.solve && calStatus.solve.state === 'running')))) calCall('status');
+}, 500);
 </script>
 </body>
 </html>

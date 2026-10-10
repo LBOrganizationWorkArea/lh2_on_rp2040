@@ -114,4 +114,8 @@ class IppeCf:
 
     @staticmethod
     def _rotate_rot_mat_to_cf(R):
-        return np.dot(IppeCf._R_ippe_to_cf, np.dot(R, IppeCf._R_cf_to_ippe))
+        R_cf = np.dot(IppeCf._R_ippe_to_cf, np.dot(R, IppeCf._R_cf_to_ippe))
+        if np.linalg.det(R_cf) < 0:
+            # Planar wand: flipping the plane normal leaves the sensor points unchanged but makes R a proper rotation.
+            R_cf = np.dot(R_cf, np.diag([1.0, 1.0, -1.0]))
+        return R_cf

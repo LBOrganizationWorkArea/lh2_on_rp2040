@@ -377,6 +377,16 @@ class LighthouseInitialEstimator:
             _, eigvecs = np.linalg.eigh(Q.T @ Q)
             return eigvecs[:, -1]
 
+        # Samples with a glitched sensor can yield a reflected / non-orthonormal rotation or a far-off position.
+        valid = [x for x in poses
+                 if np.isfinite(x.rot_matrix).all() and np.linalg.det(x.rot_matrix) > 0.5
+                 and np.allclose(x.rot_matrix @ x.rot_matrix.T, np.eye(3), atol=1e-2)]
+        if not valid:
+            raise LhException('No valid base station pose in the samples: the angle data is too noisy')
+        median = np.median(np.array([x.translation for x in valid]), axis=0)
+        near = [x for x in valid if np.linalg.norm(x.translation - median) < 0.5]
+        poses = near or valid
+
         positions = map(lambda x: x.translation, poses)
         average_pos = np.average(np.array(list(positions)), axis=0)
 

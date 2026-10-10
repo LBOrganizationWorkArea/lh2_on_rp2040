@@ -414,6 +414,9 @@ class LighthouseGeometrySolver:
             solution.bs_poses[bs_id] = cls._params_to_pose(pose, solution)
 
         solution.success = lsq_result.success
+        solution.params = lsq_result.x
+        solution.residuals = lsq_result.fun
+        solution.jacobian = lsq_result.jac
 
         # Extract the error for each CF pose
         residuals = lsq_result.fun
