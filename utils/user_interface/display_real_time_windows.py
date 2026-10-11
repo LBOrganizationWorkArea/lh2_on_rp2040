@@ -7,6 +7,7 @@ import argparse
 import json
 import math
 import os
+import shutil
 import socket
 import subprocess
 import sys
@@ -153,6 +154,7 @@ class CaptureManager:
 
     STATIC_KINDS = ("origin", "x_axis", "xy_plane", "verify")
     MIN_SWEEP = 100  # snapshots with both stations before a solve is attempted
+    PREVIEW_EVERY_S = 12.0  # during a sweep, re-estimate the stations this often (live 3D preview)
 
     def __init__(self):
         self.lock = threading.Lock()
@@ -173,6 +175,8 @@ class CaptureManager:
         self.solve_version = 0
         self.pending = False  # samples changed while the solver was running
         self.sim = None  # simulation: a recorded run replayed as a virtual drone
+        self.live_records, self.live_at = None, 0.0  # latest snapshot seen by >= 2 stations
+        self._geo_cache = {}  # geometry.yaml path -> (mtime, poses) for the live position
         if lh2cap is not None:
             sensors = os.path.join(CALIB_DIR, "wand_sensors.json")
             try:
@@ -183,7 +187,7 @@ class CaptureManager:
     @staticmethod
     def _idle_solve():
         return {"state": "idle", "log": "", "ok": None, "variants": [], "primary": None, "samples": None,
-                "quality": None}
+                "quality": None, "preview": None, "preview_running": False}
 
     def set_target(self, host, port):
         with self.lock:
@@ -367,6 +371,8 @@ class CaptureManager:
         self.last_packet = now
         for record in records:
             self.bs_last[record["base_station_id"]] = now
+        if len(records) >= 2:
+            self.live_records, self.live_at = records, now
         complete = len(records) == lh2cap.NUM_BS
         plausible = complete and self._plausible(records)
         self.recent = [r for r in self.recent if now - r[0] < 2.0] + [(now, complete, plausible)]
@@ -395,6 +401,109 @@ class CaptureManager:
             self.last_result = None
             if replay is not None:
                 threading.Thread(target=self._replay, args=(self.active, *replay), daemon=True).start()
+            if kind == "sweep":
+                threading.Thread(target=self._preview_loop, args=(self.active,), daemon=True).start()
+
+    # ------------------------------------------------------- live 3D preview
+
+    def _preview_loop(self, cap):
+        """While a sweep is recorded, re-estimate the stations every PREVIEW_EVERY_S seconds."""
+        last = time.monotonic()
+        while True:
+            time.sleep(0.5)
+            with self.lock:
+                if self.active is not cap:
+                    return
+                due = time.monotonic() - last >= self.PREVIEW_EVERY_S
+                statics_ready = bool(self._files("origin") and self._files("x_axis") and self._files("xy_plane"))
+                enough = self.sweep_count + cap["complete"] >= self.MIN_SWEEP
+                if not (due and statics_ready and enough) or self.solve.get("preview_running"):
+                    continue
+                self.solve["preview_running"] = True
+                self.solve_version += 1
+                session, records = self.session_dir, list(cap["records"])
+                config = dict(self.config)
+            last = time.monotonic()
+            self._run_preview(session, records, config)
+
+    def _run_preview(self, session, records, config):
+        """Solve sweep-so-far + static captures in a fresh <session>/_preview_<n> and publish it as
+        solve['preview']; the previous preview stays readable (live position) until this one is ready."""
+        work = os.path.join(session, f"_preview_{int(time.time() * 1000)}")
+        preview = None
+        try:
+            os.makedirs(work)
+            for name in os.listdir(session):
+                if name.endswith(".json") and name.startswith(("origin", "x_axis", "xy_plane_")):
+                    shutil.copy2(os.path.join(session, name), work)
+            sweep = os.path.join(session, "sweep.json")
+            previous = []
+            if os.path.exists(sweep):
+                with open(sweep, encoding="utf-8") as stream:
+                    previous = json.load(stream)
+            with open(os.path.join(work, "sweep.json"), "w", encoding="utf-8") as stream:
+                json.dump(previous + records, stream)
+            xy = sorted(n for n in os.listdir(work) if n.startswith("xy_plane_"))
+            with open(os.path.join(work, "session.json"), "w", encoding="utf-8") as stream:
+                json.dump({"type": "lh2_bitcraze_calibration_session", "origin": "origin.json",
+                           "x_axis": ["x_axis.json"], "x_axis_dist": float(config["x_axis_dist"]),
+                           "xy_plane": xy, "sweep": "sweep.json"}, stream)
+            command = [sys.executable, os.path.join(CALIB_DIR, "calibrate_bitcraze.py"), work,
+                       "-o", os.path.join(work, "geometry.yaml")]
+            if config.get("baseline"):
+                command += ["--baseline", str(config["baseline"])]
+            if config.get("board_height"):
+                command += ["--board-height", str(config["board_height"])]
+            result = subprocess.run(command, cwd=CALIB_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                    text=True, encoding="utf-8", errors="replace", env=_CHILD_ENV)
+            with open(os.path.join(work, "solve.log"), "w", encoding="utf-8") as log:
+                log.write(result.stdout)
+            if result.returncode == 0:
+                preview = load_solve_result(work, "preview")
+                located = subprocess.run([sys.executable, os.path.join(CALIB_DIR, "locate_samples.py"), work,
+                                          "--max-cloud", "250", "--json"], cwd=CALIB_DIR, stdout=subprocess.PIPE,
+                                         stderr=subprocess.DEVNULL, text=True, encoding="utf-8", errors="replace",
+                                         env=_CHILD_ENV)
+                if located.returncode == 0:
+                    preview["samples"] = json.loads(located.stdout)
+                preview["snapshots"] = len({r["timestamp"] for r in previous + records})
+        except (OSError, ValueError) as error:
+            print(f"Preview solve failed: {error}")
+        with self.lock:
+            current = session == self.session_dir
+            old = self.solve.get("preview") if current else None
+            if current:
+                self.solve["preview_running"] = False
+                if preview is not None:
+                    self.solve["preview"] = preview
+                self.solve_version += 1
+        # Drop whichever preview is no longer shown: the replaced one, or this one if it is not used.
+        stale = (old or {}).get("dir") if current and preview is not None else work
+        if stale:
+            shutil.rmtree(stale, ignore_errors=True)
+
+    def _live_position(self):
+        """Drone position from the latest snapshot and the newest geometry (lock held), for the 3D view."""
+        if self.live_records is None or time.monotonic() - self.live_at > 1.0:
+            return None
+        variant = self._primary_variant() or self.solve.get("preview")
+        if not variant or not variant.get("ok"):
+            return None
+        geometry = os.path.join(variant["dir"], "geometry.yaml")
+        try:
+            import locate_samples as ls  # lazy: pulls in scipy and the Bitcraze solver
+            mtime = os.path.getmtime(geometry)
+            cached = self._geo_cache.get(geometry)
+            if cached is None or cached[0] != mtime:
+                cached = (mtime, ls.load_geometry(ls.Path(geometry)))
+                self._geo_cache[geometry] = cached
+            if not hasattr(self, "_sensors"):
+                self._sensors = ls.cb.load_sensor_positions(os.path.join(CALIB_DIR, "wand_sensors.json"))
+            sample = ls._sample({r["base_station_id"]: r["angles"] for r in self.live_records})
+            located = ls._locate(sample, cached[1], self._sensors)
+        except Exception:  # a geometry being rewritten or a bad snapshot must never break the status reply
+            return None
+        return located
 
     # -------------------------------------------------------------- simulation
 
@@ -420,6 +529,11 @@ class CaptureManager:
                 raise ValueError("a capture is running")
             self.sim = None
             self.packets, self.recent, self.bs_last = 0, [], {}
+            self.live_records = None
+            # Back to the real drone with no session: its first measurement opens a new one.
+            self.session_dir, self.sweep_count, self.last_result = "", 0, None
+            self.solve = self._idle_solve()
+            self.solve_version += 1
 
     def _sim_files(self, prefix):
         return sorted((n[:-5] for n in os.listdir(self.sim["source"]) if n.startswith(prefix) and n.endswith(".json")),
@@ -613,7 +727,9 @@ class CaptureManager:
             if reconvert not in ("", "period", "factory"):
                 raise ValueError("reconvert must be period, factory or empty")
             self._write_manifest()
+            preview = self.solve.get("preview")  # keep showing it until the final solve lands
             self.solve = self._idle_solve()
+            self.solve["preview"] = preview
             self.solve["state"] = "running"
             self.solve_version += 1
             self.pending = False
@@ -687,6 +803,11 @@ class CaptureManager:
         with self.lock:
             if session != self.session_dir:
                 return  # the user switched session meanwhile
+            if ok:
+                self.solve["preview"] = None
+                for name in os.listdir(session):
+                    if name.startswith("_preview"):
+                        shutil.rmtree(os.path.join(session, name), ignore_errors=True)
             self.solve.update(state="done", ok=bool(ok), variants=variants, samples=samples,
                               primary=variants.index(ok[-1]) if ok else None)
             self.solve_version += 1
@@ -803,6 +924,7 @@ class CaptureManager:
                 },
                 "last_result": self.last_result,
                 "solve_version": self.solve_version,
+                "live": self._live_position(),
                 "solve": solve,
             }
 
@@ -1053,6 +1175,9 @@ def main():
 
     state = BridgeState()
     capture = CaptureManager()
+    # Import the solver modules (scipy) now, in the background, so the first live-position
+    # request does not stall the HTTP replies for seconds while holding the capture lock.
+    threading.Thread(target=lambda: __import__("locate_samples"), daemon=True).start()
     receiver = threading.Thread(
         target=udp_receiver,
         args=(state, capture, args.udp_host, args.udp_port),

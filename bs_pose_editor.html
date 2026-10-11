@@ -28,6 +28,29 @@ button, input, select, textarea { font-family: inherit; }
 .tb-btn:hover { background: #2a2a2a; color: #fff; }
 .tb-btn.open { background: #18313a; border-color: #2c5968; color: #8adcf0; }
 .tb-spacer { flex: 1; }
+.mode-switch { display: flex; border: 1px solid #3a3a3a; border-radius: 7px; overflow: hidden; margin-right: 10px; flex: none; }
+.mode-switch button { background: #1e1e1e; color: #aaa; border: none; padding: 7px 12px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.mode-switch button + button { border-left: 1px solid #3a3a3a; }
+.mode-switch button.on[data-mode=sandbox] { background: #2c4a2f; color: #fff; font-weight: 600; }
+.mode-switch button.on[data-mode=calib] { background: #1f4f7a; color: #fff; font-weight: 600; }
+.tb-btn.mode-hidden { display: none; }
+body[data-mode=calib] #odo { display: none; }
+#cal-hud { position: absolute; right: 14px; top: 12px; z-index: 5; pointer-events: none; display: none;
+  background: rgba(18,22,28,0.82); border: 1px solid #2f5a7a; border-radius: 8px; padding: 10px 14px;
+  font-size: 13px; color: #ddd; line-height: 1.6; min-width: 260px; }
+body[data-mode=calib] #cal-hud { display: block; }
+#cal-hud .t { font-size: 11px; letter-spacing: 1px; color: #6fb5ee; font-weight: 700; }
+#cal-hud .ok { color: #6fdc8c; } #cal-hud .todo { color: #888; } #cal-hud .est { color: #c9a6ff; }
+#gizmo-bar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 6; display: flex; gap: 6px;
+  align-items: center; background: rgba(24,24,24,0.92); border: 1px solid #555; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
+#gizmo-bar[hidden] { display: none; }
+#gizmo-bar b { color: #fff; margin-right: 4px; }
+#gizmo-bar button { background: #262626; border: 1px solid #444; color: #ccc; border-radius: 5px; padding: 5px 10px; font-size: 13px; cursor: pointer; }
+#gizmo-bar button.on { background: #2f5f8a; border-color: #4f8fca; color: #fff; }
+#fit-view { position: absolute; right: 14px; bottom: 14px; z-index: 5; background: rgba(24,24,24,0.9); color: #ccc;
+  border: 1px solid #555; border-radius: 6px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
+#fit-view:hover { background: #2a2a2a; color: #fff; }
+.bs-card.selected { border-color: #4f8fca; box-shadow: 0 0 0 1px #4f8fca inset; }
 #conn-dot { width: 9px; height: 9px; border-radius: 50%; background: #666; flex: none; }
 #conn-dot.live { background: #5adf7a; box-shadow: 0 0 6px #5adf7a; }
 #main { flex: 1; position: relative; min-height: 0; }
@@ -232,14 +255,18 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 
 <div id="topbar">
   <h1>BS Pose Editor</h1>
+  <div class="mode-switch" role="tablist" aria-label="3D view mode">
+    <button data-mode="sandbox" title="Plan the system: add base stations, move and rotate them, check coverage">🧱 Sandbox</button>
+    <button data-mode="calib" title="Calibrate: the 3D view starts empty and fills in as the calibration progresses">🧭 Calibration</button>
+  </div>
   <button class="tb-btn" data-sec="drone" title="Drone connection / ODOMETRY"><span class="ic">📡</span><span class="lb">Drone</span></button>
-  <button class="tb-btn" data-sec="bs" title="Base stations: position and orientation"><span class="ic">🗼</span><span class="lb">Base stations</span></button>
+  <button class="tb-btn" data-sec="bs" data-modes="sandbox" title="Base stations: position and orientation"><span class="ic">🗼</span><span class="lb">Base stations</span></button>
   <button class="tb-btn" data-sec="room" title="Room and colors"><span class="ic">🏠</span><span class="lb">Room</span></button>
-  <button class="tb-btn" data-sec="fov" title="Field of view and range"><span class="ic">🔭</span><span class="lb">FOV</span></button>
-  <button class="tb-btn" data-sec="overlap" title="Overlap analysis"><span class="ic">🎯</span><span class="lb">Overlap</span></button>
+  <button class="tb-btn" data-sec="fov" data-modes="sandbox" title="Field of view and range"><span class="ic">🔭</span><span class="lb">FOV</span></button>
+  <button class="tb-btn" data-sec="overlap" data-modes="sandbox" title="Overlap analysis"><span class="ic">🎯</span><span class="lb">Overlap</span></button>
   <button class="tb-btn" data-sec="meas" title="Measure tool"><span class="ic">📏</span><span class="lb">Measure</span></button>
-  <button class="tb-btn" data-sec="code" title="C code for bs_poses_cal.h"><span class="ic">&lt;/&gt;</span><span class="lb">Code</span></button>
-  <button class="tb-btn" data-sec="calib" title="Auto-calibration capture"><span class="ic">🧭</span><span class="lb">Calib</span></button>
+  <button class="tb-btn" data-sec="code" data-modes="sandbox" title="C code for bs_poses_cal.h"><span class="ic">&lt;/&gt;</span><span class="lb">Code</span></button>
+  <button class="tb-btn" data-sec="calib" data-modes="calib" title="Auto-calibration capture"><span class="ic">🧭</span><span class="lb">Calib</span></button>
   <button class="tb-btn" data-sec="help" title="Help"><span class="ic">❓</span></button>
   <div class="tb-spacer"></div>
   <div id="conn-dot" title="Connection status"></div>
@@ -275,7 +302,8 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   </div>
   </div>
   <div class="sec" id="sec-bs">
-    <div class="sec-title">BASESTATION</div>
+    <div class="sec-title">BASE STATIONS · SANDBOX</div>
+    <div class="hint">Click a station in the 3D view to move it (arrows) or rotate it (rings) — keys T / R, Esc to finish. Or type the values below.</div>
     <div id="bs-list"></div>
   <button id="add-btn">+ Add base station</button>
   </div>
@@ -490,6 +518,14 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 </div>
 
 <div id="scene-container"></div>
+<div id="cal-hud"></div>
+<button id="fit-view" title="Frame the base stations and the floor marks">⤢ Fit view</button>
+<div id="gizmo-bar" hidden>
+  <b id="gizmo-name"></b>
+  <button data-gm="translate" title="Move (T)">✥ Move</button>
+  <button data-gm="rotate" title="Rotate (R)">⟳ Rotate</button>
+  <button id="gizmo-done" title="Deselect (Esc)">Done</button>
+</div>
 </div>
 
 <script type="importmap">
@@ -506,6 +542,7 @@ import * as THREE        from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
+import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
 const ODOMETRY_ID = 331;
 const ODOMETRY_CRC_EXTRA = 91;
@@ -515,6 +552,10 @@ let trackingTimer = null;
 let trackingPolling = false;
 let relayConnected = false;
 let lastOdomPos = null;
+// 3D view mode: 'sandbox' (plan the anchors) or 'calib' (empty scene filled by the calibration).
+let appMode = 'sandbox';
+let selectedBs = -1;  // sandbox: base station attached to the move / rotate gizmo
+try { if (localStorage.getItem('lh2.mode') === 'calib') appMode = 'calib'; } catch (_e) { /* storage blocked */ }
 let lastOdomAt = 0;
 let odometryCount = 0;
 
@@ -613,6 +654,16 @@ function bsCols(bs) {
   const col2 = cross(col0, col1);
   return { col0, col1, col2 };
 }
+// Inverse of bsCols: tilt / heading / roll [deg] from the boresight (col0) and horizontal axis (col1).
+function colsToAngles(c0, c1) {
+  const tilt = Math.acos(Math.max(-1, Math.min(1, -c0[2])));
+  const dir = Math.hypot(c0[0], c0[1]) < 1e-6 ? 0 : Math.atan2(c0[1], c0[0]);
+  const h = [-Math.sin(dir), Math.cos(dir), 0];
+  const cx = cross(c0, h);
+  const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+  const deg = r => r * 180 / Math.PI;
+  return { tilt: deg(tilt), dir: ((deg(dir) % 360) + 360) % 360, roll: deg(Math.atan2(dot(c1, cx), dot(c1, h))) };
+}
 function colsToR(cols) {
   const { col0, col1, col2 } = cols;
   return [
@@ -624,9 +675,11 @@ function colsToR(cols) {
 // ─── UI: BS cards ───────────────────────────────────────────────────────────
 const listEl = document.getElementById('bs-list');
 
-function fieldRow(lbl, obj, key, step) {
+function fieldRow(lbl, obj, key, step, tip) {
   const row = document.createElement('div'); row.className = 'row';
   const l = document.createElement('div'); l.className = 'lbl'; l.textContent = lbl;
+  if (lbl.length > 1) l.style.width = 'auto';
+  if (tip) row.title = tip;
   const inp = document.createElement('input');
   inp.type = 'number'; inp.step = step; inp.value = obj[key];
   inp.addEventListener('input', () => { obj[key] = parseFloat(inp.value) || 0; rebuild(); });
@@ -646,9 +699,10 @@ function renderList() {
     nameInp.addEventListener('input', () => { bs.name = nameInp.value; rebuild(); });
     nameWrap.appendChild(sw); nameWrap.appendChild(nameInp);
     const rm = document.createElement('button'); rm.className = 'rm-btn'; rm.textContent = 'delete';
-    rm.addEventListener('click', () => { bsList.splice(i, 1); renderList(); rebuild(); });
+    rm.addEventListener('click', () => { if (selectedBs >= 0) deselectBs(); bsList.splice(i, 1); renderList(); rebuild(); });
     head.appendChild(nameWrap); head.appendChild(rm);
     card.appendChild(head);
+    if (i === selectedBs) card.classList.add('selected');
 
     const posLbl = document.createElement('div'); posLbl.className = 'grp-lbl'; posLbl.textContent = 'POSITION (m)';
     card.appendChild(posLbl);
@@ -661,9 +715,9 @@ function renderList() {
     const oriLbl = document.createElement('div'); oriLbl.className = 'grp-lbl'; oriLbl.textContent = 'ORIENTATION (deg)';
     card.appendChild(oriLbl);
     const oriRow = document.createElement('div'); oriRow.style.display = 'flex'; oriRow.style.gap = '5px';
-    oriRow.appendChild(fieldRow('Inc', bs, 'tilt', 0.5));
-    oriRow.appendChild(fieldRow('Dir', bs, 'dir', 0.5));
-    oriRow.appendChild(fieldRow('Rol', bs, 'roll', 0.5));
+    oriRow.appendChild(fieldRow('Tilt', bs, 'tilt', 0.5, 'Tilt from straight down: 0° = pointing at the floor, 90° = horizontal'));
+    oriRow.appendChild(fieldRow('Head', bs, 'dir', 0.5, 'Heading of the tilt: 0° = towards +X, 90° = +Y, 270° = −Y'));
+    oriRow.appendChild(fieldRow('Roll', bs, 'roll', 0.5, 'Rotation of the station around its own pointing direction'));
     card.appendChild(oriRow);
 
     listEl.appendChild(card);
@@ -759,9 +813,9 @@ scene.add(droneTrailLine);
 function updateDronePosition(position) {
   const point = tv(position.x, position.y, position.z);
   droneMarker.position.copy(point);
-  droneMarker.visible = true;
+  droneMarker.visible = appMode === 'sandbox';
   droneLabel.position.copy(point).add(new THREE.Vector3(0, 0.14, 0));
-  droneLabel.visible = true;
+  droneLabel.visible = appMode === 'sandbox';
 
   droneTrailPoints.push(point.clone());
   if (droneTrailPoints.length > 600) droneTrailPoints.shift();
@@ -785,6 +839,14 @@ function openSection(id) {
   panelEl.dataset.sec = same ? '' : id;
   document.querySelectorAll('#panel .sec').forEach(e => e.classList.toggle('show', !same && e.id === 'sec-' + id));
   tbBtns.forEach(b => b.classList.toggle('open', !same && b.dataset.sec === id));
+  updateViewOffset();
+}
+// Centre the 3D view in the part of the screen the side panel leaves free.
+function updateViewOffset() {
+  const free = panelEl.classList.contains('open') ? Math.min(panelEl.offsetWidth + 8, W() * 0.5) : 0;
+  if (free) camera.setViewOffset(W(), H(), -free / 2, 0, W(), H());
+  else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
 }
 tbBtns.forEach(b => b.addEventListener('click', () => openSection(b.dataset.sec)));
 setInterval(() => {
@@ -956,9 +1018,40 @@ new OBJLoader().load(BS_MODEL_URL, obj => {
 }, undefined, err => console.warn('BS model not loaded, using placeholder', err));
 let coverageOverlay = null;
 
+// Base-station 3D object: the Valve model (or a placeholder until it loads) oriented by the local
+// axes col0 (boresight) / col1 / col2 and placed at pos [world m]. Shared by sandbox and calibration.
+function bsBasis(col0, col1, col2) {
+  const dirOf = k => tv(
+    col0[0]*MODEL_AXES.front[k] + col1[0]*MODEL_AXES.horiz[k] + col2[0]*MODEL_AXES.vert[k],
+    col0[1]*MODEL_AXES.front[k] + col1[1]*MODEL_AXES.horiz[k] + col2[1]*MODEL_AXES.vert[k],
+    col0[2]*MODEL_AXES.front[k] + col1[2]*MODEL_AXES.horiz[k] + col2[2]*MODEL_AXES.vert[k]);
+  return new THREE.Matrix4().makeBasis(dirOf(0), dirOf(1), dirOf(2));
+}
+function makeBsHolder(col0, col1, col2, pos, { color = 0xffffff, opacity = 1 } = {}) {
+  const holder = new THREE.Group();
+  holder.matrixAutoUpdate = false;
+  holder.matrix.copy(bsBasis(col0, col1, col2)).setPosition(tv(...pos));
+  holder.matrixWorldNeedsUpdate = true;
+  let body;
+  if (bsModel) {
+    body = bsModel.clone();
+    if (opacity < 1) body.traverse(o => {
+      if (o.isMesh) { o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = opacity; o.material.depthWrite = false; }
+    });
+  } else {
+    body = new THREE.Mesh(new THREE.OctahedronGeometry(0.08),
+      new THREE.MeshBasicMaterial({ color, transparent: opacity < 1, opacity }));
+  }
+  holder.add(body);
+  return holder;
+}
+
+let sandboxHolders = [];
 function drawBasestations() {
   bsSceneObjs.forEach(o => { scene.remove(o); if (o.geometry) o.geometry.dispose(); });
   bsSceneObjs = [];
+  sandboxHolders = [];
+  if (appMode !== 'sandbox') return;  // calibration mode starts from an empty scene
   const push = o => { scene.add(o); bsSceneObjs.push(o); };
 
   const fovHVal = parseFloat(fovHInp.value) || 150;
@@ -970,20 +1063,10 @@ function drawBasestations() {
     const { col0, col1, col2 } = bsCols(bs);
     const [px, py, pz] = [bs.x, bs.y, bs.z];
 
-    if (bsModel) {
-      const dirOf = k => tv(
-        col0[0]*MODEL_AXES.front[k] + col1[0]*MODEL_AXES.horiz[k] + col2[0]*MODEL_AXES.vert[k],
-        col0[1]*MODEL_AXES.front[k] + col1[1]*MODEL_AXES.horiz[k] + col2[1]*MODEL_AXES.vert[k],
-        col0[2]*MODEL_AXES.front[k] + col1[2]*MODEL_AXES.horiz[k] + col2[2]*MODEL_AXES.vert[k]);
-      const holder = new THREE.Group();
-      holder.matrixAutoUpdate = false;
-      holder.matrix.makeBasis(dirOf(0), dirOf(1), dirOf(2)).setPosition(tv(px, py, pz));
-      holder.add(bsModel.clone());
-      push(holder);
-    } else {
-      const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.08), new THREE.MeshBasicMaterial({ color: col }));
-      m.position.copy(tv(px, py, pz)); push(m);
-    }
+    const holder = makeBsHolder(col0, col1, col2, [px, py, pz], { color: col });
+    holder.userData.bsIndex = i;
+    sandboxHolders.push(holder);
+    push(holder);
 
     const d = document.createElement('div');
     d.className = 'label3d'; d.textContent = bs.name;
@@ -1330,7 +1413,112 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
   }
 });
 
+// ─── Camera: frame what matters in the current mode ──────────────────────────
+function fitView(points) {
+  const pts = points.filter(p => p && p.every(Number.isFinite));
+  if (!pts.length) return;
+  const box = new THREE.Box3();
+  pts.forEach(p => { box.expandByPoint(tv(...p)); box.expandByPoint(tv(p[0], p[1], 0)); });
+  box.expandByPoint(tv(0, 0, 0));
+  const center = box.getCenter(new THREE.Vector3());
+  const size = box.getSize(new THREE.Vector3()).length();
+  const dist = Math.max(3, size / (2 * Math.tan(camera.fov * Math.PI / 360)) * 1.4);
+  const view = tv(0.35, -1.0, 0.75).normalize();  // from the −Y side, looking down ~35°
+  camera.position.copy(center).addScaledVector(view, dist);
+  controls.target.copy(center);
+  controls.update();
+}
+function sandboxPoints() { return bsList.map(bs => [bs.x, bs.y, bs.z]); }
+document.getElementById('fit-view').addEventListener('click', () =>
+  fitView(appMode === 'calib' ? calibPoints() : sandboxPoints()));
+
+// ─── Sandbox: pick a base station in 3D and move / rotate it with a gizmo ─────
+const gizmo = new TransformControls(camera, renderer.domElement);
+gizmo.setSize(0.85);
+scene.add(gizmo);
+const gizmoProxy = new THREE.Object3D();  // survives rebuild(); the station is redrawn from it
+scene.add(gizmoProxy);
+const gizmoBar = document.getElementById('gizmo-bar');
+gizmo.addEventListener('dragging-changed', e => {
+  controls.enabled = !e.value;
+  if (!e.value) renderList();  // refresh the number fields once the drag ends
+});
+gizmo.addEventListener('objectChange', () => {
+  const bs = bsList[selectedBs];
+  if (!bs) return;
+  const p = revTv(gizmoProxy.position);
+  // Proxy axes are the model basis (-col1, col2, -col0) in three.js coordinates (see bsBasis).
+  const ex = new THREE.Vector3(1, 0, 0).applyQuaternion(gizmoProxy.quaternion);
+  const ez = new THREE.Vector3(0, 0, 1).applyQuaternion(gizmoProxy.quaternion);
+  const col0 = revTv(ez).map(v => -v), col1 = revTv(ex).map(v => -v);
+  const a = colsToAngles(col0, col1);
+  Object.assign(bs, { x: +p[0].toFixed(3), y: +p[1].toFixed(3), z: +p[2].toFixed(3),
+    tilt: +a.tilt.toFixed(2), dir: +a.dir.toFixed(2), roll: +a.roll.toFixed(2) });
+  rebuild();
+});
+function syncGizmo() {
+  const bs = bsList[selectedBs];
+  if (!bs || appMode !== 'sandbox') { deselectBs(); return; }
+  if (gizmo.dragging) return;
+  const { col0, col1, col2 } = bsCols(bs);
+  gizmoProxy.position.copy(tv(bs.x, bs.y, bs.z));
+  gizmoProxy.quaternion.setFromRotationMatrix(bsBasis(col0, col1, col2));
+  document.getElementById('gizmo-name').textContent = bs.name;
+}
+function selectBs(i) {
+  selectedBs = i;
+  syncGizmo();
+  gizmo.attach(gizmoProxy);
+  gizmoBar.hidden = false;
+  renderList();
+}
+function deselectBs() {
+  if (selectedBs < 0 && !gizmo.object) return;
+  selectedBs = -1;
+  gizmo.detach();
+  gizmoBar.hidden = true;
+  renderList();
+}
+function setGizmoMode(mode) {
+  gizmo.setMode(mode);
+  gizmoBar.querySelectorAll('[data-gm]').forEach(b => b.classList.toggle('on', b.dataset.gm === mode));
+}
+gizmoBar.querySelectorAll('[data-gm]').forEach(b => b.addEventListener('click', () => setGizmoMode(b.dataset.gm)));
+document.getElementById('gizmo-done').addEventListener('click', deselectBs);
+setGizmoMode('translate');
+// A click (not a drag) on a station selects it; on empty space it deselects.
+let pickDown = null;
+renderer.domElement.addEventListener('pointerdown', e => { pickDown = [e.clientX, e.clientY]; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!pickDown || Math.hypot(e.clientX - pickDown[0], e.clientY - pickDown[1]) > 4) return;
+  pickDown = null;
+  if (appMode !== 'sandbox' || measuringActive || gizmo.dragging || gizmo.axis) return;
+  const rect = renderer.domElement.getBoundingClientRect();
+  mouse.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  raycaster.setFromCamera(mouse, camera);
+  const hit = raycaster.intersectObjects(sandboxHolders, true)[0];
+  let o = hit && hit.object;
+  while (o && o.userData.bsIndex === undefined) o = o.parent;
+  if (o) { selectBs(o.userData.bsIndex); return; }
+  // The models are small on screen: also accept a click within 30 px of a station.
+  let best = -1, bestDist = 30;
+  bsList.forEach((bs, i) => {
+    const q = tv(bs.x, bs.y, bs.z).project(camera);
+    if (q.z > 1) return;  // behind the camera
+    const d = Math.hypot((q.x + 1) / 2 * rect.width + rect.left - e.clientX, (1 - q.y) / 2 * rect.height + rect.top - e.clientY);
+    if (d < bestDist) { best = i; bestDist = d; }
+  });
+  if (best >= 0) selectBs(best); else deselectBs();
+});
+window.addEventListener('keydown', e => {
+  if (selectedBs < 0 || /input|select|textarea/i.test(e.target.tagName)) return;
+  if (e.key === 't' || e.key === 'T') setGizmoMode('translate');
+  else if (e.key === 'r' || e.key === 'R') setGizmoMode('rotate');
+  else if (e.key === 'Escape') deselectBs();
+});
+
 function rebuild() {
+  if (selectedBs >= 0) syncGizmo();
   suggestedLayout = null;
   applyLayoutBtn.disabled = true;
   coverageInfo.textContent = 'Parameters changed: recompute the coverage.';
@@ -1342,7 +1530,7 @@ renderList();
 rebuild();
 
 function onResize() {
-  camera.aspect = W() / H(); camera.updateProjectionMatrix();
+  camera.aspect = W() / H(); updateViewOffset();
   renderer.setSize(W(), H()); labelRend.setSize(W(), H());
 }
 window.addEventListener('resize', onResize);
@@ -1395,7 +1583,7 @@ const CAL_BS_NAMES = ['BS4', 'BS10'];
 const calBsName = id => CAL_BS_NAMES[id] || `BS${id}`;
 const CAL_KIND_COLOR = Object.fromEntries(CAL_STEPS.map(s => [s.kind, s.color]));
 let calStep = 0, calStatus = null, calSolve = null, calSolveVersion = -1, calResultKey = '', calBridgeError = '';
-let calSimMode = false, calRunsCache = [];
+let calSimMode = false, calRunsCache = [], calSamplesKey = '';
 
 function calInstr(kind) {
   const d = (+calEl('cal-xdist').value || 1).toFixed(2), secs = +calEl('cal-secs').value || 5;
@@ -1437,7 +1625,7 @@ function calIllus(kind) {
   else if (kind === 'sweep') body = `<path d="M70,130 C110,40 170,150 210,70 S300,30 340,110" fill="none" stroke="#8adcf0" stroke-width="2" stroke-dasharray="4 5"/>` +
     drone(210, 66, -18) + arrow(372, 120, 372, 52, '#8adcf0') + arrow(372, 70, 372, 140, '#8adcf0') + label(200, 162, 'low · middle · high · tilted · all headings');
   else body = ring(140, 120) + ring(270, 110) + drone(140, 98) + '<path d="M260,108 l7,7 l14,-16" fill="none" stroke="#ffcc44" stroke-width="3"/>' + label(200, 162, 'not used by the solver');
-  return `<svg viewBox="0 0 400 170" xmlns="http://www.w3.org/2000/svg">${defs}${floor}${station(70, 'BS0')}${station(330, 'BS1')}${body}</svg>`;
+  return `<svg viewBox="0 0 400 170" xmlns="http://www.w3.org/2000/svg">${defs}${floor}${station(70, calBsName(0))}${station(330, calBsName(1))}${body}</svg>`;
 }
 
 function calStepState(kind, s) {
@@ -1572,6 +1760,7 @@ function calRender() {
   if (sb.dataset.html !== html) { sb.innerHTML = html; sb.dataset.html = html; }
   calEl('cal-session').textContent = s && s.session_dir ? s.session_dir : 'No session yet — the first measurement creates calib_runs/run_<date>.';
   calRenderManagement();
+  calRenderHud();
 }
 
 function calQuatToPose(q) {
@@ -1580,15 +1769,7 @@ function calQuatToPose(q) {
              [2*(x*y+z*w), 1-2*(x*x+z*z), 2*(y*z-x*w)],
              [2*(x*z-y*w), 2*(y*z+x*w), 1-2*(x*x+y*y)]];
   const c0 = [R[0][0], R[1][0], R[2][0]], c1 = [R[0][1], R[1][1], R[2][1]];
-  const tilt = Math.acos(Math.max(-1, Math.min(1, -c0[2])));
-  const dir = Math.atan2(c0[1], c0[0]);
-  const h = [-Math.sin(dir), Math.cos(dir), 0];
-  const cx = [c0[1]*h[2]-c0[2]*h[1], c0[2]*h[0]-c0[0]*h[2], c0[0]*h[1]-c0[1]*h[0]];
-  const dot = (a, b) => a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
-  const roll = Math.atan2(dot(c1, cx), dot(c1, h));
-  const deg = r => r * 180 / Math.PI;
-  const norm = a => ((a % 360) + 360) % 360;
-  return { R, tilt: deg(tilt), dir: norm(deg(dir)), roll: deg(roll) };
+  return { R, ...colsToAngles(c0, c1) };
 }
 let calVariants = [], calFactory = {};
 const calEsc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -1622,7 +1803,7 @@ function calVariantHtml(v, i) {
   return `<div class="cal-variant"><div class="vname">${calEsc(v.name)}${v.ok ? '' : ' — solver failed, see log'}</div>` +
     `<div class="hint">${calEsc(v.dir)}</div>` +
     `<table class="cal-metrics">${rows.join('')}</table>` +
-    (v.ok ? `<div class="cal-btns"><button data-apply="${i}">Apply to editor</button>` +
+    (v.ok ? `<div class="cal-btns"><button data-apply="${i}" title="Copy these stations into the Sandbox">Apply to sandbox</button>` +
             `<button data-export="${i}">Export header</button></div>` : '') + `</div>`;
 }
 
@@ -1655,55 +1836,147 @@ function calRenderManagement() {
   calEl('cal-vererr').textContent = ver.length ? `${Math.max(...ver.map(x => x.error_mm)).toFixed(2)} mm (${ver.length} samples)` : '--';
 }
 
-// 3D: samples placed with the solved geometry + the solved stations, as in the Crazyflie client.
+// 3D in calibration mode: starts empty and fills in as the calibration progresses, like the
+// Crazyflie client — floor marks, stations (estimated during the room recording, then solved),
+// samples, the room recording and the live drone.
 const calGroup = new THREE.Group();
 scene.add(calGroup);
+let calFramedKey = '';
+function calibPoints() {
+  const sv = calSolve, d = +calEl('cal-xdist').value || 1;
+  const geo = sv && sv.ok ? sv.variants[sv.primary] : sv && sv.preview && sv.preview.ok ? sv.preview : null;
+  return [[0, 0, 0], [d, 0, 0], ...(geo ? geo.poses.map(p => p.position) : [[0, 0, 1.5]])];
+}
 function calDraw3d() {
-  calGroup.children.forEach(o => { if (o.geometry) o.geometry.dispose(); });
+  calGroup.children.forEach(o => o.traverse(c => { if (c.geometry) c.geometry.dispose(); }));
   calGroup.clear();
-  const sv = calSolve;
-  if (!calEl('cal-show3d').checked || !sv || !sv.ok) return;
+  if (appMode !== 'calib') return;
+  const s = calStatus, sv = calSolve, sm = s && s.samples;
   const add = o => calGroup.add(o);
   const label = (txt, p, col) => {
     const d = document.createElement('div'); d.className = 'label3d'; d.textContent = txt; d.style.color = col;
     const o = new CSS2DObject(d); o.position.copy(p); add(o);
   };
   const hex = c => '#' + c.toString(16).padStart(6, '0');
-  const samples = sv.samples || { statics: [], cloud: [] };
-  samples.statics.filter(x => x.position).forEach(x => {
-    const col = CAL_KIND_COLOR[x.kind] || 0xffffff;
-    const m = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), new THREE.MeshBasicMaterial({ color: col }));
-    m.position.copy(tv(...x.position)); add(m);
-    if (x.kind === 'origin' || x.kind === 'x_axis' || x.kind === 'verify')
-      label(x.kind === 'origin' ? 'O' : x.kind === 'x_axis' ? 'X' : x.name.replace('verify_', 'V'), tv(x.position[0], x.position[1], x.position[2] + 0.12), hex(col));
-  });
-  const q = sv.quality && sv.quality.result;
-  if (q && calEl('cal-qmap') && calEl('cal-qmap').checked) {
-    // Hold-out error per reading: green <= 3 mm, yellow ~6 mm, red >= 12 mm.
-    const g = new THREE.BufferGeometry().setFromPoints(q.points.map(p => tv(p[0], p[1], p[2])));
-    const colors = [];
-    q.points.forEach(p => {
-      const t = Math.max(0, Math.min(1, (p[3] - 3) / 9));
-      const c = new THREE.Color().setHSL((1 - t) * 0.33, 0.85, 0.52);
-      colors.push(c.r, c.g, c.b);
+  const ring = (x, y, done, text) => {
+    const pts = Array.from({ length: 49 }, (_, i) => {
+      const a = i / 48 * Math.PI * 2;
+      return tv(x + 0.15 * Math.cos(a), y + 0.15 * Math.sin(a), 0.003);
     });
-    g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-    add(new THREE.Points(g, new THREE.PointsMaterial({ vertexColors: true, size: 0.04 })));
-  } else if (samples.cloud.length) {
-    const g = new THREE.BufferGeometry().setFromPoints(samples.cloud.map(p => tv(...p)));
-    add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9a9a9a, size: 0.025 })));
+    const col = done ? 0x5adf7a : 0x8a8a8a;
+    add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: col })));
+    label(text + (done ? ' ✓' : ''), tv(x, y - 0.28, 0.003), hex(col));
+  };
+
+  // Floor marks: the frame is defined by them, so they are known before anything is solved.
+  const d = +calEl('cal-xdist').value || 1;
+  ring(0, 0, !!(sm && sm.origin), 'Origin');
+  ring(d, 0, !!(sm && sm.x_axis), `+X ${d.toFixed(2)} m`);
+  const mark = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(0.15, 0, 0.003), tv(d - 0.15, 0, 0.003)]),
+    new THREE.LineDashedMaterial({ color: 0x8a8a8a, dashSize: 0.06, gapSize: 0.04 }));
+  mark.computeLineDistances(); add(mark);
+
+  // Geometry: the final solve, else the estimate made during the room recording.
+  const final = sv && sv.ok ? sv.variants[sv.primary] : null;
+  const preview = !final && sv && sv.preview && sv.preview.ok ? sv.preview : null;
+  const geo = final || preview;
+  const samples = (final ? sv.samples : preview && preview.samples) || { statics: [], cloud: [] };
+  if (calEl('cal-show3d').checked) {
+    samples.statics.filter(x => x.position).forEach(x => {
+      const col = CAL_KIND_COLOR[x.kind] || 0xffffff;
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.035, 12, 8), new THREE.MeshBasicMaterial({ color: col }));
+      m.position.copy(tv(...x.position)); add(m);
+      if (x.kind === 'verify') label(x.name.replace('verify_', 'V'), tv(x.position[0], x.position[1], x.position[2] + 0.12), hex(col));
+    });
+    const q = final && sv.quality && sv.quality.result;
+    if (q && calEl('cal-qmap') && calEl('cal-qmap').checked) {
+      // Hold-out error per reading: green <= 3 mm, yellow ~6 mm, red >= 12 mm.
+      const g = new THREE.BufferGeometry().setFromPoints(q.points.map(p => tv(p[0], p[1], p[2])));
+      const colors = [];
+      q.points.forEach(p => {
+        const t = Math.max(0, Math.min(1, (p[3] - 3) / 9));
+        const c = new THREE.Color().setHSL((1 - t) * 0.33, 0.85, 0.52);
+        colors.push(c.r, c.g, c.b);
+      });
+      g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+      add(new THREE.Points(g, new THREE.PointsMaterial({ vertexColors: true, size: 0.04 })));
+    } else if (samples.cloud.length) {
+      const g = new THREE.BufferGeometry().setFromPoints(samples.cloud.map(p => tv(...p)));
+      add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9a9a9a, size: 0.025, transparent: !!preview, opacity: preview ? 0.6 : 1 })));
+    }
   }
-  sv.variants[sv.primary].poses.forEach(p => {
-    const pose = calQuatToPose(p.quat), c0 = [pose.R[0][0], pose.R[1][0], pose.R[2][0]];
-    const at = tv(...p.position);
-    const m = new THREE.Mesh(new THREE.OctahedronGeometry(0.07), new THREE.MeshBasicMaterial({ color: 0xff55ff, wireframe: true }));
-    m.position.copy(at); add(m);
-    add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([at, tv(p.position[0] + c0[0] * 0.8, p.position[1] + c0[1] * 0.8, p.position[2] + c0[2] * 0.8)]),
-      new THREE.LineBasicMaterial({ color: 0xff55ff })));
-    label(`${calBsName(p.id)} solved`, tv(p.position[0], p.position[1], p.position[2] - 0.18), '#ff77ff');
+  // Frame the view the first time stations show up in this session.
+  const frameKey = geo ? (s && s.session_dir) || 'geo' : '';
+  if (frameKey && frameKey !== calFramedKey) { calFramedKey = frameKey; fitView(calibPoints()); }
+  if (geo) geo.poses.forEach(p => {
+    const pose = calQuatToPose(p.quat);
+    const c = k => [pose.R[0][k], pose.R[1][k], pose.R[2][k]];
+    add(makeBsHolder(c(0), c(1), c(2), p.position, { color: preview ? 0xc9a6ff : 0xffffff, opacity: preview ? 0.45 : 1 }));
+    const at = p.position, b = c(0), col = preview ? 0xc9a6ff : 0x6fdc8c;
+    add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(...at), tv(at[0] + b[0] * 0.8, at[1] + b[1] * 0.8, at[2] + b[2] * 0.8)]),
+      new THREE.LineBasicMaterial({ color: col })));
+    const drop = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(...at), tv(at[0], at[1], 0)]),
+      new THREE.LineDashedMaterial({ color: 0x666666, dashSize: 0.08, gapSize: 0.04 }));
+    drop.computeLineDistances(); add(drop);
+    label(`${calBsName(p.id)}${preview ? ' · estimating…' : ''}`, tv(at[0], at[1], at[2] + 0.22), hex(col));
   });
 }
 calEl('cal-show3d').addEventListener('change', calDraw3d);
+
+// Live drone in calibration mode: triangulated by the bridge with the calibration's own geometry.
+const calLive = new THREE.Mesh(new THREE.OctahedronGeometry(0.07), new THREE.MeshBasicMaterial({ color: 0x4fd0ff }));
+const calLiveLabel = addLabel('DRONE', 0, 0, 0, '#4fd0ff');
+const calLiveTrail = new THREE.Line(new THREE.BufferGeometry(),
+  new THREE.LineBasicMaterial({ color: 0x4fd0ff, transparent: true, opacity: 0.6 }));
+const calLiveTrailPts = [];  // { p: Vector3, t: ms }
+const CAL_TRAIL_MS = 15000;
+let calLiveSeenAt = 0;
+scene.add(calLive, calLiveTrail);
+function calUpdateLive(live) {
+  const now = Date.now();
+  const show = appMode === 'calib' && !!live;
+  calLive.visible = calLiveLabel.visible = show;
+  calLiveTrail.visible = appMode === 'calib';
+  if (show) {
+    calLiveSeenAt = now;
+    const p = tv(...live.position);
+    calLive.position.copy(p);
+    calLiveLabel.position.copy(p).add(new THREE.Vector3(0, 0.15, 0));
+    const last = calLiveTrailPts[calLiveTrailPts.length - 1];
+    if (!last || last.p.distanceTo(p) > 0.01) calLiveTrailPts.push({ p: p.clone(), t: now });
+  } else if (calLiveTrailPts.length && now - calLiveSeenAt > 3000) {
+    calLiveTrailPts.length = 0;  // drone no longer seen: drop the trail so it does not clutter the samples
+  }
+  while (calLiveTrailPts.length && now - calLiveTrailPts[0].t > CAL_TRAIL_MS) calLiveTrailPts.shift();
+  calLiveTrail.geometry.dispose();
+  calLiveTrail.geometry = new THREE.BufferGeometry().setFromPoints(calLiveTrailPts.map(x => x.p));
+}
+function calClearTrail() {
+  calLiveTrailPts.length = 0;
+  calLiveTrail.geometry.dispose();
+  calLiveTrail.geometry = new THREE.BufferGeometry();
+}
+
+// Progress box over the 3D view (calibration mode).
+function calRenderHud() {
+  const s = calStatus, sv = calSolve, sm = s && s.samples, hud = calEl('cal-hud');
+  const item = (ok, text) => `<span class="${ok ? 'ok' : 'todo'}">${ok ? '✓' : '○'} ${text}</span>`;
+  const final = sv && sv.ok ? sv.variants[sv.primary] : null;
+  const preview = !final && sv && sv.preview && sv.preview.ok ? sv.preview : null;
+  const stations = final ? `<span class="ok">✓ ${final.poses.length} stations found · average error ${final.metrics.residual_mean_mm != null ? final.metrics.residual_mean_mm.toFixed(1) : '?'} mm</span>`
+    : preview ? `<span class="est">◌ Estimating stations from ${preview.snapshots || '?'} readings…</span>`
+    : sv && (sv.state === 'running' || sv.preview_running) ? '<span class="est">⏳ Calculating…</span>'
+    : '<span class="todo">○ Stations not found yet</span>';
+  const live = s && s.live
+    ? `Drone (${s.live.position.map(c => c.toFixed(2)).join(', ')}) m`
+    : final || preview ? '<span class="todo">Drone not in view of both stations right now</span>'
+    : '<span class="todo">Drone position appears once the stations are estimated</span>';
+  const html = `<div class="t">CALIBRATION VIEW${s && s.simulation ? ' · SIMULATION' : ''}</div>` +
+    (sm ? [item(sm.origin, 'Origin'), item(sm.x_axis, 'X axis'), item(sm.xy_plane.length > 0, `Floor ${sm.xy_plane.length}`),
+      item(sm.sweep >= sm.sweep_min, `Room ${sm.sweep + (s.capture && s.capture.step === 'sweep' ? s.capture.complete : 0)}`)].join(' &nbsp; ') : '<span class="todo">Waiting for the bridge…</span>') +
+    `<br>${stations}<br>${live}`;
+  if (hud.dataset.html !== html) { hud.innerHTML = html; hud.dataset.html = html; }
+}
 
 // Status polling. The solve result (log, sample cloud) is only re-sent when it changed.
 async function calCall(action, params = {}, body) {
@@ -1718,6 +1991,9 @@ async function calCall(action, params = {}, body) {
     }
     calStatus = s;
     calBridgeError = '';
+    const samplesKey = JSON.stringify(s.samples);
+    if (samplesKey !== calSamplesKey) { calSamplesKey = samplesKey; calDraw3d(); }  // floor marks turn green
+    calUpdateLive(s.live);
     const key = s.last_result ? JSON.stringify(s.last_result) : '';
     if (key !== calResultKey) {  // like the client: a good origin / x-axis sample moves on to the next step
       calResultKey = key;
@@ -1736,6 +2012,7 @@ async function calCall(action, params = {}, body) {
 }
 async function calNewSession(dir = '') {
   calEl('cal-export-card').style.display = 'none';
+  calClearTrail();
   calSolveVersion = -1;
   const s = await calCall('session', { dir, ...calSettings() });
   calLoadRuns();
@@ -1759,8 +2036,9 @@ calEl('cal-conn-edit').addEventListener('click', () => {
 async function calExitSimulation() {
   calSimMode = false;
   if (calStatus && calStatus.simulation) {
-    await calCall('simulate');
-    await calNewSession();  // back to the real drone in a fresh session, not inside the sim_ folder
+    calClearTrail();
+    calSolveVersion = -1;
+    await calCall('simulate');  // the bridge drops the sim_ session; the next measurement opens a new one
   }
   calRender();
 }
@@ -1822,7 +2100,7 @@ function calRenderSolve(sv) {
   if (atBottom) log.scrollTop = log.scrollHeight;
   calEl('cal-resolve').disabled = sv.state === 'running';
   calEl('cal-state').textContent = sv.state === 'idle' ? 'Not calculated yet.' : sv.state === 'running' ? 'Calculating…'
-    : sv.ok ? 'Check the figures (✔ good · ! borderline · ✘ out of range), then "Apply to editor" to see the stations in 3D, or "Export header" for the firmware.'
+    : sv.ok ? 'Check the figures (✔ good · ! borderline · ✘ out of range), then "Apply to sandbox" to keep these stations in the Sandbox, or "Export header" for the firmware.'
     : 'The calculation failed — see the solver log.';
   calVariants = sv.state === 'running' ? [] : (sv.variants || []).map(v => ({
     ...v, poses: v.ok ? v.poses.map(p => ({ id: p.id, pos: p.position, ...calQuatToPose(p.quat) })) : null }));
@@ -1877,7 +2155,8 @@ calEl('cal-variants').addEventListener('click', async e => {
       Object.assign(bsList[p.id], { x: +p.pos[0].toFixed(4), y: +p.pos[1].toFixed(4), z: +p.pos[2].toFixed(4),
         tilt: +p.tilt.toFixed(3), dir: +p.dir.toFixed(3), roll: +p.roll.toFixed(3) });
     });
-    renderList(); rebuild(); openSection('bs');
+    setMode('sandbox');
+    renderList(); rebuild(); showSection('bs');
   } else if (exp != null) {
     try {
       const r = await calApi('export', { variant: calVariants[+exp].dir });
@@ -1923,9 +2202,40 @@ setInterval(async () => {
   if (open && !calWasOpen) calLoadRuns();  // refresh run list + factory data each time the section opens
   calWasOpen = open;
   const busy = calStatus && (calStatus.capture || (calSolve && calSolve.state === 'running'));
-  if (open || busy || (++calTick % 6 === 0 && calStatus)) await calCall('status');
+  if (open || busy || appMode === 'calib' || (++calTick % 6 === 0 && calStatus)) await calCall('status');
 }, 500);
 calRender();
+
+// ─── Sandbox / Calibration mode ──────────────────────────────────────────────
+function showSection(id) {  // open a panel section (openSection toggles)
+  if (!(panelEl.classList.contains('open') && panelEl.dataset.sec === id)) openSection(id);
+}
+function setMode(mode) {
+  appMode = mode;
+  try { localStorage.setItem('lh2.mode', mode); } catch (_e) { /* storage blocked */ }
+  document.body.dataset.mode = mode;
+  document.querySelectorAll('.mode-switch button').forEach(b => b.classList.toggle('on', b.dataset.mode === mode));
+  tbBtns.forEach(b => b.classList.toggle('mode-hidden', !!b.dataset.modes && !b.dataset.modes.split(' ').includes(mode)));
+  if (mode === 'calib') {
+    deselectBs();
+    clearCoverageOverlay();
+    showSection('calib');
+  } else if (panelEl.dataset.sec === 'calib') {
+    showSection('bs');
+  }
+  const odometry = mode === 'sandbox' && !!lastOdomPos;
+  droneMarker.visible = droneLabel.visible = odometry;
+  droneTrailLine.visible = mode === 'sandbox';
+  rebuild();  // sandbox stations are drawn only in the sandbox
+  calDraw3d();
+  fitView(mode === 'calib' ? calibPoints() : sandboxPoints());
+  calUpdateLive(calStatus && calStatus.live);
+  calRender();
+}
+document.querySelectorAll('.mode-switch button').forEach(b => b.addEventListener('click', () => {
+  if (b.dataset.mode !== appMode) setMode(b.dataset.mode);
+}));
+setMode(appMode);
 </script>
 </body>
 </html>

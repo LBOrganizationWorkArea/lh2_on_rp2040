@@ -6,6 +6,10 @@ Bitcraze calibration tools + the current firmware UF2s.
 
     python utils/make_windows_bundle.py              # -> lh2_windows_bundle/ and lh2_windows_bundle.zip
     python utils/make_windows_bundle.py --no-zip
+    python utils/make_windows_bundle.py --copy-to /mnt/c/Users/<you>/Desktop/lh2_windows_bundle
+
+Extra copies to keep in sync can be listed, one per line, in utils/bundle_targets.local
+(git-ignored); each is rebuilt in place, keeping its calib_runs/ and .venv/.
 
 Re-run after every change to the files listed in FILES. Calibration runs already in the
 bundle's utils/calibration/calib_runs/ are kept; everything else is rebuilt.
@@ -19,6 +23,7 @@ import subprocess
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+TARGETS_FILE = Path(__file__).with_name("bundle_targets.local")  # personal extra copies, not in git
 
 # (source in the repo, destination in the bundle); directories are copied whole.
 FILES = [
@@ -216,12 +221,33 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("-o", "--output", type=Path, default=REPO / "lh2_windows_bundle")
     parser.add_argument("--no-zip", action="store_true", help="do not write <output>.zip")
+    parser.add_argument("--copy-to", type=Path, action="append", default=[], metavar="DIR",
+                        help="also build the bundle into DIR (e.g. a copy on the Windows desktop); "
+                             f"targets listed in {TARGETS_FILE.name} are always updated")
     args = parser.parse_args()
     out = args.output.resolve()
     build(out)
     if not args.no_zip:
         print(f"Wrote {_zip_without_venv(out)}")
+    for target in _copy_targets(args.copy_to):
+        if target.resolve() == out:
+            continue
+        if not target.parent.is_dir():
+            print(f"Skipped {target}: {target.parent} not found")
+            continue
+        build(target.resolve())  # keeps that copy's calib_runs/ and .venv/, like the main bundle
     return 0
+
+
+def _copy_targets(extra: list[Path]) -> list[Path]:
+    """--copy-to plus one path per line of the git-ignored bundle_targets.local (# comments allowed)."""
+    targets = list(extra)
+    if TARGETS_FILE.exists():
+        for line in TARGETS_FILE.read_text(encoding="utf-8").splitlines():
+            line = line.split("#", 1)[0].strip()
+            if line:
+                targets.append(Path(line))
+    return targets
 
 
 def _zip_without_venv(out: Path) -> str:
