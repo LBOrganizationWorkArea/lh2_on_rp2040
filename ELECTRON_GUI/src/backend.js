@@ -42,9 +42,10 @@ function freePort(start = 8051, tries = 50) {
 
 /**
  * Start the bridge. Resolves { url, process } once it prints "READY <url>".
- * @param {object} opts  packaged, resourcesPath, runsDir, logFile, timeoutMs
+ * @param {object} opts  packaged, resourcesPath, runsDir, logFile, timeoutMs,
+ *                       onLine(text): each output line while starting (for the start-up screen)
  */
-async function startBackend({ packaged, resourcesPath, runsDir, logFile, timeoutMs = 60000 }) {
+async function startBackend({ packaged, resourcesPath, runsDir, logFile, timeoutMs = 180000, onLine = () => {} }) {
   const { python, bridge, source } = locate(packaged, resourcesPath);
   if (!fs.existsSync(bridge)) throw new Error(`backend script not found: ${bridge}`);
   const port = await freePort();
@@ -54,10 +55,11 @@ async function startBackend({ packaged, resourcesPath, runsDir, logFile, timeout
 
   const pythonArgs = python === 'py' ? ['-3', bridge] : [bridge];
   const udp = process.env.LH2_UDP_PORT ? ['--udp-port', process.env.LH2_UDP_PORT] : [];  // tests: keep off 14550
-  const child = spawn(python, [...pythonArgs, '--http-port', String(port), ...udp, '--exit-with-stdin'], {
+  // --parent-pid: the bridge quits by itself if the app dies, so no orphan keeps UDP 14550 busy.
+  const child = spawn(python, [...pythonArgs, '--http-port', String(port), ...udp, '--parent-pid', String(process.pid)], {
     cwd: path.dirname(bridge),
     env: { ...process.env, LH2_RUNS_DIR: runsDir, PYTHONUNBUFFERED: '1', PYTHONUTF8: '1' },
-    stdio: ['pipe', 'pipe', 'pipe'],  // stdin stays open: the bridge exits when it closes (app gone)
+    stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
 
@@ -68,6 +70,7 @@ async function startBackend({ packaged, resourcesPath, runsDir, logFile, timeout
       const text = chunk.toString();
       log.write(text);
       tail = (tail + text).slice(-4000);
+      if (!settled) text.split(/\r?\n/).filter(Boolean).forEach(line => onLine(line));
       const ready = tail.match(/READY (http:\/\/127\.0\.0\.1:\d+)/);
       if (ready) finish(resolve, { url: ready[1], process: child, port, python, source, log: logFile });
     };
@@ -83,9 +86,7 @@ async function startBackend({ packaged, resourcesPath, runsDir, logFile, timeout
 }
 
 function stopBackend(child) {
-  if (!child || child.exitCode !== null) return;
-  try { child.stdin.end(); } catch (_e) { /* already closed */ }  // asks it to exit (--exit-with-stdin)
-  setTimeout(() => { if (child.exitCode === null) child.kill(); }, 1500);
+  if (child && child.exitCode === null) child.kill();
 }
 
 module.exports = { startBackend, stopBackend, locate, freePort };

@@ -81,11 +81,22 @@ function buildMenu() {
 }
 
 async function launch() {
-  win.loadURL(page('LH2 Studio', '<div class="spin"></div><h1>LH2 Studio</h1>Starting the backend (Python, solver)…'));
+  await win.loadURL(page('LH2 Studio', `<div class="spin"></div><h1>LH2 Studio</h1>Starting the backend (Python, solver)… <span id="t"></span>
+    <p style="color:#888;font-size:13px">The first start can take a minute while Windows checks the new files.</p>
+    <pre id="line" style="color:#9ab"></pre>`));
+  const started = Date.now();
+  let lastLine = '';
+  const show = (line = lastLine) => {
+    lastLine = line;
+    if (!win || win.isDestroyed()) return;
+    win.webContents.executeJavaScript(`(() => { const l = document.getElementById('line'), t = document.getElementById('t');
+      if (l) l.textContent = ${JSON.stringify(line.slice(0, 300))}; if (t) t.textContent = '${Math.round((Date.now() - started) / 1000)} s'; })()`).catch(() => {});
+  };
+  const ticker = setInterval(() => show(), 1000);  // the elapsed time keeps moving between log lines
   try {
     seedRuns();
     backend = await startBackend({ packaged: app.isPackaged, resourcesPath: process.resourcesPath,
-                                   runsDir: runsDir(), logFile: logFile() });
+                                   runsDir: runsDir(), logFile: logFile(), onLine: show });
     backend.process.on('exit', code => {
       if (!app.isQuitting && win && !win.isDestroyed()) {
         dialog.showMessageBox(win, { type: 'error', title: 'LH2 Studio',
@@ -93,11 +104,14 @@ async function launch() {
       }
     });
     // Check the backend answers before showing the editor (the log explains it if not).
-    const probe = await net.fetch(`${backend.url}/api/lh2/status`, { method: 'POST' });
+    show('backend ready, checking it answers…');
+    const probe = await net.fetch(`${backend.url}/api/lh2/status`, { method: 'POST', signal: AbortSignal.timeout(30000) });
     if (!probe.ok) throw new Error(`the backend answered ${probe.status} to the first status request`);
     await probe.json();
+    clearInterval(ticker);
     win.loadURL(`app://lh2/${EDITOR}?bridge=${encodeURIComponent('app://lh2')}`);
   } catch (error) {
+    clearInterval(ticker);
     const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     let tail = '';
     try { tail = fs.readFileSync(logFile(), 'utf8').slice(-3000); } catch (_e) { /* no log yet */ }

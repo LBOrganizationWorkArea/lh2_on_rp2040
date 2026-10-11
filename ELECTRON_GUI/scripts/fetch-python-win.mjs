@@ -18,8 +18,29 @@ const host = process.env.LH2_PYTHON || (process.platform === 'win32' ? 'py' : 'p
 const hostArgs = host === 'py' ? ['-3'] : [];
 const python = (...args) => execFileSync(host, [...hostArgs, ...args], { stdio: 'inherit' });
 
+// Pre-compile site-packages and the backend for CPython 3.11 (.pyc depend on the Python version,
+// not on the OS). Without them the first start compiles scipy / pymavlink on the user's PC — with
+// the antivirus scanning every new file that can take minutes. 'unchecked-hash' .pyc are used as
+// they are, whatever the file dates after unzipping / installing.
+function precompile() {
+  const candidates = process.platform === 'win32' ? [['py', '-3.11'], ['python3.11']] : [['python3.11'], ['python3']];
+  const targets = [path.join(OUT, 'Lib', 'site-packages'), path.join(ROOT, 'build', 'backend')].filter(fs.existsSync);
+  for (const [exe, ...pre] of candidates) {
+    try {
+      const v = execFileSync(exe, [...pre, '-c', 'import sys; print(sys.version_info[:2] == (3, 11))']).toString().trim();
+      if (v !== 'True') continue;
+      execFileSync(exe, [...pre, '-m', 'compileall', '-q', '-j', '0', '--invalidation-mode', 'unchecked-hash', ...targets],
+                   { stdio: 'inherit' });
+      console.log(`pre-compiled .pyc (CPython 3.11): ${targets.map(t => path.relative(ROOT, t)).join(', ')}`);
+      return;
+    } catch (_e) { /* try the next interpreter */ }
+  }
+  console.warn('WARNING: no Python 3.11 found to pre-compile .pyc — the first start of the app will be slow');
+}
+
 if (fs.existsSync(path.join(OUT, 'python.exe')) && !process.argv.includes('--force')) {
   console.log(`build/python-win/ already present (use --force to rebuild)`);
+  precompile();
   process.exit(0);
 }
 fs.rmSync(OUT, { recursive: true, force: true });
@@ -72,4 +93,5 @@ fs.writeFileSync(path.join(OUT, pth), [
   'import site', '',
 ].join('\r\n'));
 fs.rmSync(tmp, { recursive: true, force: true });
+precompile();
 console.log(`build/python-win/ ready: CPython ${PY_VERSION} + ${fs.readFileSync(path.join(ROOT, 'requirements-win.txt'), 'utf8').split('\n').filter(l => l && !l.startsWith('#')).join(', ')}`);

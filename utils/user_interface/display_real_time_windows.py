@@ -522,7 +522,12 @@ class CaptureManager:
 
     def _display_geometry(self):
         """(key, source, label, poses) of the best geometry to place samples with (lock held), or None."""
-        import locate_samples as ls  # pre-imported at start-up (scipy)
+        # Never import here: this runs under the capture lock inside every status request, and the
+        # first import of scipy can take a minute (no .pyc yet, antivirus). main() imports it in the
+        # background; until it is there, samples simply wait.
+        ls = sys.modules.get("locate_samples")
+        if ls is None or not hasattr(ls, "main"):  # main() is defined last: the import has finished
+            return None
         candidates = []
         variant = self._primary_variant()
         if variant:
@@ -1342,19 +1347,38 @@ def make_handler(state, capture):
     return Handler
 
 
+def _exit_with_parent(pid):
+    """Quit when the parent process ends, so no orphan bridge keeps UDP 14550 busy.
+
+    Windows: wait on the process handle (reading a stdin pipe in a thread instead can stall
+    other handle operations of this process). Elsewhere: poll that the process still exists."""
+    if os.name == "nt":
+        import ctypes
+        kernel32 = ctypes.windll.kernel32
+        handle = kernel32.OpenProcess(0x00100000, False, pid)  # SYNCHRONIZE
+        if handle:
+            kernel32.WaitForSingleObject(handle, 0xFFFFFFFF)  # INFINITE
+        os._exit(0)
+    while True:
+        try:
+            os.kill(pid, 0)  # POSIX: signal 0 only checks that the process still exists
+        except ProcessLookupError:
+            os._exit(0)
+        except PermissionError:
+            pass  # exists, owned by someone else
+        time.sleep(1.0)
+
+
 def main():
     cli = argparse.ArgumentParser(description="Standalone MAVLink ODOMETRY UDP relay")
     cli.add_argument("--udp-host", default="0.0.0.0", help="UDP bind address")
     cli.add_argument("--udp-port", type=int, default=14550, help="Local UDP listen port")
     cli.add_argument("--http-port", type=int, default=8051, help="Local HTTP API port")
-    cli.add_argument("--exit-with-stdin", action="store_true",
-                     help="quit when stdin closes (the desktop app that started this bridge has exited)")
+    cli.add_argument("--parent-pid", type=int,
+                     help="quit when this process ends (the desktop app that started the bridge)")
     args = cli.parse_args()
-    if args.exit_with_stdin:
-        def _watch_parent():
-            sys.stdin.read()  # returns at EOF, i.e. when the parent process is gone
-            os._exit(0)
-        threading.Thread(target=_watch_parent, daemon=True).start()
+    if args.parent_pid:
+        threading.Thread(target=_exit_with_parent, args=(args.parent_pid,), daemon=True).start()
 
     state = BridgeState()
     capture = CaptureManager()
