@@ -31,7 +31,19 @@ except ImportError as _error:  # numpy missing or capture_lh2.py not found
 
 STEP_NAMES = ("origin", "x_axis", "sweep")
 CALIB_DIR = os.path.dirname(os.path.abspath(lh2cap.__file__)) if lh2cap else os.path.join(_HERE, "..", "calibration")
-RUNS_DIR = os.path.join(CALIB_DIR, "calib_runs")
+# Sessions live next to the calibration scripts, unless LH2_RUNS_DIR says otherwise (the desktop
+# app points it to a writable user folder, since its install folder is read-only).
+RUNS_DIR = os.path.abspath(os.environ.get("LH2_RUNS_DIR") or os.path.join(CALIB_DIR, "calib_runs"))
+
+
+def session_path(directory):
+    """Absolute session folder: absolute paths as given, 'calib_runs/<name>' or '<name>' inside RUNS_DIR."""
+    if os.path.isabs(directory):
+        return os.path.abspath(directory)
+    parts = directory.replace("\\", "/").split("/")
+    if parts and parts[0] == "calib_runs":
+        parts = parts[1:]
+    return os.path.abspath(os.path.join(RUNS_DIR, *parts))
 FACTORY_CAL = os.path.join(CALIB_DIR, "lh2_factory_calibration.json")
 # Station poses compiled into the firmware: repo layout, then the Windows bundle layout.
 FIRMWARE_POSES = next((p for p in (os.path.join(CALIB_DIR, "..", "..", "rp2350_firmware", "src", "bs_poses_cal.h"),
@@ -183,6 +195,7 @@ class CaptureManager:
         self.pending = False  # samples changed while the solver was running
         self.sim = None  # simulation: a recorded run replayed as a virtual drone
         self._preview_proc = None  # running preview solver, if any
+        self.udp_error = None  # set when the MAVLink UDP port could not be opened
         self.live_records, self.live_at = None, 0.0  # latest snapshot seen by >= 2 stations
         self._geo_cache = {}  # geometry path -> (mtime, poses)
         # Samples placed in real time for the 3D view, with the best geometry available: this
@@ -212,8 +225,8 @@ class CaptureManager:
     # ----------------------------------------------------------------- session
 
     def configure(self, session_dir, config):
-        # Relative directories live next to capture_lh2.py, like its calib_runs/run_<date> sessions.
-        session_dir = os.path.abspath(os.path.join(CALIB_DIR, session_dir))
+        # Relative directories go to RUNS_DIR, like capture_lh2.py's calib_runs/run_<date> sessions.
+        session_dir = session_path(session_dir)
         with self.lock:
             if self.active is not None or self.solve["state"] == "running":
                 raise ValueError("a capture or solve is running")
@@ -649,7 +662,7 @@ class CaptureManager:
 
     def start_simulation(self, source, config):
         """Replay a recorded run as a virtual drone into a new sim_<date>_<run> session."""
-        source = os.path.abspath(os.path.join(CALIB_DIR, source))
+        source = session_path(source)
         if not os.path.exists(os.path.join(source, "sweep.json")):
             raise ValueError("the source run has no sweep.json")
         manifest = os.path.join(source, "session.json")
@@ -1048,6 +1061,7 @@ class CaptureManager:
                 solve = {"state": solve["state"], "unchanged": True}  # the page already has the big part
             return {
                 "available": lh2cap is not None,
+                "udp_error": self.udp_error,
                 "packets": self.packets,
                 "last_packet_age": 0.0 if simulating else (now - self.last_packet) if self.packets else None,
                 "simulation": None if not simulating else {
@@ -1114,8 +1128,18 @@ def udp_receiver(state, capture, listen_host, listen_port):
     peer_addresses = set()
 
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
-        udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        udp.bind((listen_host, listen_port))
+        if os.name == "nt":
+            # On Windows SO_REUSEADDR lets a second program bind the same port and silently take
+            # part of the drone's packets (e.g. avvia.bat and LH2 Studio together): refuse instead.
+            udp.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+        else:
+            udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            udp.bind((listen_host, listen_port))
+        except OSError as error:
+            capture.udp_error = f"UDP port {listen_port} is in use by another program (close avvia.bat or the other GCS): {error}"
+            print(capture.udp_error, flush=True)
+            return
         udp.settimeout(0.1)
         print(f"MAVLink UDP in ascolto su {listen_host}:{listen_port}")
 
@@ -1323,7 +1347,14 @@ def main():
     cli.add_argument("--udp-host", default="0.0.0.0", help="UDP bind address")
     cli.add_argument("--udp-port", type=int, default=14550, help="Local UDP listen port")
     cli.add_argument("--http-port", type=int, default=8051, help="Local HTTP API port")
+    cli.add_argument("--exit-with-stdin", action="store_true",
+                     help="quit when stdin closes (the desktop app that started this bridge has exited)")
     args = cli.parse_args()
+    if args.exit_with_stdin:
+        def _watch_parent():
+            sys.stdin.read()  # returns at EOF, i.e. when the parent process is gone
+            os._exit(0)
+        threading.Thread(target=_watch_parent, daemon=True).start()
 
     state = BridgeState()
     capture = CaptureManager()
@@ -1339,7 +1370,9 @@ def main():
 
     server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture))
     print(f"HTTP API: http://127.0.0.1:{args.http_port}/api/odometry")
-    print("Lascia aperta questa finestra mentre usi il Pose Editor.")
+    print(f"Calibration sessions: {RUNS_DIR}")
+    print(f"READY http://127.0.0.1:{args.http_port}", flush=True)  # the desktop app waits for this line
+    print("Lascia aperta questa finestra mentre usi il Pose Editor.", flush=True)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

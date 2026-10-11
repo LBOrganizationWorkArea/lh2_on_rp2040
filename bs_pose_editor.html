@@ -17,6 +17,7 @@ body {
 }
 #topbar h1 { margin-right: 14px; white-space: nowrap; }
 button, input, select, textarea { font-family: inherit; }
+[hidden] { display: none !important; }
 .tb-btn { white-space: nowrap; }
 @media (max-width: 1000px) { .tb-btn .lb { display: none; } .odo-row .val { font-size: 30px; min-width: 100px; } }
 .tb-btn {
@@ -544,6 +545,16 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
+
+// Opened by the LH2 Studio desktop app (?bridge=<url>): it runs the bridge itself, so use it and
+// hide the field; in a browser the bridge is started by hand (avvia.bat).
+const DESKTOP_BRIDGE = new URLSearchParams(location.search).get('bridge');
+if (DESKTOP_BRIDGE) {
+  document.getElementById('relay-url').value = DESKTOP_BRIDGE.replace(/\/$/, '') + '/api/odometry';
+  document.getElementById('relay-row').hidden = true;
+  document.body.dataset.app = 'desktop';
+}
+const BRIDGE_HINT = DESKTOP_BRIDGE ? 'restart LH2 Studio' : 'start avvia.bat';
 
 const ODOMETRY_ID = 331;
 const ODOMETRY_CRC_EXTRA = 91;
@@ -1676,8 +1687,9 @@ function calRender() {
   document.querySelector('#sec-calib .cal-wizard').classList.toggle('sim', !!sim);
   calEl('cal-conn-edit').textContent = sim ? 'Exit simulation' : 'Drone tab ›';
   const dot = calEl('cal-linkdot');
-  dot.className = 'cal-dot ' + (!s ? 'bad' : sim ? 'sim' : live ? 'good' : 'warn');
-  calEl('cal-linktext').textContent = !s ? 'Bridge not running — start avvia.bat'
+  dot.className = 'cal-dot ' + (!s || (s.udp_error && !sim) ? 'bad' : sim ? 'sim' : live ? 'good' : 'warn');
+  calEl('cal-linktext').textContent = !s ? `Bridge not running — ${BRIDGE_HINT}`
+    : s.udp_error && !sim ? s.udp_error
     : sim ? `Simulation · virtual drone replaying ${sim.source}`
     : calSimMode ? 'Simulation not started — pick a recorded run below'
     : !s.available ? 'Bridge has no capture module (install numpy)'
@@ -1740,7 +1752,8 @@ function calRender() {
   // One status banner for the whole calibration
   const sb = calEl('cal-statusbar');
   let cls, ic, txt, action = '';
-  if (!s) [cls, ic, txt] = ['bad', '⛔', 'The bridge is not running. Start avvia.bat (display_real_time_windows.py) on this PC.'];
+  if (!s) [cls, ic, txt] = ['bad', '⛔', DESKTOP_BRIDGE ? 'The LH2 backend is not responding. Restart LH2 Studio; if it persists, see the backend log (Help menu).'
+    : 'The bridge is not running. Start avvia.bat (display_real_time_windows.py) on this PC.'];
   else if (cap) [cls, ic, txt] = ['info', '●', 'Recording…'];
   else if (sv && sv.state === 'running') [cls, ic, txt] = ['warn', '⏳', 'Calculating the base-station positions…'];
   else if (sv && sv.ok) {

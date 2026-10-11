@@ -1,0 +1,58 @@
+{
+  "name": "lh2-studio",
+  "productName": "LH2 Studio",
+  "version": "0.1.0",
+  "description": "Lighthouse 2 base-station editor, auto-calibration and drone tracking (desktop app)",
+  "main": "src/main.js",
+  "author": "Davide Lentini",
+  "license": "GPL-3.0",
+  "private": true,
+  "scripts": {
+    "prepare-app": "node scripts/prepare.mjs",
+    "start": "npm run prepare-app && electron .",
+    "fetch-python-win": "node scripts/fetch-python-win.mjs",
+    "dist:win": "npm run prepare-app -- --backend && npm run fetch-python-win && electron-builder --win --x64",
+    "dist:win-dir": "npm run prepare-app -- --backend && npm run fetch-python-win && electron-builder --win dir --x64",
+    "dist:win-zip": "npm run prepare-app -- --backend && npm run fetch-python-win && electron-builder --win zip --x64"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8",
+    "three": "0.160.0"
+  },
+  "build": {
+    "appId": "com.lh2studio.app",
+    "productName": "LH2 Studio",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "src/**",
+      "app/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "build/backend",
+        "to": "backend"
+      },
+      {
+        "from": "build/python-win",
+        "to": "python"
+      }
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "zip"
+      ],
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false,
+      "shortcutName": "LH2 Studio"
+    }
+  }
+}
