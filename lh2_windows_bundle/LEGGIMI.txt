@@ -1,4 +1,4 @@
-LH2 — bundle Windows (merge-autocalib-bitcraze @ afe6386)
+LH2 — bundle Windows (merge-autocalib-bitcraze @ ac4f3fc)
 =====================================
 
 Avvio
