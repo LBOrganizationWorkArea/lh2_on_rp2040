@@ -11,6 +11,7 @@ const { startBackend, stopBackend } = require('./backend');
 
 const APP_DIR = path.join(__dirname, '..', 'app');  // filled by scripts/prepare.mjs
 const EDITOR = 'bs_pose_editor.html';
+const SPLASH_MIN_MS = 8000;  // the start-up screen stays at least this long, even if the backend is faster
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
@@ -102,11 +103,14 @@ async function launch() {
       }
     });
     // Check the backend answers before showing the editor (the log explains it if not).
-    status = 'Backend ready — opening the editor…';
+    status = 'Checking the backend…';
     show('');
     const probe = await net.fetch(`${backend.url}/api/lh2/status`, { method: 'POST', signal: AbortSignal.timeout(30000) });
     if (!probe.ok) throw new Error(`the backend answered ${probe.status} to the first status request`);
     await probe.json();
+    status = 'Backend ready — opening the editor…';
+    show('');
+    await new Promise(r => setTimeout(r, Math.max(0, SPLASH_MIN_MS - (Date.now() - started))));
     clearInterval(ticker);
     win.loadURL(`app://lh2/${EDITOR}?bridge=${encodeURIComponent('app://lh2')}`);
   } catch (error) {
