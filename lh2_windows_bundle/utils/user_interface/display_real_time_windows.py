@@ -1135,7 +1135,7 @@ def udp_receiver(state, capture, listen_host, listen_port):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as udp:
         if os.name == "nt":
             # On Windows SO_REUSEADDR lets a second program bind the same port and silently take
-            # part of the drone's packets (e.g. avvia.bat and LH2 Studio together): refuse instead.
+            # part of the drone's packets (e.g. avvia.bat and LightHouse Studio together): refuse instead.
             udp.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         else:
             udp.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

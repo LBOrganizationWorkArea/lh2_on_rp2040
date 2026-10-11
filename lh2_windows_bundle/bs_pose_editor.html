@@ -546,7 +546,7 @@ import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer
 import { OBJLoader } from 'three/addons/loaders/OBJLoader.js';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 
-// Opened by the LH2 Studio desktop app (?bridge=<url>): it runs the bridge itself, so use it and
+// Opened by the LightHouse Studio desktop app (?bridge=<url>): it runs the bridge itself, so use it and
 // hide the field; in a browser the bridge is started by hand (avvia.bat).
 const DESKTOP_BRIDGE = new URLSearchParams(location.search).get('bridge');
 if (DESKTOP_BRIDGE) {
@@ -554,7 +554,7 @@ if (DESKTOP_BRIDGE) {
   document.getElementById('relay-row').hidden = true;
   document.body.dataset.app = 'desktop';
 }
-const BRIDGE_HINT = DESKTOP_BRIDGE ? 'restart LH2 Studio' : 'start avvia.bat';
+const BRIDGE_HINT = DESKTOP_BRIDGE ? 'restart LightHouse Studio' : 'start avvia.bat';
 
 const ODOMETRY_ID = 331;
 const ODOMETRY_CRC_EXTRA = 91;
@@ -1753,7 +1753,7 @@ function calRender() {
   // One status banner for the whole calibration
   const sb = calEl('cal-statusbar');
   let cls, ic, txt, action = '';
-  if (!s) [cls, ic, txt] = ['bad', '⛔', DESKTOP_BRIDGE ? 'The LH2 backend is not responding. Restart LH2 Studio; if it persists, see the backend log (Help menu).'
+  if (!s) [cls, ic, txt] = ['bad', '⛔', DESKTOP_BRIDGE ? 'The backend is not responding. Restart LightHouse Studio; if it persists, see the backend log (Help menu).'
     : 'The bridge is not running. Start avvia.bat (display_real_time_windows.py) on this PC.'];
   else if (cap) [cls, ic, txt] = ['info', '●', 'Recording…'];
   else if (sv && sv.state === 'running') [cls, ic, txt] = ['warn', '⏳', 'Calculating the base-station positions…'];
