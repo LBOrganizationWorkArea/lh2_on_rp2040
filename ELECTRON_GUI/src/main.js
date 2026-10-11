@@ -92,11 +92,18 @@ async function launch() {
           message: `The backend stopped (code ${code}).`, detail: `Help → Restart backend, or see ${logFile()}` });
       }
     });
-    win.loadURL(`app://lh2/${EDITOR}?bridge=${encodeURIComponent(backend.url)}`);
+    // Check the backend answers before showing the editor (the log explains it if not).
+    const probe = await net.fetch(`${backend.url}/api/lh2/status`, { method: 'POST' });
+    if (!probe.ok) throw new Error(`the backend answered ${probe.status} to the first status request`);
+    await probe.json();
+    win.loadURL(`app://lh2/${EDITOR}?bridge=${encodeURIComponent('app://lh2')}`);
   } catch (error) {
     const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+    let tail = '';
+    try { tail = fs.readFileSync(logFile(), 'utf8').slice(-3000); } catch (_e) { /* no log yet */ }
     win.loadURL(page('LH2 Studio — error', `<h1>The backend could not start</h1>${esc(error.message.split('\n')[0])}
-      <pre>${esc(error.message.split('\n').slice(1).join('\n'))}</pre>Full log: ${esc(logFile())}<br>Help → Restart backend to try again.`));
+      <pre>${esc(error.message.split('\n').slice(1).join('\n'))}</pre>Backend log (${esc(logFile())}):<pre>${esc(tail)}</pre>
+      Help → Restart backend to try again.`));
   }
 }
 
@@ -111,8 +118,20 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   app.on('second-instance', () => { if (win) { if (win.isMinimized()) win.restore(); win.focus(); } });
   app.whenReady().then(() => {
-    protocol.handle('app', request => {
-      const rel = decodeURIComponent(new URL(request.url).pathname).replace(/^\/+/, '');
+    protocol.handle('app', async request => {
+      const url = new URL(request.url);
+      // The page talks to the backend through its own origin (app://lh2/api/...): the app forwards
+      // the call, so no cross-origin / private-network rule can block it.
+      if (url.pathname.startsWith('/api/')) {
+        if (!backend) return new Response(JSON.stringify({ error: 'backend not running' }), { status: 503 });
+        const body = ['GET', 'HEAD'].includes(request.method) ? undefined : await request.arrayBuffer();
+        try {
+          return await net.fetch(backend.url + url.pathname + url.search, { method: request.method, body });
+        } catch (error) {
+          return new Response(JSON.stringify({ error: `backend unreachable: ${error.message}` }), { status: 502 });
+        }
+      }
+      const rel = decodeURIComponent(url.pathname).replace(/^\/+/, '');
       const file = path.normalize(path.join(APP_DIR, rel));
       if (!file.startsWith(APP_DIR)) return new Response('forbidden', { status: 403 });
       return net.fetch(pathToFileURL(file).toString());
