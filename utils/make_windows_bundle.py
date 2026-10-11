@@ -117,6 +117,14 @@ PC sulla Wi-Fi del MavESP8266 / DroneBridge (192.168.4.1).
 Editor -> Drone: Link "UDP relay", Relay http://127.0.0.1:8051/api/odometry, Connect.
 Windows Firewall deve permettere a Python di ricevere su UDP 14550.
 
+Modalita' 3D (selettore in alto a sinistra)
+-------------------------------------------
+Sandbox: progetti il sistema. Clic su una stazione nel 3D -> frecce per spostarla, anelli
+per ruotarla (tasti T / R, Esc per finire); oppure scrivi X/Y/Z, Tilt, Head, Roll.
+Calibration: la scena parte vuota e si riempie man mano: segni a terra (verdi quando
+misurati), stazioni stimate durante la registrazione (trasparenti) e poi risolte, campioni,
+drone live. "Apply to sandbox" porta le stazioni calcolate nella Sandbox. "Fit view" reinquadra.
+
 Auto-calibrazione (Editor -> Calib), come il wizard del Crazyflie client
 -----------------------------------------------------------------------
 1. Firmware: flasha firmware\\crossing_beams.uf2 (angoli con modello period + factory).
