@@ -1568,7 +1568,7 @@ const calEl = id => document.getElementById(id);
 const ESP_GCS_PORT = 14555;  // MavESP8266 / DroneBridge learn the GCS address from heartbeats sent here
 function calApi(action, params = {}, body) {
   const base = new URL(document.getElementById('relay-url').value.trim());
-  const url = new URL('/api/lh2/' + action, base.origin);
+  const url = new URL('/api/lh2/' + action, base);  // also works for the desktop app's app:// origin
   const host = document.getElementById('track-host').value.trim();
   if (host) { url.searchParams.set('host', host); url.searchParams.set('port', ESP_GCS_PORT); }
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -2034,6 +2034,7 @@ async function calCall(action, params = {}, body) {
     calRender();
     return s;
   } catch (e) {
+    console.warn(`LH2 bridge ${action} failed:`, e);
     if (/fetch|network/i.test(e.message)) { calStatus = null; calBridgeError = ''; }
     else calBridgeError = '✘ ' + e.message;
     calRender();
