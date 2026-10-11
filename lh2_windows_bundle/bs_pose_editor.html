@@ -40,6 +40,7 @@ body[data-mode=calib] #odo { display: none; }
   font-size: 13px; color: #ddd; line-height: 1.6; min-width: 260px; }
 body[data-mode=calib] #cal-hud { display: block; }
 #cal-hud .t { font-size: 11px; letter-spacing: 1px; color: #6fb5ee; font-weight: 700; }
+#cal-hud { max-width: 380px; }
 #cal-hud .ok { color: #6fdc8c; } #cal-hud .todo { color: #888; } #cal-hud .est { color: #c9a6ff; }
 #gizmo-bar { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 6; display: flex; gap: 6px;
   align-items: center; background: rgba(24,24,24,0.92); border: 1px solid #555; border-radius: 8px; padding: 6px 10px; font-size: 13px; }
@@ -406,7 +407,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <div id="cal-simpick" style="display:none;">
         <div class="hint">Pick a recorded run: each Start replays its matching capture, exactly as if the drone were there. Floor points you don't use become independent check points.</div>
         <div class="cal-field"><label for="cal-simsrc">Recorded run</label><select id="cal-simsrc"></select></div>
-        <button id="cal-simstart">Start simulation</button>
+        <button id="cal-simstart" disabled>Start simulation</button>
       </div>
       <div class="cal-connrow">
         <span class="cal-dot" id="cal-linkdot"></span>
@@ -1584,6 +1585,7 @@ const calBsName = id => CAL_BS_NAMES[id] || `BS${id}`;
 const CAL_KIND_COLOR = Object.fromEntries(CAL_STEPS.map(s => [s.kind, s.color]));
 let calStep = 0, calStatus = null, calSolve = null, calSolveVersion = -1, calResultKey = '', calBridgeError = '';
 let calSimMode = false, calRunsCache = [], calSamplesKey = '';
+let calDisplay = null, calDisplayVersion = -1;  // samples placed in real time by the bridge
 
 function calInstr(kind) {
   const d = (+calEl('cal-xdist').value || 1).toFixed(2), secs = +calEl('cal-secs').value || 5;
@@ -1809,7 +1811,8 @@ function calVariantHtml(v, i) {
 
 function calRenderManagement() {
   const s = calStatus, sv = calSolve;
-  const located = Object.fromEntries(((sv && sv.samples && sv.samples.statics) || []).map(x => [x.name, x]));
+  const located = Object.fromEntries(((calDisplay && calDisplay.statics) || (sv && sv.samples && sv.samples.statics) || [])
+    .map(x => [x.name, x]));
   const sm = s && s.samples;
   const names = !sm ? [] : [...(sm.origin ? ['origin'] : []), ...(sm.x_axis ? ['x_axis'] : []), ...sm.xy_plane,
     ...(sm.sweep ? ['sweep'] : []), ...sm.verify];
@@ -1880,7 +1883,9 @@ function calDraw3d() {
   const final = sv && sv.ok ? sv.variants[sv.primary] : null;
   const preview = !final && sv && sv.preview && sv.preview.ok ? sv.preview : null;
   const geo = final || preview;
-  const samples = (final ? sv.samples : preview && preview.samples) || { statics: [], cloud: [] };
+  // Samples are placed by the bridge in real time with the best geometry it has (see calDisplay).
+  const samples = calDisplay || { statics: [], cloud: [], source: null };
+  const provisional = samples.source && samples.source !== 'final';
   if (calEl('cal-show3d').checked) {
     samples.statics.filter(x => x.position).forEach(x => {
       const col = CAL_KIND_COLOR[x.kind] || 0xffffff;
@@ -1902,7 +1907,7 @@ function calDraw3d() {
       add(new THREE.Points(g, new THREE.PointsMaterial({ vertexColors: true, size: 0.04 })));
     } else if (samples.cloud.length) {
       const g = new THREE.BufferGeometry().setFromPoints(samples.cloud.map(p => tv(...p)));
-      add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0x9a9a9a, size: 0.025, transparent: !!preview, opacity: preview ? 0.6 : 1 })));
+      add(new THREE.Points(g, new THREE.PointsMaterial({ color: 0xa8a8a8, size: 0.025, transparent: provisional, opacity: provisional ? 0.7 : 1 })));
     }
   }
   // Frame the view the first time stations show up in this session.
@@ -1912,9 +1917,14 @@ function calDraw3d() {
     const pose = calQuatToPose(p.quat);
     const c = k => [pose.R[0][k], pose.R[1][k], pose.R[2][k]];
     add(makeBsHolder(c(0), c(1), c(2), p.position, { color: preview ? 0xc9a6ff : 0xffffff, opacity: preview ? 0.45 : 1 }));
-    const at = p.position, b = c(0), col = preview ? 0xc9a6ff : 0x6fdc8c;
-    add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(...at), tv(at[0] + b[0] * 0.8, at[1] + b[1] * 0.8, at[2] + b[2] * 0.8)]),
-      new THREE.LineBasicMaterial({ color: col })));
+    const at = p.position, col = preview ? 0xc9a6ff : 0x6fdc8c;
+    // Station axes as in the Sandbox: X = boresight (red), Y = horizontal sweep (green), Z = vertical (blue).
+    [[c(0), 0xff4444, 'X'], [c(1), 0x44ff44, 'Y'], [c(2), 0x4488ff, 'Z']].forEach(([v, ac, name]) => {
+      const tip = [at[0] + v[0] * 0.45, at[1] + v[1] * 0.45, at[2] + v[2] * 0.45];
+      add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(...at), tv(...tip)]),
+        new THREE.LineBasicMaterial({ color: ac, transparent: !!preview, opacity: preview ? 0.6 : 1 })));
+      label(name, tv(...tip), hex(ac));
+    });
     const drop = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(...at), tv(at[0], at[1], 0)]),
       new THREE.LineDashedMaterial({ color: 0x666666, dashSize: 0.08, gapSize: 0.04 }));
     drop.computeLineDistances(); add(drop);
@@ -1974,14 +1984,17 @@ function calRenderHud() {
   const html = `<div class="t">CALIBRATION VIEW${s && s.simulation ? ' · SIMULATION' : ''}</div>` +
     (sm ? [item(sm.origin, 'Origin'), item(sm.x_axis, 'X axis'), item(sm.xy_plane.length > 0, `Floor ${sm.xy_plane.length}`),
       item(sm.sweep >= sm.sweep_min, `Room ${sm.sweep + (s.capture && s.capture.step === 'sweep' ? s.capture.complete : 0)}`)].join(' &nbsp; ') : '<span class="todo">Waiting for the bridge…</span>') +
-    `<br>${stations}<br>${live}`;
+    `<br>${stations}<br>${live}` +
+    (calDisplay && calDisplay.source && calDisplay.source !== 'final' && sm && (sm.origin || sm.x_axis || sm.xy_plane.length || sm.sweep || (s.capture && s.capture.step === 'sweep'))
+      ? `<br><span class="todo">Samples placed with ${calDisplay.label} — they move into place when this calibration is solved.</span>` : '');
   if (hud.dataset.html !== html) { hud.innerHTML = html; hud.dataset.html = html; }
 }
 
 // Status polling. The solve result (log, sample cloud) is only re-sent when it changed.
 async function calCall(action, params = {}, body) {
   try {
-    const s = await calApi(action, { ...params, since: calSolveVersion }, body);
+    const s = await calApi(action, { ...params, since: calSolveVersion, dsince: calDisplayVersion }, body);
+    if (s.display) { calDisplay = s.display; calDisplayVersion = s.display.version; }
     if (!s.solve.unchanged) {
       calSolve = s.solve;
       calSolveVersion = s.solve_version;
@@ -1992,7 +2005,10 @@ async function calCall(action, params = {}, body) {
     calStatus = s;
     calBridgeError = '';
     const samplesKey = JSON.stringify(s.samples);
-    if (samplesKey !== calSamplesKey) { calSamplesKey = samplesKey; calDraw3d(); }  // floor marks turn green
+    if (samplesKey !== calSamplesKey || s.display) {  // floor marks turn green, new samples placed
+      calSamplesKey = samplesKey;
+      calDraw3d();
+    }
     calUpdateLive(s.live);
     const key = s.last_result ? JSON.stringify(s.last_result) : '';
     if (key !== calResultKey) {  // like the client: a good origin / x-axis sample moves on to the next step
@@ -2013,7 +2029,7 @@ async function calCall(action, params = {}, body) {
 async function calNewSession(dir = '') {
   calEl('cal-export-card').style.display = 'none';
   calClearTrail();
-  calSolveVersion = -1;
+  calSolveVersion = -1; calDisplayVersion = -1; calDisplay = null;
   const s = await calCall('session', { dir, ...calSettings() });
   calLoadRuns();
   return s;
@@ -2037,7 +2053,7 @@ async function calExitSimulation() {
   calSimMode = false;
   if (calStatus && calStatus.simulation) {
     calClearTrail();
-    calSolveVersion = -1;
+    calSolveVersion = -1; calDisplayVersion = -1; calDisplay = null;
     await calCall('simulate');  // the bridge drops the sim_ session; the next measurement opens a new one
   }
   calRender();
@@ -2047,7 +2063,7 @@ calEl('cal-mode-sim').addEventListener('click', () => { calSimMode = true; calLo
 calEl('cal-simstart').addEventListener('click', async () => {
   const source = calEl('cal-simsrc').value;
   if (!source) return;
-  calSolveVersion = -1; calStep = 0; calResultKey = '';
+  calSolveVersion = -1; calDisplayVersion = -1; calDisplay = null; calStep = 0; calResultKey = '';
   calEl('cal-export-card').style.display = 'none';
   await calCall('simulate', { source, ...calSettings() });
   calLoadRuns();
@@ -2085,7 +2101,7 @@ calEl('cal-importfile').addEventListener('change', async e => {
   const file = e.target.files[0];
   e.target.value = '';
   if (!file) return;
-  calSolveVersion = -1;
+  calSolveVersion = -1; calDisplayVersion = -1; calDisplay = null;
   await calCall('import_samples', calSettings(), await file.text());
   calLoadRuns();
 });
@@ -2180,7 +2196,9 @@ async function calLoadRuns() {
     const src = calEl('cal-simsrc'), keepSrc = src.value;
     const sources = r.runs.filter(run => !run.name.startsWith('sim_')).reverse();
     src.innerHTML = sources.map(run => `<option value="${calEsc(run.dir)}">${calEsc(run.name)}${run.solved ? ' ✔' : ''}</option>`).join('');
-    src.value = keepSrc || (sources.find(run => run.name === 'run_20261009_180300') || sources[0] || {}).dir || '';
+    src.value = keepSrc;  // ignored by the browser if that run is no longer listed
+    if (!src.value) src.value = (sources.find(run => run.name === 'run_20261009_180300') || sources[0] || {}).dir || '';
+    calEl('cal-simstart').disabled = !src.value;  // enabled once there is a recorded run to replay
     const ids = Object.keys(calFactory);
     calEl('cal-factory').textContent = ids.length ? ids.map(id => {
       const f = calFactory[id];

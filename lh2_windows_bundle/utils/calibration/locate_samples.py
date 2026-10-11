@@ -39,6 +39,25 @@ def load_geometry(path: Path) -> dict[int, cb.Pose]:
             for bs, g in geos.items()}
 
 
+def load_header_geometry(path: Path) -> dict[int, cb.Pose]:
+    """Station poses compiled into the firmware (bs_poses_cal.h written by calibrate_export.py)."""
+    import re
+    number = r"(-?[\d.]+(?:[eE][-+]?\d+)?)f?"
+    text = Path(path).read_text(encoding="utf-8")
+    origins = re.findall(r"\.origin\s*=\s*\{\s*" + r"\s*,\s*".join([number] * 3), text)
+    rows = re.findall(r"\{\s*" + r"\s*,\s*".join([number] * 3) + r"\s*\}", text.split("BS_POSES", 1)[-1])
+    # rows: per station its origin, then the 3 rows of R
+    matrices = [[[float(v) for v in row] for row in rows[i + 1:i + 4]] for i in range(0, len(rows), 4)]
+    if not origins or len(matrices) != len(origins):
+        raise ValueError(f"{path}: no BS_POSES origin / R entries found")
+    return {i: cb.Pose(R_matrix=np.array(r), t_vec=[float(v) for v in o]) for i, (o, r) in enumerate(zip(origins, matrices))}
+
+
+def load_any_geometry(path: Path) -> dict[int, cb.Pose]:
+    """geometry.yaml from the solver, or a firmware bs_poses_cal.h."""
+    return load_header_geometry(path) if str(path).endswith(".h") else load_geometry(path)
+
+
 def _sample(per_bs: dict[int, list]) -> cb.LhCfPoseSample:
     sample = cb.LhCfPoseSample()
     for bs_id, angles in per_bs.items():
@@ -56,7 +75,7 @@ def _locate(sample, poses, sensors) -> dict | None:
 
 
 def locate(session: Path, geometry: Path, sensors_path: str, max_cloud: int) -> dict:
-    poses = load_geometry(geometry)
+    poses = load_any_geometry(geometry)
     sensors = cb.load_sensor_positions(sensors_path)
     statics = []
     for path in sorted(session.glob("*.json"), key=lambda p: (
@@ -90,7 +109,8 @@ def locate(session: Path, geometry: Path, sensors_path: str, max_cloud: int) -> 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("session", type=Path, help="capture_lh2.py / pose editor session directory")
-    parser.add_argument("--geometry", type=Path, help="solved geometry (default <session>/geometry.yaml)")
+    parser.add_argument("--geometry", type=Path,
+                        help="solved geometry.yaml or a firmware bs_poses_cal.h (default <session>/geometry.yaml)")
     parser.add_argument("--sensor-positions", default=str(Path(__file__).with_name("wand_sensors.json")))
     parser.add_argument("--max-cloud", type=int, default=400, help="sweep points to keep (default 400)")
     parser.add_argument("--json", action="store_true", help="print JSON (for the pose editor bridge)")

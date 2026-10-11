@@ -33,8 +33,15 @@ STEP_NAMES = ("origin", "x_axis", "sweep")
 CALIB_DIR = os.path.dirname(os.path.abspath(lh2cap.__file__)) if lh2cap else os.path.join(_HERE, "..", "calibration")
 RUNS_DIR = os.path.join(CALIB_DIR, "calib_runs")
 FACTORY_CAL = os.path.join(CALIB_DIR, "lh2_factory_calibration.json")
+# Station poses compiled into the firmware: repo layout, then the Windows bundle layout.
+FIRMWARE_POSES = next((p for p in (os.path.join(CALIB_DIR, "..", "..", "rp2350_firmware", "src", "bs_poses_cal.h"),
+                                    os.path.join(CALIB_DIR, "..", "..", "firmware", "bs_poses_cal.h"))
+                       if os.path.exists(p)), None)
+DISPLAY_CLOUD_MAX = 2000  # room-recording points kept for the 3D view
 # Calibration scripts print and write UTF-8 (e.g. headers) also on Windows, where the default is cp1252.
-_CHILD_ENV = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8")
+# One BLAS thread per solver: ~2x faster on these small problems, and parallel solves do not fight.
+_CHILD_ENV = dict(os.environ, PYTHONUTF8="1", PYTHONIOENCODING="utf-8",
+                  OMP_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1", MKL_NUM_THREADS="1")
 
 # Key lines of calibrate_bitcraze.py's report, shown as figures in the pose editor.
 _LOG_METRICS = (
@@ -175,8 +182,13 @@ class CaptureManager:
         self.solve_version = 0
         self.pending = False  # samples changed while the solver was running
         self.sim = None  # simulation: a recorded run replayed as a virtual drone
+        self._preview_proc = None  # running preview solver, if any
         self.live_records, self.live_at = None, 0.0  # latest snapshot seen by >= 2 stations
-        self._geo_cache = {}  # geometry.yaml path -> (mtime, poses) for the live position
+        self._geo_cache = {}  # geometry path -> (mtime, poses)
+        # Samples placed in real time for the 3D view, with the best geometry available: this
+        # calibration, else its estimate during the recording, else the one in the firmware.
+        self.display = self._empty_display()
+        self._display_key, self._display_geo = None, None
         if lh2cap is not None:
             sensors = os.path.join(CALIB_DIR, "wand_sensors.json")
             try:
@@ -219,6 +231,7 @@ class CaptureManager:
             self.sweep_count = self._count_sweep()
             self.solve = self._idle_solve()
             self.solve_version += 1
+            self._invalidate_display()
             variants = [(session_dir, "firmware angles")] + [
                 (session_dir + "_" + model, model + " re-conversion") for model in ("period", "factory")]
             found = [load_solve_result(d, n) for d, n in variants if os.path.exists(os.path.join(d, "geometry.yaml"))]
@@ -231,7 +244,7 @@ class CaptureManager:
             self.start_solve()
 
     def _files(self, kind):
-        if not self.session_dir:
+        if not self.session_dir or not os.path.isdir(self.session_dir):  # e.g. deleted from Explorer
             return []
         if kind in ("origin", "x_axis", "sweep"):
             return [kind] if os.path.exists(os.path.join(self.session_dir, kind + ".json")) else []
@@ -290,6 +303,7 @@ class CaptureManager:
             if not self.session_dir or not name.startswith(kinds) or os.sep in name or "/" in name:
                 raise ValueError("unknown sample")
             self._set_aside([name], "_deleted")
+            self._invalidate_display()
             if name == "sweep":
                 self.sweep_count = 0
             self.last_result = {"step": name, "ok": True, "message": f"{name} moved to _deleted/"}
@@ -312,6 +326,7 @@ class CaptureManager:
             self.sweep_count = 0
             self.solve = self._idle_solve()
             self.solve_version += 1
+            self._invalidate_display()
             self.last_result = {"step": "clear", "ok": True, "message": f"All samples moved to {folder}/"}
 
     def export_samples(self):
@@ -382,6 +397,8 @@ class CaptureManager:
             cap["snapshots"] += 1
             cap["complete"] += int(complete)
             cap["plausible"] += int(plausible)
+            if cap["step"] == "sweep" and complete and plausible and self._display_geo and cap["snapshots"] % 2 == 0:
+                self._display_add_cloud(records)
         return self._maybe_finish(now)
 
     def start(self, kind, seconds):
@@ -454,11 +471,14 @@ class CaptureManager:
                 command += ["--baseline", str(config["baseline"])]
             if config.get("board_height"):
                 command += ["--board-height", str(config["board_height"])]
-            result = subprocess.run(command, cwd=CALIB_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                    text=True, encoding="utf-8", errors="replace", env=_CHILD_ENV)
+            process = subprocess.Popen(command, cwd=CALIB_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                       text=True, encoding="utf-8", errors="replace", env=_CHILD_ENV)
+            with self.lock:
+                self._preview_proc = process  # start_solve() stops it: the final solve supersedes it
+            output, _ = process.communicate()
             with open(os.path.join(work, "solve.log"), "w", encoding="utf-8") as log:
-                log.write(result.stdout)
-            if result.returncode == 0:
+                log.write(output)
+            if process.returncode == 0:
                 preview = load_solve_result(work, "preview")
                 located = subprocess.run([sys.executable, os.path.join(CALIB_DIR, "locate_samples.py"), work,
                                           "--max-cloud", "250", "--json"], cwd=CALIB_DIR, stdout=subprocess.PIPE,
@@ -482,28 +502,148 @@ class CaptureManager:
         if stale:
             shutil.rmtree(stale, ignore_errors=True)
 
-    def _live_position(self):
-        """Drone position from the latest snapshot and the newest geometry (lock held), for the 3D view."""
-        if self.live_records is None or time.monotonic() - self.live_at > 1.0:
-            return None
-        variant = self._primary_variant() or self.solve.get("preview")
-        if not variant or not variant.get("ok"):
-            return None
-        geometry = os.path.join(variant["dir"], "geometry.yaml")
+    # ------------------------------------------------- samples in the 3D view
+
+    def _empty_display(self, version=0):
+        return {"version": version, "source": None, "label": "", "statics": {}, "cloud": []}
+
+    def _display_geometry(self):
+        """(key, source, label, poses) of the best geometry to place samples with (lock held), or None."""
+        import locate_samples as ls  # pre-imported at start-up (scipy)
+        candidates = []
+        variant = self._primary_variant()
+        if variant:
+            candidates.append(("final", "this calibration", os.path.join(variant["dir"], "geometry.yaml")))
+        preview = self.solve.get("preview")
+        if preview and preview.get("ok"):
+            candidates.append(("preview", "the estimate from the recording so far",
+                               os.path.join(preview["dir"], "geometry.yaml")))
+        if FIRMWARE_POSES:
+            candidates.append(("firmware", "the calibration in the firmware (bs_poses_cal.h)", FIRMWARE_POSES))
+        for source, label, path in candidates:
+            try:
+                mtime = os.path.getmtime(path)
+                cached = self._geo_cache.get(path)
+                if cached is None or cached[0] != mtime:
+                    cached = (mtime, ls.load_any_geometry(ls.Path(path)))
+                    self._geo_cache[path] = cached
+                return f"{path}@{mtime}", source, label, cached[1]
+            except Exception:  # being rewritten, or unreadable: try the next one
+                continue
+        return None
+
+    def _layout(self):
+        """Sensor board layout, loaded once."""
+        import locate_samples as ls
+        if not hasattr(self, "_sensors"):
+            self._sensors = ls.cb.load_sensor_positions(os.path.join(CALIB_DIR, "wand_sensors.json"))
+        return self._sensors
+
+    def _locate(self, per_bs, poses):
+        """Board centre and fit error for one snapshot {bs: angles}, or None."""
+        import locate_samples as ls
+        return ls._locate(ls._sample(per_bs), poses, self._layout())
+
+    def _display_add_cloud(self, records):
+        """Place one room-recording snapshot in the 3D view (lock held)."""
         try:
-            import locate_samples as ls  # lazy: pulls in scipy and the Bitcraze solver
-            mtime = os.path.getmtime(geometry)
-            cached = self._geo_cache.get(geometry)
-            if cached is None or cached[0] != mtime:
-                cached = (mtime, ls.load_geometry(ls.Path(geometry)))
-                self._geo_cache[geometry] = cached
-            if not hasattr(self, "_sensors"):
-                self._sensors = ls.cb.load_sensor_positions(os.path.join(CALIB_DIR, "wand_sensors.json"))
-            sample = ls._sample({r["base_station_id"]: r["angles"] for r in self.live_records})
-            located = ls._locate(sample, cached[1], self._sensors)
-        except Exception:  # a geometry being rewritten or a bad snapshot must never break the status reply
+            located = self._locate({r["base_station_id"]: r["angles"] for r in records}, self._display_geo[3])
+        except Exception:
+            return
+        if located and located["error_mm"] < 20.0:
+            cloud = self.display["cloud"]
+            cloud.append([round(c, 3) for c in located["position"]])
+            if len(cloud) > DISPLAY_CLOUD_MAX:
+                del cloud[::2]
+            self.display["version"] += 1
+
+    def _locate_static(self, session, name, poses):
+        import contextlib
+        import locate_samples as ls
+        kind = next(k for k in ("origin", "x_axis", "xy_plane", "verify") if name.startswith(k))
+        try:
+            with contextlib.redirect_stdout(open(os.devnull, "w")):  # the solver warns on stdout
+                sample = ls.cb.average_static_capture(os.path.join(session, name + ".json"))
+            located = ls._locate(sample, poses, self._layout())
+        except Exception as error:
+            return {"name": name, "kind": kind, "error": str(error)}
+        return {"name": name, "kind": kind, **(located or {"error": "rays do not intersect"})}
+
+    def _refresh_display(self):
+        """Re-place every sample when the best geometry changes (lock held)."""
+        try:
+            geo = self._display_geometry()
+        except Exception:
+            geo = None
+        key = geo[0] if geo else None
+        if key == self._display_key:
+            return
+        self._display_key, self._display_geo = key, geo
+        self.display = self._empty_display(self.display["version"] + 1)
+        if geo:
+            self.display.update(source=geo[1], label=geo[2])
+            threading.Thread(target=self._rebuild_display, args=(key, self.session_dir), daemon=True).start()
+
+    def _rebuild_display(self, key, session):
+        with self.lock:
+            if key != self._display_key or session != self.session_dir or not session:
+                return
+            poses = self._display_geo[3]
+            names = [n for kind in ("origin", "x_axis", "xy_plane", "verify") for n in self._files(kind)]
+            running = list(self.active["records"]) if self.active and self.active["step"] == "sweep" else []
+        statics = {name: self._locate_static(session, name, poses) for name in names}
+        records = running
+        sweep = os.path.join(session, "sweep.json")
+        try:
+            if os.path.exists(sweep):
+                with open(sweep, encoding="utf-8") as stream:
+                    records = json.load(stream) + running
+        except (OSError, ValueError):
+            pass
+        grouped = {}
+        for record in records:
+            grouped.setdefault(record["timestamp"], {})[record["base_station_id"]] = record["angles"]
+        snapshots = [g for g in grouped.values() if len(g) >= 2]
+        cloud = []
+        for per_bs in snapshots[::max(1, len(snapshots) // (DISPLAY_CLOUD_MAX // 2))]:
+            try:
+                located = self._locate(per_bs, poses)
+            except Exception:
+                continue
+            if located and located["error_mm"] < 20.0:
+                cloud.append([round(c, 3) for c in located["position"]])
+        with self.lock:
+            if key != self._display_key or session != self.session_dir:
+                return
+            statics.update(self.display["statics"])  # captured while this ran
+            self.display["statics"] = statics
+            self.display["cloud"] = cloud + self.display["cloud"]  # + points added live meanwhile
+            self.display["version"] += 1
+
+    def _display_static(self, session, name):
+        """Place a just-captured static sample (runs in a thread)."""
+        with self.lock:
+            geo = self._display_geo
+        if not geo:
+            return
+        located = self._locate_static(session, name, geo[3])
+        with self.lock:
+            if session == self.session_dir and geo[0] == self._display_key:
+                self.display["statics"][name] = located
+                self.display["version"] += 1
+
+    def _invalidate_display(self):
+        """Samples changed on disk (lock held): rebuild the 3D placement on the next status."""
+        self._display_key = None
+
+    def _live_position(self):
+        """Drone position from the latest snapshot (lock held), for the 3D view."""
+        if self.live_records is None or time.monotonic() - self.live_at > 1.0 or not self._display_geo:
             return None
-        return located
+        try:
+            return self._locate({r["base_station_id"]: r["angles"] for r in self.live_records}, self._display_geo[3])
+        except Exception:  # a bad snapshot must never break the status reply
+            return None
 
     # -------------------------------------------------------------- simulation
 
@@ -534,6 +674,7 @@ class CaptureManager:
             self.session_dir, self.sweep_count, self.last_result = "", 0, None
             self.solve = self._idle_solve()
             self.solve_version += 1
+            self._invalidate_display()
 
     def _sim_files(self, prefix):
         return sorted((n[:-5] for n in os.listdir(self.sim["source"]) if n.startswith(prefix) and n.endswith(".json")),
@@ -675,6 +816,8 @@ class CaptureManager:
             json.dump(cap["records"], stream, indent=1)
         if kind == "sweep":
             self.sweep_count = self._count_sweep()
+        else:  # show it in 3D right away, with the best geometry available
+            threading.Thread(target=self._display_static, args=(self.session_dir, name), daemon=True).start()
         message = f"OK: {message} -> {name}.json"
         if kind == "sweep" and plausible < 0.5 * complete:
             message += (" — WARNING: most snapshots are physically impossible for the sensor board;"
@@ -726,6 +869,8 @@ class CaptureManager:
             reconvert = self.config.get("reconvert") or ""
             if reconvert not in ("", "period", "factory"):
                 raise ValueError("reconvert must be period, factory or empty")
+            if self._preview_proc is not None and self._preview_proc.poll() is None:
+                self._preview_proc.terminate()  # an estimate from part of the data is no longer needed
             self._write_manifest()
             preview = self.solve.get("preview")  # keep showing it until the final solve lands
             self.solve = self._idle_solve()
@@ -878,7 +1023,7 @@ class CaptureManager:
 
     # ------------------------------------------------------------------ status
 
-    def status(self, factory_ids, since_version=None):
+    def status(self, factory_ids, since_version=None, display_since=None):
         finished = None
         with self.lock:
             now = time.monotonic()
@@ -893,6 +1038,7 @@ class CaptureManager:
             ready, missing = self._ready()
             primary = self._primary_variant()
             geometry_ids = {p["id"] for p in primary["poses"]} if primary else set()
+            self._refresh_display()
             simulating = self.sim is not None  # the virtual drone always "sees" both stations
             stations = [{"id": bs, "receiving": simulating or now - self.bs_last.get(bs, -1e9) < 1.0,
                          "calibration": str(bs) in factory_ids, "geometry": bs in geometry_ids}
@@ -925,6 +1071,11 @@ class CaptureManager:
                 "last_result": self.last_result,
                 "solve_version": self.solve_version,
                 "live": self._live_position(),
+                # Placed samples, only when changed since the page's copy (it can be thousands of points).
+                "display": None if display_since == self.display["version"] else {
+                    "version": self.display["version"], "source": self.display["source"],
+                    "label": self.display["label"], "statics": list(self.display["statics"].values()),
+                    "cloud": list(self.display["cloud"])},
                 "solve": solve,
             }
 
@@ -1124,8 +1275,9 @@ def make_handler(state, capture):
             except (ValueError, OSError) as error:
                 self._json({"error": str(error)}, 400)
                 return
-            since = arg("since")
-            self._json(capture.status(set(load_factory_calibration()), int(since) if since.isdigit() else None))
+            since, dsince = arg("since"), arg("dsince")
+            self._json(capture.status(set(load_factory_calibration()), int(since) if since.isdigit() else None,
+                                      int(dsince) if dsince.isdigit() else None))
 
         def do_POST(self):
             request = urlsplit(self.path)
