@@ -1,10 +1,10 @@
-# LH2 Studio — desktop app (Electron)
+# LightHouse Studio — desktop app (Electron)
 
 One Windows program for the base-station editor, the auto-calibration wizard, the simulation and
 the drone tracking. No browser, no `avvia.bat`, no Python install on the PC.
 
 ```
-LH2 Studio.exe  (Electron)
+LightHouse Studio.exe  (Electron)
  ├─ window: bs_pose_editor.html, served from the app (app://), three.js included — works offline
  └─ backend: utils/user_interface/display_real_time_windows.py (the same bridge as the browser
              bundle), run by an embedded Python 3.11 with numpy / scipy / pymavlink; started on a
@@ -19,7 +19,7 @@ Where things go in the installed app:
 | What | Where |
 |---|---|
 | Calibration sessions (`calib_runs`) | `Documents\LH2\calib_runs` (the reference run is copied there on first start) |
-| Backend log | `%APPDATA%\LH2 Studio\logs\backend.log` — Help → Backend log |
+| Backend log | `%APPDATA%\LightHouse Studio\logs\backend.log` — Help → Backend log |
 | Firmware UF2s / headers | File → Open firmware folder |
 
 The app refuses a second copy of itself, and on Windows the bridge opens UDP 14550 exclusively: if
@@ -57,13 +57,16 @@ Each build:
 3. `electron-builder` packages everything (`dist/win-unpacked`, zip, installer).
 
 The executable is not code-signed: Windows SmartScreen warns on the first start ("More info → Run
-anyway"). The icon is Electron's default until an `.ico` is added.
+anyway"). Icon: `assets/LB.ico` (window, installer; embedded in the `.exe` only by builds made on
+Windows, where `rcedit` runs). Start-up screen: `ui/splash.html` with `assets/valve.png` + `assets/LB.png`.
+
+Made by Davide Lentini & Eduardo Gonzalez.
 
 ## Checking a build on Windows
 
 ```bat
 "dist\win-unpacked\resources\python\python.exe" -c "import numpy, scipy, yaml, serial, pymavlink; print('ok')"
-"dist\win-unpacked\LH2 Studio.exe"
+"dist\win-unpacked\LightHouse Studio.exe"
 ```
 
 If the window stays on the error page, Help → Backend log shows the Python output.

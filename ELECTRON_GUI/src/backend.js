@@ -1,4 +1,4 @@
-// Python backend of LH2 Studio: the same bridge the browser editor uses
+// Python backend of LightHouse Studio: the same bridge the browser editor uses
 // (utils/user_interface/display_real_time_windows.py), started and stopped by the app.
 //
 //  - packaged app: resources/python/python.exe (embedded Python) + resources/backend/utils/...
@@ -51,7 +51,7 @@ async function startBackend({ packaged, resourcesPath, runsDir, logFile, timeout
   const port = await freePort();
   fs.mkdirSync(path.dirname(logFile), { recursive: true });
   const log = fs.createWriteStream(logFile, { flags: 'w' });
-  log.write(`[LH2 Studio] ${new Date().toISOString()} starting ${source} backend\n  ${python} ${bridge} --http-port ${port}\n  sessions: ${runsDir}\n\n`);
+  log.write(`[LightHouse Studio] ${new Date().toISOString()} starting ${source} backend\n  ${python} ${bridge} --http-port ${port}\n  sessions: ${runsDir}\n\n`);
 
   const pythonArgs = python === 'py' ? ['-3', bridge] : [bridge];
   const udp = process.env.LH2_UDP_PORT ? ['--udp-port', process.env.LH2_UDP_PORT] : [];  // tests: keep off 14550
@@ -78,7 +78,7 @@ async function startBackend({ packaged, resourcesPath, runsDir, logFile, timeout
     child.stderr.on('data', onData);
     child.on('error', error => finish(reject, new Error(`could not start Python (${python}): ${error.message}`)));
     child.on('exit', code => {
-      log.write(`\n[LH2 Studio] backend exited with code ${code}\n`);
+      log.write(`\n[LightHouse Studio] backend exited with code ${code}\n`);
       finish(reject, new Error(`the backend stopped (code ${code}) before it was ready:\n${tail.slice(-1500)}`));
     });
     const timer = setTimeout(() => finish(reject, new Error(`the backend did not start within ${timeoutMs / 1000} s:\n${tail.slice(-1500)}`)), timeoutMs);

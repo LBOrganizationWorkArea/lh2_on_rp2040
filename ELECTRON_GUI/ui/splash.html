@@ -1,0 +1,58 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>LightHouse Studio</title>
+<style>
+  :root { color-scheme: dark; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: radial-gradient(ellipse at 50% 35%, #232a33 0%, #161a1f 55%, #111316 100%);
+    color: #ddd; font: 15px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+  }
+  .card { width: min(720px, 92vw); text-align: center; }
+  .logos { display: flex; align-items: center; justify-content: center; gap: 28px; margin-bottom: 30px; }
+  .logos .valve { height: 78px; width: auto; border-radius: 6px; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+  .logos .lb { width: 78px; height: 78px; padding: 6px; box-sizing: border-box; border-radius: 14px;
+    background: #f1efe8; box-shadow: 0 6px 24px rgba(0,0,0,.45); }
+  h1 { margin: 0; font-size: 46px; font-weight: 700; letter-spacing: .5px; color: #fff; }
+  h1 span { color: #ffcc22; }
+  .sub { margin-top: 8px; color: #8a96a3; font-size: 15px; }
+  .loading { margin: 44px auto 0; width: min(440px, 80vw); }
+  .bar { height: 4px; border-radius: 2px; background: #2a3038; overflow: hidden; position: relative; }
+  .bar::after { content: ''; position: absolute; left: -40%; width: 40%; height: 100%; border-radius: 2px;
+    background: linear-gradient(90deg, transparent, #ffcc22, transparent); animation: slide 1.4s ease-in-out infinite; }
+  @keyframes slide { to { left: 100%; } }
+  .status { margin-top: 12px; font-size: 14px; color: #cfd6de; }
+  .status #t { color: #8a96a3; margin-left: 6px; font-variant-numeric: tabular-nums; }
+  .line { margin-top: 6px; min-height: 18px; font: 12px ui-monospace, Consolas, monospace; color: #6f7b88;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hint { margin-top: 4px; font-size: 12px; color: #6f7b88; }
+  footer { position: fixed; bottom: 22px; left: 0; right: 0; text-align: center; color: #7d8792; font-size: 13px; }
+  footer b { color: #c9d1d9; font-weight: 600; }
+  .version { position: fixed; bottom: 22px; right: 26px; color: #4f5862; font-size: 12px; }
+</style>
+<div class="card">
+  <div class="logos">
+    <img class="valve" src="assets/valve.png" alt="Valve">
+    <img class="lb" src="assets/LB.png" alt="LB">
+  </div>
+  <h1>Light<span>House</span> Studio</h1>
+  <div class="sub">Lighthouse 2 positioning · base-station calibration · drone tracking</div>
+  <div class="loading">
+    <div class="bar"></div>
+    <div class="status"><span id="status">Starting the backend…</span><span id="t"></span></div>
+    <div class="line" id="line"></div>
+    <div class="hint">The first start can take a minute while Windows checks the new files.</div>
+  </div>
+</div>
+<footer>Made by <b>Davide Lentini</b> &amp; <b>Eduardo Gonzalez</b></footer>
+<div class="version" id="version"></div>
+<script>
+  // main.js fills these while the backend starts: status text, elapsed seconds, latest backend line.
+  window.splash = (status, seconds, line) => {
+    if (status) document.getElementById('status').textContent = status;
+    document.getElementById('t').textContent = seconds != null ? `${seconds} s` : '';
+    document.getElementById('line').textContent = line || '';
+  };
+  document.getElementById('version').textContent = new URLSearchParams(location.search).get('v') || '';
+</script>

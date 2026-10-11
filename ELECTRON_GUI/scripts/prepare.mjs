@@ -49,7 +49,10 @@ for (const file of THREE_FILES) copy(path.join(THREE, file), path.join(APP, 'ven
 for (const sub of ['source/lh_basestation_valve_gen2.obj', 'textures/lh_basestation_valve_gen2.png']) {
   copy(path.join(REPO, MODEL, sub), path.join(APP, MODEL, sub));
 }
-console.log(`app/ ready: editor + three.js ${version} (local) + base-station model`);
+// Start-up screen and logos (ELECTRON_GUI/ui, ELECTRON_GUI/assets).
+copy(path.join(ROOT, 'ui', 'splash.html'), path.join(APP, 'splash.html'));
+for (const name of fs.readdirSync(path.join(ROOT, 'assets'))) copy(path.join(ROOT, 'assets', name), path.join(APP, 'assets', name));
+console.log(`app/ ready: editor + start-up screen + three.js ${version} (local) + base-station model`);
 
 if (process.argv.includes('--backend')) {
   // Same file set as the Windows bundle (utils/make_windows_bundle.py FILES): bridge, Bitcraze

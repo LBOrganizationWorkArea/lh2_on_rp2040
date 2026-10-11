@@ -1,4 +1,4 @@
-// LH2 Studio — Electron main process.
+// LightHouse Studio — Electron main process.
 // Starts the Python backend (bridge), then shows bs_pose_editor.html from app/ through the
 // privileged app:// scheme (ES modules, fetch and localStorage work as on http).
 'use strict';
@@ -68,9 +68,9 @@ function buildMenu() {
         { label: 'Restart backend', click: () => restartBackend() },
         { role: 'toggleDevTools' },
         { type: 'separator' },
-        { label: 'About LH2 Studio', click: () => dialog.showMessageBox(win, {
-          type: 'info', title: 'LH2 Studio',
-          message: `LH2 Studio ${app.getVersion()}`,
+        { label: 'About LightHouse Studio', click: () => dialog.showMessageBox(win, {
+          type: 'info', title: 'LightHouse Studio',
+          message: `LightHouse Studio ${app.getVersion()}`,
           detail: `Electron ${process.versions.electron} · backend: ${backend ? `${backend.source}, ${backend.url}` : 'not running'}\n` +
                   `Sessions: ${runsDir()}\nLog: ${logFile()}`,
         }) },
@@ -81,16 +81,14 @@ function buildMenu() {
 }
 
 async function launch() {
-  await win.loadURL(page('LH2 Studio', `<div class="spin"></div><h1>LH2 Studio</h1>Starting the backend (Python, solver)… <span id="t"></span>
-    <p style="color:#888;font-size:13px">The first start can take a minute while Windows checks the new files.</p>
-    <pre id="line" style="color:#9ab"></pre>`));
+  await win.loadURL(`app://lh2/splash.html?v=${encodeURIComponent('v' + app.getVersion())}`);  // ui/splash.html
   const started = Date.now();
-  let lastLine = '';
+  let lastLine = '', status = 'Starting the backend…';
   const show = (line = lastLine) => {
     lastLine = line;
     if (!win || win.isDestroyed()) return;
-    win.webContents.executeJavaScript(`(() => { const l = document.getElementById('line'), t = document.getElementById('t');
-      if (l) l.textContent = ${JSON.stringify(line.slice(0, 300))}; if (t) t.textContent = '${Math.round((Date.now() - started) / 1000)} s'; })()`).catch(() => {});
+    const args = [status, Math.round((Date.now() - started) / 1000), line.slice(0, 300)].map(v => JSON.stringify(v)).join(',');
+    win.webContents.executeJavaScript(`window.splash && window.splash(${args})`).catch(() => {});
   };
   const ticker = setInterval(() => show(), 1000);  // the elapsed time keeps moving between log lines
   try {
@@ -99,12 +97,13 @@ async function launch() {
                                    runsDir: runsDir(), logFile: logFile(), onLine: show });
     backend.process.on('exit', code => {
       if (!app.isQuitting && win && !win.isDestroyed()) {
-        dialog.showMessageBox(win, { type: 'error', title: 'LH2 Studio',
+        dialog.showMessageBox(win, { type: 'error', title: 'LightHouse Studio',
           message: `The backend stopped (code ${code}).`, detail: `Help → Restart backend, or see ${logFile()}` });
       }
     });
     // Check the backend answers before showing the editor (the log explains it if not).
-    show('backend ready, checking it answers…');
+    status = 'Backend ready — opening the editor…';
+    show('');
     const probe = await net.fetch(`${backend.url}/api/lh2/status`, { method: 'POST', signal: AbortSignal.timeout(30000) });
     if (!probe.ok) throw new Error(`the backend answered ${probe.status} to the first status request`);
     await probe.json();
@@ -115,9 +114,9 @@ async function launch() {
     const esc = s => String(s).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
     let tail = '';
     try { tail = fs.readFileSync(logFile(), 'utf8').slice(-3000); } catch (_e) { /* no log yet */ }
-    win.loadURL(page('LH2 Studio — error', `<h1>The backend could not start</h1>${esc(error.message.split('\n')[0])}
+    win.loadURL(page('LightHouse Studio — error', `<h1>The backend could not start</h1>${esc(error.message.split('\n')[0])}
       <pre>${esc(error.message.split('\n').slice(1).join('\n'))}</pre>Backend log (${esc(logFile())}):<pre>${esc(tail)}</pre>
-      Help → Restart backend to try again.`));
+      Help → Restart backend to try again.<br><br><span style="color:#7d8792">LightHouse Studio — made by Davide Lentini &amp; Eduardo Gonzalez</span>`));
   }
 }
 
@@ -153,7 +152,7 @@ if (!app.requestSingleInstanceLock()) {
     buildMenu();
     win = new BrowserWindow({
       width: 1500, height: 920, minWidth: 900, minHeight: 600, backgroundColor: '#181818',
-      title: 'LH2 Studio', show: true,
+      title: 'LightHouse Studio', show: true, icon: path.join(APP_DIR, 'assets', 'LB.ico'),
       webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
     });
     // Links to the outside world open in the normal browser, never inside the app.
