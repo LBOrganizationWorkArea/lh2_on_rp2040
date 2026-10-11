@@ -161,11 +161,16 @@ firmware\\             UF2 attuali + bs_poses_cal.h / lh2_factory_cal.h compilat
 
 def _commit() -> str:
     try:
-        out = subprocess.run(["git", "-C", str(REPO), "describe", "--always", "--dirty"],
+        out = subprocess.run(["git", "-C", str(REPO), "describe", "--always"],
                              capture_output=True, text=True, check=True)
         branch = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--abbrev-ref", "HEAD"],
                                 capture_output=True, text=True, check=True)
-        return f"{branch.stdout.strip()} @ {out.stdout.strip()}"
+        # The bundle itself is tracked in git, so rebuilding it must not count as a local change.
+        changes = subprocess.run(["git", "-C", str(REPO), "status", "--porcelain", "--", ".",
+                                  ":!lh2_windows_bundle", ":!lh2_windows_bundle.zip"],
+                                 capture_output=True, text=True, check=True)
+        dirty = "-dirty" if changes.stdout.strip() else ""
+        return f"{branch.stdout.strip()} @ {out.stdout.strip()}{dirty}"
     except (OSError, subprocess.CalledProcessError):
         return "unknown commit"
 
