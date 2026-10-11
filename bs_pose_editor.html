@@ -149,11 +149,16 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 .cal-dot.good { background: #4fcf6f; box-shadow: 0 0 6px #4fcf6f; } .cal-dot.warn { background: #e8b84a; } .cal-dot.bad { background: #e05252; }
 #cal-linktext { flex: 1; }
 #sec-calib .cal-link-btn { background: transparent; border-color: #444; color: #bbb; padding: 3px 8px; font-size: 12px; }
-#cal-stations { display: flex; flex-direction: column; gap: 4px; }
-.cal-bs { display: flex; align-items: center; gap: 6px; font-size: 12px; }
-.cal-bs b { width: 34px; color: #fff; font-weight: 600; }
-.cal-pill { padding: 2px 8px; border-radius: 10px; background: #2e2e2e; color: #8a8a8a; font-size: 11.5px; white-space: nowrap; }
-.cal-pill.on { background: #1f4a2c; color: #8fe0a5; }
+/* Base station status grid, as in the Crazyflie client */
+.cal-bshead { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #ddd; font-weight: 600; margin-top: 2px; }
+.cal-info { width: 16px; height: 16px; border-radius: 50%; background: #2f8ee0; color: #fff; font-size: 11px; font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center; cursor: help; font-style: normal; }
+#cal-stations { align-self: flex-start; background: #1c1c1c; border: 1px solid #3a3a3a; border-radius: 4px; padding: 6px 8px; }
+#cal-bsgrid { border-collapse: separate; border-spacing: 3px; font-size: 12.5px; color: #ccc; }
+#cal-bsgrid th { font-weight: normal; color: #ddd; text-align: center; padding: 0 2px; }
+#cal-bsgrid td.rl { padding-right: 8px; text-align: left; }
+#cal-bsgrid td.c { width: 30px; height: 20px; border-radius: 2px; background: #f2a7a7; border: 1px solid #b36b6b; }
+#cal-bsgrid td.c.on { background: #8fdc8f; border-color: #4f9a4f; }
 /* wizard */
 .cal-wizard { border: 2px solid #2f8ee0 !important; border-radius: 10px !important; }
 #cal-tiles { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; position: relative; }
@@ -380,7 +385,9 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
         <span id="cal-linktext">Checking the bridge…</span>
         <button id="cal-conn-edit" class="cal-link-btn" title="The connection is set in the Drone tab">Drone tab ›</button>
       </div>
-      <div id="cal-stations"></div>
+      <div class="cal-bshead">Base station status
+        <i class="cal-info" title="Receiving: the station sees all four sensors of the drone right now.&#10;Calibration: its factory calibration (OOTX) is known (lh2_factory_calibration.json).&#10;Geometry: its position has been calculated in this session.">i</i></div>
+      <div id="cal-stations"><table id="cal-bsgrid"></table></div>
     </div>
 
     <div class="bs-card cal-wizard">
@@ -1383,6 +1390,9 @@ const CAL_STEPS = [
   { kind: 'sweep',    short: 'Volume',  title: 'Move through the room', color: 0x9a9a9a },
   { kind: 'verify',   short: 'Check',   title: 'Check the accuracy',   color: 0xffcc44 },
 ];
+// Station index in the firmware -> the name used in the lab (poly 8/9 -> BS4, poly 20/21 -> BS10).
+const CAL_BS_NAMES = ['BS4', 'BS10'];
+const calBsName = id => CAL_BS_NAMES[id] || `BS${id}`;
 const CAL_KIND_COLOR = Object.fromEntries(CAL_STEPS.map(s => [s.kind, s.color]));
 let calStep = 0, calStatus = null, calSolve = null, calSolveVersion = -1, calResultKey = '', calBridgeError = '';
 let calSimMode = false, calRunsCache = [];
@@ -1484,11 +1494,11 @@ function calRender() {
     : !live ? `No data from the drone (${document.getElementById('track-host').value.trim() || 'no IP set'})`
     : 'Drone connected' + (s.quality != null ? ` · ${s.quality.toFixed(0)}% good readings` : '');
   const st = (s && s.stations) || [0, 1].map(id => ({ id }));
-  const pill = (on, txt, tip) => `<span class="cal-pill${on ? ' on' : ''}" title="${tip}">${on ? '✓' : '·'} ${txt}</span>`;
-  calEl('cal-stations').innerHTML = st.map(b => `<div class="cal-bs"><b>BS${b.id}</b>` +
-    pill(b.receiving, 'sees drone', 'All four sensors seen by this station in the last second') +
-    pill(b.calibration, 'factory data', 'Factory calibration (OOTX) decoded in lh2_factory_calibration.json') +
-    pill(b.geometry, 'position found', 'Position solved in this session') + '</div>').join('');
+  const cell = (on, tip) => `<td class="c${on ? ' on' : ''}" title="${tip}: ${on ? 'yes' : 'no'}"></td>`;
+  const grid = `<tr><th></th>${st.map(b => `<th title="BS index ${b.id}">${calBsName(b.id).replace('BS', '')}</th>`).join('')}</tr>` +
+    [['Receiving', 'receiving'], ['Calibration', 'calibration'], ['Geometry', 'geometry']].map(([label, key]) =>
+      `<tr><td class="rl">${label}</td>${st.map(b => cell(b[key], `${calBsName(b.id)} ${label.toLowerCase()}`)).join('')}</tr>`).join('');
+  if (calEl('cal-bsgrid').innerHTML !== grid) calEl('cal-bsgrid').innerHTML = grid;
 
   // Stepper
   calEl('cal-tiles').innerHTML = CAL_STEPS.map((t, i) => {
@@ -1531,7 +1541,7 @@ function calRender() {
       : (sm && sm[step.kind] ? '↻ Measure again' : '▶ Start');
     bar.style.display = 'none';
     if (s && s.last_result) feedback = calFeedbackText(s.last_result, s);
-    else if (s && live && st.some(b => !b.receiving)) feedback = ['warn', `⚠ ${st.filter(b => !b.receiving).map(b => 'BS' + b.id).join(' and ')} can't see the drone's sensors right now.`];
+    else if (s && live && st.some(b => !b.receiving)) feedback = ['warn', `⚠ ${st.filter(b => !b.receiving).map(b => calBsName(b.id)).join(' and ')} can't see the drone's sensors right now.`];
   }
   if (calBridgeError) feedback = ['bad', calBridgeError];
   fb.className = feedback ? feedback[0] : '';
@@ -1604,9 +1614,9 @@ function calVariantHtml(v, i) {
   if (v.ok) v.poses.forEach(p => {
     const accel = calFactory[p.id] && calFactory[p.id].accel_tilt_deg;
     const d = accel != null ? p.tilt - accel : null;
-    row(`BS${p.id} tilt`, `${p.tilt.toFixed(2)}°${sd(`bs${p.id}_tilt_deg`, 0, 2)}` +
+    row(`${calBsName(p.id)} tilt`, `${p.tilt.toFixed(2)}°${sd(`bs${p.id}_tilt_deg`, 0, 2)}` +
       (accel != null ? ` (accel ${accel.toFixed(1)}°, Δ ${d >= 0 ? '+' : ''}${d.toFixed(2)}°)` : ''), calGrade(d, 1, 3));
-    row(`BS${p.id} pos`, p.pos.map(c => (c >= 0 ? '+' : '') + c.toFixed(3)).join(' ') + ' m');
+    row(`${calBsName(p.id)} pos`, p.pos.map(c => (c >= 0 ? '+' : '') + c.toFixed(3)).join(' ') + ' m');
     row('', `Inc ${p.tilt.toFixed(1)}°  Dir ${p.dir.toFixed(1)}°  Roll ${p.roll.toFixed(1)}°`);
   });
   return `<div class="cal-variant"><div class="vname">${calEsc(v.name)}${v.ok ? '' : ' — solver failed, see log'}</div>` +
@@ -1690,7 +1700,7 @@ function calDraw3d() {
     m.position.copy(at); add(m);
     add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([at, tv(p.position[0] + c0[0] * 0.8, p.position[1] + c0[1] * 0.8, p.position[2] + c0[2] * 0.8)]),
       new THREE.LineBasicMaterial({ color: 0xff55ff })));
-    label(`BS${p.id} solved`, tv(p.position[0], p.position[1], p.position[2] - 0.18), '#ff77ff');
+    label(`${calBsName(p.id)} solved`, tv(p.position[0], p.position[1], p.position[2] - 0.18), '#ff77ff');
   });
 }
 calEl('cal-show3d').addEventListener('change', calDraw3d);
@@ -1831,9 +1841,9 @@ function calRenderQuality(sv) {
     const row = (label, value, grade) => { grades.push(grade);
       rows.push(`<tr><td>${label}</td><td>${value}</td><td class="st ${grade}">${calMark(grade)}</td></tr>`); };
     const st = Object.entries(r.stations);
-    row('Station position spread', st.map(([b, v]) => `BS${b} ${v.position_spread_mm.toFixed(1)} mm`).join(' · '),
+    row('Station position spread', st.map(([b, v]) => `${calBsName(+b)} ${v.position_spread_mm.toFixed(1)} mm`).join(' · '),
       calGrade(Math.max(...st.map(([, v]) => v.position_spread_mm)), 10, 30));
-    row('Station tilt spread', st.map(([b, v]) => `BS${b} ±${v.tilt_deg.std.toFixed(2)}°`).join(' · '),
+    row('Station tilt spread', st.map(([b, v]) => `${calBsName(+b)} ±${v.tilt_deg.std.toFixed(2)}°`).join(' · '),
       calGrade(Math.max(...st.map(([, v]) => v.tilt_deg.std)), 0.2, 0.5));
     row('Baseline BS0–BS1', `${r.baseline_m.mean.toFixed(3)} m ± ${(r.baseline_m.std * 1000).toFixed(1)} mm`,
       calGrade(r.baseline_m.std * 1000, 5, 15));
@@ -1896,7 +1906,7 @@ async function calLoadRuns() {
     calEl('cal-factory').textContent = ids.length ? ids.map(id => {
       const f = calFactory[id];
       const planes = f.planes.map((p, k) => `  plane${k}: phase ${p.phase.toFixed(3)}°  tilt ${p.tilt.toFixed(2)}°  gib ${p.gibmag.toFixed(2)}°`).join('\n');
-      return `BS${id}  uid ${f.uid}  polys ${(f.polynomials || []).join('/')}  accel tilt ${f.accel_tilt_deg != null ? f.accel_tilt_deg.toFixed(1) + '°' : '—'}\n${planes}`;
+      return `${calBsName(+id)}  uid ${f.uid}  polys ${(f.polynomials || []).join('/')}  accel tilt ${f.accel_tilt_deg != null ? f.accel_tilt_deg.toFixed(1) + '°' : '—'}\n${planes}`;
     }).join('\n') : 'lh2_factory_calibration.json not found — run lh2_ootx.py.';
     calVariantsKey = '';
     if (calSolve) calRenderSolve(calSolve);
