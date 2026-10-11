@@ -43,13 +43,19 @@ import argparse
 import itertools
 import json
 import math
+import os
 import sys
 from pathlib import Path
 from typing import Optional
 
-import numpy as np
-import scipy.sparse
-from scipy.spatial.transform import Rotation
+# One BLAS thread: the matrices here are small, so threading only adds overhead (the solve is
+# ~2x faster single-threaded) and several solves at once (previews, quality check) would fight.
+for _var in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+    os.environ.setdefault(_var, "1")
+
+import numpy as np  # noqa: E402
+import scipy.sparse  # noqa: E402
+from scipy.spatial.transform import Rotation  # noqa: E402
 
 # Repository root on sys.path so the relative imports inside calibration_lib
 # (`from ...angle_lib import ...`) resolve to utils/angle_lib.
