@@ -900,7 +900,8 @@ trackConnectButton.addEventListener('click', () => {
   try {
     if (mode === 'udp') {
       const api = new URL(document.getElementById('relay-url').value.trim());
-      if (api.protocol !== 'http:' && api.protocol !== 'https:')
+      // app: is the desktop app's own origin, which forwards /api/* to its backend.
+      if (!['http:', 'https:', 'app:'].includes(api.protocol))
         throw new Error('L’API locale deve usare http:// o https://');
       if (host) api.searchParams.set('host', host);
       else api.searchParams.delete('host');
