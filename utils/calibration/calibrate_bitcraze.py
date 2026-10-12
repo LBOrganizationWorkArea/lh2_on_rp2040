@@ -72,6 +72,14 @@ from utils.calibration.calibration_lib.lighthouse_sample_matcher import Lighthou
 from utils.calibration.calibration_lib.lighthouse_system_aligner import LighthouseSystemAligner  # noqa: E402
 from utils.calibration.calibration_lib.lighthouse_system_scaler import LighthouseSystemScaler  # noqa: E402
 
+# Firmware base-station index -> physical station (rp2350_firmware angle_decoder.h).
+STATION_NAMES = {0: "BS4", 1: "BS10", 2: "BS0", 3: "BS1"}
+
+
+def station_name(bs_id: int) -> str:
+    return f"{STATION_NAMES.get(bs_id, f'#{bs_id}')} (index {bs_id})"
+
+
 # Planarity tolerance for the wand: IPPE is a *planar* pose estimator.
 PLANARITY_TOL_M = 0.002
 
@@ -215,27 +223,34 @@ def _rereference(bs_poses: dict[int, Pose], cf_poses: list[Pose]) -> LhBsCfPoses
 
 def triangulate_sensors(sample: LhCfPoseSample, bs_poses: dict[int, Pose],
                         n_sensors: int) -> Optional[np.ndarray]:
-    """World position of each sensor: midpoint of closest approach of its BS0 and BS1 rays.
+    """World position of each sensor from every solved station that saw the sample.
 
-    Returns an (n_sensors, 3) array, or None if the rays are degenerate."""
+    Each station gives a ray per sensor; the sensor is the least-squares closest point to
+    the rays (for two stations: the midpoint of closest approach). The firmware solver
+    (rp2350_firmware solve3d.c) does the same. Returns an (n_sensors, 3) array, or None
+    with fewer than two stations, (nearly) parallel rays, or a point behind a station.
+    """
+    stations = [bs_id for bs_id in sorted(sample.angles_calibrated) if bs_id in bs_poses]
+    if len(stations) < 2:
+        return None
     points = []
     for sensor in range(n_sensors):
-        origins, directions = [], []
-        for bs_id in (0, 1):
+        a, b = np.zeros((3, 3)), np.zeros(3)
+        rays = []
+        for bs_id in stations:
             pose = bs_poses[bs_id]
-            origins.append(pose.translation)
-            directions.append(pose.rot_matrix @ sample.angles_calibrated[bs_id][sensor].cart)
-        d0, d1 = directions
-        cross = float(np.dot(d0, d1))
-        denominator = 1.0 - cross * cross
-        if denominator < 1e-6:
+            direction = pose.rot_matrix @ sample.angles_calibrated[bs_id][sensor].cart
+            direction = direction / np.linalg.norm(direction)
+            projector = np.eye(3) - np.outer(direction, direction)
+            a += projector
+            b += projector @ pose.translation
+            rays.append((pose.translation, direction))
+        if abs(np.linalg.det(a)) < 1e-9:
             return None
-        delta = origins[0] - origins[1]
-        s0 = (cross * np.dot(d1, delta) - np.dot(d0, delta)) / denominator
-        s1 = (np.dot(d1, delta) - cross * np.dot(d0, delta)) / denominator
-        if s0 <= 0.0 or s1 <= 0.0:
+        point = np.linalg.solve(a, b)
+        if any(np.dot(point - origin, direction) <= 0.0 for origin, direction in rays):
             return None
-        points.append(0.5 * (origins[0] + s0 * d0 + origins[1] + s1 * d1))
+        points.append(point)
     return np.asarray(points)
 
 
@@ -394,15 +409,18 @@ def bitcraze_frame(solution, n_x: int, n_xy: int, x_axis_dist: Optional[float]):
 # Uncertainty
 # --------------------------------------------------------------------------- #
 
-def _frame_quantities(params: np.ndarray, n_ref: int) -> dict[str, np.ndarray]:
+def _frame_quantities(params: np.ndarray, n_ref: int, station_ids: list[int]) -> dict[str, np.ndarray]:
     """Frame-independent results from the station + reference-capture parameters.
 
-    params: [BS0 (rotvec, t), BS1 (rotvec, t), ref 1 .. n_ref-1 (rotvec, t)];
-    reference 0 (origin) is the solver gauge, i.e. the identity pose.
-    Lengths are in sensor-spacing units (metres if --sensor-positions is right).
+    params: [station 0 .. n_bs-1 (rotvec, t), ref 1 .. n_ref-1 (rotvec, t)], stations in the
+    solver's order (station_ids = solution.bs_index_to_id); reference 0 (origin) is the solver
+    gauge, i.e. the identity pose. The baseline is between ids 0 and 1 when solved, else the
+    first two. Lengths are in sensor-spacing units (metres if --sensor-positions is right).
     """
-    stations = [Pose.from_rot_vec(R_vec=params[i * 6:i * 6 + 3], t_vec=params[i * 6 + 3:i * 6 + 6]) for i in (0, 1)]
-    centres = np.vstack([np.zeros(3)] + [params[12 + k * 6 + 3:12 + k * 6 + 6] for k in range(n_ref - 1)])
+    n_bs = len(station_ids)
+    stations = [Pose.from_rot_vec(R_vec=params[i * 6:i * 6 + 3], t_vec=params[i * 6 + 3:i * 6 + 6]) for i in range(n_bs)]
+    base = 6 * n_bs
+    centres = np.vstack([np.zeros(3)] + [params[base + k * 6 + 3:base + k * 6 + 6] for k in range(n_ref - 1)])
     origin, mark = centres[0], centres[1]
     # Capture plane: best fit through all reference centres, normal toward the stations.
     normal = np.linalg.svd(centres - centres.mean(axis=0))[2][2]
@@ -412,14 +430,15 @@ def _frame_quantities(params: np.ndarray, n_ref: int) -> dict[str, np.ndarray]:
     x_axis /= np.linalg.norm(x_axis)
     to_world = np.vstack((x_axis, np.cross(normal, x_axis), normal))
     mark_dist = np.linalg.norm(mark - origin)
+    first, second = ((station_ids.index(0), station_ids.index(1)) if {0, 1} <= set(station_ids) else (0, 1))
     out = {
         "mark_dist": np.array([mark_dist]),
-        "baseline": np.array([np.linalg.norm(stations[1].translation - stations[0].translation)]),
+        "baseline": np.array([np.linalg.norm(stations[second].translation - stations[first].translation)]),
     }
     for i, pose in enumerate(stations):
         boresight = pose.rot_matrix[:, 0]
-        out[f"bs{i}_pos"] = to_world @ (pose.translation - origin)
-        out[f"bs{i}_tilt_deg"] = np.array([math.degrees(math.acos(np.clip(-np.dot(boresight, normal), -1, 1)))])
+        out[f"bs{station_ids[i]}_pos"] = to_world @ (pose.translation - origin)
+        out[f"bs{station_ids[i]}_tilt_deg"] = np.array([math.degrees(math.acos(np.clip(-np.dot(boresight, normal), -1, 1)))])
     return out
 
 
@@ -439,7 +458,8 @@ def estimate_uncertainty(solution, n_ref: int) -> dict[str, tuple[np.ndarray, np
     n_params = solution.params.size
     sigma2 = float(residuals @ residuals) / max(residuals.size - n_params, 1)
 
-    kept = np.arange(12 + 6 * (n_ref - 1))
+    station_ids = [solution.bs_index_to_id[i] for i in range(solution.n_bss)]
+    kept = np.arange(6 * solution.n_bss + 6 * (n_ref - 1))
     hessian = (jac.T @ jac).tocsc()
     h_kept_rows = hessian[:kept.size, :].toarray()
     schur = h_kept_rows[:, :kept.size].copy()
@@ -450,15 +470,15 @@ def estimate_uncertainty(solution, n_ref: int) -> dict[str, tuple[np.ndarray, np
     covariance = sigma2 * np.linalg.pinv(schur)
 
     base = solution.params[kept]
-    nominal = _frame_quantities(base, n_ref)
+    nominal = _frame_quantities(base, n_ref, station_ids)
     flat = np.concatenate(list(nominal.values()))
     gradient = np.zeros((flat.size, kept.size))
     step = 1e-6
     for k in range(kept.size):
         delta = np.zeros(kept.size)
         delta[k] = step
-        plus = np.concatenate(list(_frame_quantities(base + delta, n_ref).values()))
-        minus = np.concatenate(list(_frame_quantities(base - delta, n_ref).values()))
+        plus = np.concatenate(list(_frame_quantities(base + delta, n_ref, station_ids).values()))
+        minus = np.concatenate(list(_frame_quantities(base - delta, n_ref, station_ids).values()))
         gradient[:, k] = (plus - minus) / (2 * step)
     derived_cov = gradient @ covariance @ gradient.T
     derived_std = np.sqrt(np.clip(np.diag(derived_cov), 0, None))
@@ -481,13 +501,13 @@ def print_uncertainty(unc: dict, x_axis_dist: float) -> None:
     sigma = unc["_sigma_m"][0][0]
     print(f"\nPrecision (1 sigma, statistical only; residual sigma {sigma * 1000:.2f} mm per angle):")
     print("  in sensor-spacing units (metres if the board size is right):")
-    for name, label in (("baseline", "BS0-BS1 baseline"), ("mark_dist", "origin -> x-axis capture")):
+    for name, label in (("baseline", "BS4-BS10 baseline"), ("mark_dist", "origin -> x-axis capture")):
         value, std = unc[name]
         print(f"    {label:26} {value[0]:.4f} +- {std[0]:.4f} m")
-    for i in (0, 1):
+    for i in sorted(int(key[2:-4]) for key in unc if key.startswith("bs") and key.endswith("_pos")):
         pos, std = unc[f"bs{i}_pos"]
         tilt, tstd = unc[f"bs{i}_tilt_deg"]
-        print(f"    BS{i} in capture frame       [{pos[0]:+.3f}, {pos[1]:+.3f}, {pos[2]:+.3f}] "
+        print(f"    {STATION_NAMES.get(i, f'#{i}'):5} in capture frame     [{pos[0]:+.3f}, {pos[1]:+.3f}, {pos[2]:+.3f}] "
               f"+- [{std[0]:.3f}, {std[1]:.3f}, {std[2]:.3f}] m, tilt {tilt[0]:.2f} +- {tstd[0]:.2f} deg")
     value, std = unc["baseline_per_mark"]
     print(f"  scaled by the x-axis mark ({x_axis_dist:g} m): baseline "
@@ -508,7 +528,7 @@ def print_pose(bs_id: int, pose: Pose) -> None:
     boresight = R[:, 0]
     tilt_down = math.degrees(math.asin(max(-1.0, min(1.0, -boresight[2]))))
     heading = math.degrees(math.atan2(boresight[1], boresight[0]))
-    print(f"BS{bs_id}: origin [{pose.translation[0]:+.4f}, {pose.translation[1]:+.4f}, {pose.translation[2]:+.4f}] m"
+    print(f"{station_name(bs_id)}: origin [{pose.translation[0]:+.4f}, {pose.translation[1]:+.4f}, {pose.translation[2]:+.4f}] m"
           f"   boresight tilt-down {tilt_down:5.1f} deg, heading {heading:+6.1f} deg")
     for row in range(3):
         print(f"       R[{row}] = [{R[row, 0]:+.6f}, {R[row, 1]:+.6f}, {R[row, 2]:+.6f}]")
@@ -521,7 +541,7 @@ def compare_truth(path: str, poses: dict[int, Pose]) -> None:
         expected = truth[str(bs_id)]
         position_error = np.linalg.norm(pose.translation - np.asarray(expected["origin"]))
         relative = Rotation.from_matrix(pose.rot_matrix.T @ np.asarray(expected["R"]))
-        print(f"Truth check BS{bs_id}: position error {position_error * 1000:.1f} mm, "
+        print(f"Truth check {station_name(bs_id)}: position error {position_error * 1000:.1f} mm, "
               f"rotation error {math.degrees(relative.magnitude()):.2f} deg")
 
 
@@ -620,9 +640,15 @@ def main() -> int:
     solution, used, stats = solve(
         references + sweep, sensors, len(references), args.max_sample_error, args.max_iter)
 
-    if set(solution.bs_poses) != {0, 1}:
-        print(f"Error: solver returned stations {sorted(solution.bs_poses)}, expected 0 and 1", file=sys.stderr)
+    seen = sorted({int(record["base_station_id"]) for record in records})
+    solved = sorted(solution.bs_poses)
+    print("Stations: " + ", ".join(f"{station_name(bs)}{'' if bs in solved else ' NOT SOLVED'}" for bs in seen))
+    if len(solved) < 2:
+        print(f"Error: the solver placed only {solved}; at least two stations must share samples", file=sys.stderr)
         return 1
+    if set(seen) - set(solved):
+        print("Warning: some stations have readings but no position — they never saw the drone together with "
+              "the others often enough. Record the room again, covering where their views overlap.")
     errors = solution.error_info
     print(f"IPPE seed kept {stats['ippe_kept']}/{total}; final solve used {len(used)} "
           f"({stats['rejected']} residual outliers dropped)")
@@ -634,7 +660,10 @@ def main() -> int:
     # Report everything below even when the shape check fails; it only blocks writing the geometry.
     shape_failed = stats["median_rigid_error"] > args.max_board_fit_mm / 1000.0 or len(used) < 0.5 * total
 
-    estimated_baseline = float(np.linalg.norm(solution.bs_poses[1].translation - solution.bs_poses[0].translation))
+    # --baseline is the tape distance between indices 0 and 1 (BS4-BS10), else the first two solved.
+    pair = (0, 1) if {0, 1} <= set(solved) else tuple(solved[:2])
+    estimated_baseline = float(np.linalg.norm(solution.bs_poses[pair[1]].translation
+                                              - solution.bs_poses[pair[0]].translation))
 
     if reference_mode:
         world, measured_x, scale = bitcraze_frame(
@@ -658,7 +687,13 @@ def main() -> int:
         world = auto_frame(solution.bs_poses, args.height)
         uncertainty = None
 
-    print(f"Estimated baseline: {estimated_baseline:.4f} m")
+    print(f"Estimated baseline: {estimated_baseline:.4f} m  ({STATION_NAMES.get(pair[0], pair[0])}-"
+          f"{STATION_NAMES.get(pair[1], pair[1])})")
+    if len(world) > 2:
+        distances = [f"{STATION_NAMES.get(a, a)}-{STATION_NAMES.get(b, b)} "
+                     f"{np.linalg.norm(world[b].translation - world[a].translation):.3f} m"
+                     for a, b in itertools.combinations(sorted(world), 2)]
+        print("Station distances: " + ", ".join(distances))
     if args.baseline is None:
         print("Note: no --baseline given — a wrong wand scale would go undetected (it does not raise the residual)")
     else:

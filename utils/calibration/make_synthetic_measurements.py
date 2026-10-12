@@ -45,6 +45,10 @@ def main() -> None:
     parser.add_argument("--pitch-down", type=float, default=70.0,
                         help="station tilt below horizontal [deg]; 90 = straight down")
     parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--fov-deg", type=float, default=60.0,
+                        help="half field of view [deg]: smaller -> each station sees only part of the room")
+    parser.add_argument("--stations", type=int, choices=(2, 4), default=2,
+                        help="2: indices 0/1 facing each other along X; 4: plus indices 2/3 on the long sides")
     parser.add_argument("--session", help="write a capture_lh2.py-style wizard session directory instead")
     args = parser.parse_args()
 
@@ -59,20 +63,23 @@ def main() -> None:
         0: (np.array([0.0, 0.0, args.height]), bs_rotation(0.0, args.pitch_down)),
         1: (np.array([args.baseline, 0.0, args.height]), bs_rotation(180.0, args.pitch_down)),
     }
+    if args.stations == 4:  # firmware indices 2 / 3 (BS0 / BS1) on the long sides, facing the middle
+        stations[2] = (np.array([args.baseline / 2, -1.8, args.height]), bs_rotation(90.0, args.pitch_down))
+        stations[3] = (np.array([args.baseline / 2, 1.8, args.height]), bs_rotation(-90.0, args.pitch_down))
 
     noise = math.radians(args.noise_deg)
 
     def observe(world_sensors, t):
-        """Records for both stations, or [] if a station cannot see every sensor."""
+        """Records of the stations that see every sensor, or [] if fewer than two do."""
         sample = []
         for bs_id, (origin, R) in stations.items():
             local = (R.T @ (world_sensors - origin).T).T
             if np.any(local[:, 0] <= 0.1):
-                return []
+                continue
             angles = np.column_stack((np.arctan2(local[:, 1], local[:, 0]),
                                       np.arctan2(local[:, 2], local[:, 0])))
-            if np.any(np.abs(angles) > math.radians(60)):
-                return []
+            if np.any(np.abs(angles) > math.radians(args.fov_deg)):
+                continue
             angles += rng.normal(0, noise, angles.shape)
             sample.append({
                 "timestamp": round(t, 6),
@@ -80,7 +87,7 @@ def main() -> None:
                 "angles": angles.tolist(),
                 "angle_ages_ms": rng.integers(0, 30, 4).tolist(),
             })
-        return sample
+        return sample if len(sample) >= 2 else []
 
     centred = sensors - sensors.mean(axis=0)
     static_t = [1000.0]
@@ -94,7 +101,7 @@ def main() -> None:
             static_t[0] += 0.1
             sample = observe(world_sensors, static_t[0])
             if not sample:
-                raise SystemExit(f"mark {mark} is not visible to both stations")
+                raise SystemExit(f"mark {mark} is not visible to at least two stations")
             records.extend(sample)
         return records
 

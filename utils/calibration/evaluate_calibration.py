@@ -116,7 +116,9 @@ def evaluate(session: Path, runs: int, fraction: float, jobs: int, solver_args: 
                 for axis, value in zip("xyz", pose.translation):
                     entry[axis].append(float(value))
                 entry["tilt"].append(_tilt_deg(pose))
-            baselines.append(float(np.linalg.norm(poses[1].translation - poses[0].translation)))
+            ids = sorted(poses)
+            pair = (0, 1) if {0, 1} <= set(ids) else tuple(ids[:2])  # BS4-BS10, the taped baseline
+            baselines.append(float(np.linalg.norm(poses[pair[1]].translation - poses[pair[0]].translation)))
             for k in range(len(snapshots)):
                 if k in splits[i]:
                     continue
@@ -169,7 +171,7 @@ def print_report(result: dict) -> None:
           f"{result['snapshots']} sweep snapshots")
     for bs, s in result["stations"].items():
         std = s["position_std_mm"]
-        print(f"BS{bs}: position spread {s['position_spread_mm']:.1f} mm (1 sigma x/y/z {std[0]:.1f} / {std[1]:.1f} / "
+        print(f"{cb.station_name(int(bs))}: position spread {s['position_spread_mm']:.1f} mm (1 sigma x/y/z {std[0]:.1f} / {std[1]:.1f} / "
               f"{std[2]:.1f} mm), tilt {s['tilt_deg']['mean']:.2f} +- {s['tilt_deg']['std']:.2f} deg")
     b = result["baseline_m"]
     print(f"Baseline: {b['mean']:.4f} m +- {b['std'] * 1000:.1f} mm (range {b['range'] * 1000:.1f} mm)")
