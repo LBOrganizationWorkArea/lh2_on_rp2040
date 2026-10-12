@@ -213,16 +213,13 @@ def _rereference(bs_poses: dict[int, Pose], cf_poses: list[Pose]) -> LhBsCfPoses
     return LhBsCfPoses(bs, cfs)
 
 
-def triangulate_wand(sample: LhCfPoseSample, bs_poses: dict[int, Pose],
-                     sensors: np.ndarray) -> Optional[tuple[Pose, float]]:
-    """Wand pose for one sample from known station poses.
+def triangulate_sensors(sample: LhCfPoseSample, bs_poses: dict[int, Pose],
+                        n_sensors: int) -> Optional[np.ndarray]:
+    """World position of each sensor: midpoint of closest approach of its BS0 and BS1 rays.
 
-    Each sensor is the midpoint of closest approach of its BS0 and BS1 rays;
-    the wand layout is then rigidly fitted (Kabsch) to those four points.
-    Returns (pose, RMS fit error [m]) or None if the rays are degenerate.
-    """
+    Returns an (n_sensors, 3) array, or None if the rays are degenerate."""
     points = []
-    for sensor in range(len(sensors)):
+    for sensor in range(n_sensors):
         origins, directions = [], []
         for bs_id in (0, 1):
             pose = bs_poses[bs_id]
@@ -239,8 +236,20 @@ def triangulate_wand(sample: LhCfPoseSample, bs_poses: dict[int, Pose],
         if s0 <= 0.0 or s1 <= 0.0:
             return None
         points.append(0.5 * (origins[0] + s0 * d0 + origins[1] + s1 * d1))
-    points = np.asarray(points)
+    return np.asarray(points)
 
+
+def triangulate_wand(sample: LhCfPoseSample, bs_poses: dict[int, Pose],
+                     sensors: np.ndarray) -> Optional[tuple[Pose, float]]:
+    """Wand pose for one sample from known station poses.
+
+    The sensors are triangulated (triangulate_sensors) and the wand layout is rigidly fitted
+    (Kabsch) to those four points. Returns (pose, RMS fit error [m]) or None if the rays are
+    degenerate.
+    """
+    points = triangulate_sensors(sample, bs_poses, len(sensors))
+    if points is None:
+        return None
     sensor_centre, point_centre = sensors.mean(axis=0), points.mean(axis=0)
     u, _, vt = np.linalg.svd((sensors - sensor_centre).T @ (points - point_centre))
     correction = np.diag([1.0, 1.0, np.sign(np.linalg.det(vt.T @ u.T))])
@@ -249,6 +258,38 @@ def triangulate_wand(sample: LhCfPoseSample, bs_poses: dict[int, Pose],
     fitted = (rotation @ sensors.T).T + translation
     error = float(np.sqrt(np.mean(np.sum((fitted - points) ** 2, axis=1))))
     return Pose(R_matrix=rotation, t_vec=translation), error
+
+
+def board_diagnostics(samples: list[LhCfPoseSample], bs_poses: dict[int, Pose], sensors: np.ndarray) -> str:
+    """Where each sensor really is on the board, measured from the data.
+
+    Every sample's triangulated sensors are expressed in the board frame of its rigid fit; the
+    median over the samples is the board as the stations see it. A sensor whose median is
+    millimetres away from wand_sensors.json, or pair distances that differ from the file, mean
+    the layout file does not match the board (or that sensor is decoded badly).
+    """
+    offsets = []
+    for sample in samples:
+        points = triangulate_sensors(sample, bs_poses, len(sensors))
+        fit = triangulate_wand(sample, bs_poses, sensors) if points is not None else None
+        if fit is None:
+            continue
+        pose = fit[0]
+        offsets.append((pose.rot_matrix.T @ (points - pose.translation).T).T - sensors)
+    if not offsets:
+        return "Board check per sensor: no usable samples"
+    offsets = np.asarray(offsets) * 1000.0  # mm, (samples, sensors, xyz)
+    median = np.median(offsets, axis=0)
+    rms = np.sqrt(np.mean(np.sum(offsets ** 2, axis=2), axis=0))
+    lines = [f"Board check per sensor ({len(offsets)} samples; measured - wand_sensors.json, board frame, mm):"]
+    for i in range(len(sensors)):
+        lines.append(f"  S{i}: median offset [{median[i, 0]:+5.1f}, {median[i, 1]:+5.1f}, {median[i, 2]:+5.1f}]"
+                     f"   scatter rms {rms[i]:4.1f}")
+    measured = sensors * 1000.0 + median
+    pairs = [f"S{a}-S{b} {np.linalg.norm(measured[a] - measured[b]):5.1f} (file {np.linalg.norm(sensors[a] - sensors[b]) * 1000:5.1f})"
+             for a, b in itertools.combinations(range(len(sensors)), 2)]
+    lines.append("  measured distances [mm]: " + ", ".join(pairs))
+    return "\n".join(lines)
 
 
 def solve(samples: list[LhCfPoseSample], sensors: np.ndarray, n_protected: int,
@@ -513,6 +554,9 @@ def main() -> int:
                         help="do not rescale to --x-axis-dist; keep the scale from the sensor spacing")
     parser.add_argument("--max-angle-age-ms", type=int, default=100)
     parser.add_argument("--max-angle-skew-ms", type=int, default=50)
+    parser.add_argument("--max-board-fit-mm", type=float, default=5.0,
+                        help="refuse to write the geometry if the median board rigid-fit error is above this "
+                             "(default 5 mm; see the 'Board check per sensor' lines before relaxing it)")
     parser.add_argument("--max-sample-error", type=float, default=0.02,
                         help="drop sweep samples whose RMS residual exceeds this [m] (default 0.02)")
     parser.add_argument("--min-wand-distance", type=float, default=0.5,
@@ -584,10 +628,11 @@ def main() -> int:
           f"({stats['rejected']} residual outliers dropped)")
     print(f"Residual: mean {errors['mean_error'] * 1000:.2f} mm, max {errors['max_error'] * 1000:.2f} mm")
     print(f"Wand shape check: median rigid-fit error {stats['median_rigid_error'] * 1000:.2f} mm")
+    print(board_diagnostics(used, solution.bs_poses, sensors))
     if not solution.success:
         print("Warning: optimizer hit its iteration limit — inspect residuals before trusting the result")
     # Report everything below even when the shape check fails; it only blocks writing the geometry.
-    shape_failed = stats["median_rigid_error"] > 0.005 or len(used) < 0.5 * total
+    shape_failed = stats["median_rigid_error"] > args.max_board_fit_mm / 1000.0 or len(used) < 0.5 * total
 
     estimated_baseline = float(np.linalg.norm(solution.bs_poses[1].translation - solution.bs_poses[0].translation))
 
@@ -631,7 +676,7 @@ def main() -> int:
 
     if shape_failed:
         print(f"Error: the measured sensors do not form the wand in {args.sensor_positions} "
-              f"(median rigid-fit error {stats['median_rigid_error'] * 1000:.2f} mm > 5 mm). "
+              f"(median rigid-fit error {stats['median_rigid_error'] * 1000:.2f} mm > {args.max_board_fit_mm:g} mm). "
               "Check that rows are in firmware order S0..S3 and the coordinates match the board. "
               "Geometry not written.", file=sys.stderr)
         return 1

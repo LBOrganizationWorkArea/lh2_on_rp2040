@@ -479,6 +479,8 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
         <input id="cal-baseline" type="number" step="0.01" value="2.26"><span>m</span></div>
       <div class="cal-field"><label for="cal-bh" title="Height of the sensor board above the floor while on the marks: Z = 0 becomes the floor">Board height</label>
         <input id="cal-bh" type="number" step="0.01" value="0"><span>m</span></div>
+      <div class="cal-field"><label for="cal-boardfit" title="The solver refuses a result whose triangulated sensors differ from the board (wand_sensors.json) by more than this. 5 mm is strict; raise it only if baseline and station tilts check out.">Board check limit</label>
+        <input id="cal-boardfit" type="number" step="0.5" min="1" max="20" value="5"><span>mm</span></div>
       <div class="cal-field"><label for="cal-secs">Static measurement</label>
         <input id="cal-secs" type="number" step="1" min="1" value="5"><span>s</span></div>
       <div class="cal-field"><label for="cal-reconvert" title="Only for sessions recorded with the old fitted CAL_BS* firmware; current firmware already applies the period + factory model.">Angles</label>
@@ -1581,7 +1583,7 @@ function calApi(action, params = {}, body) {
 }
 const calSettings = () => ({
   x_axis_dist: calEl('cal-xdist').value, static_seconds: calEl('cal-secs').value,
-  baseline: calEl('cal-baseline').value, board_height: calEl('cal-bh').value,
+  baseline: calEl('cal-baseline').value, board_height: calEl('cal-bh').value, max_board_fit: calEl('cal-boardfit').value,
   reconvert: calEl('cal-reconvert').value, auto_solve: calEl('cal-auto').checked ? 1 : 0 });
 
 const CAL_STEPS = [
@@ -1765,8 +1767,14 @@ function calRender() {
     const left = s.missing.map(m => m.replace('xy-plane', 'floor point').replace('x-axis', 'X axis').replace(/XYZ-space \((\d+)\/(\d+)\)/, 'room recording ($1/$2)'));
     [cls, ic, txt] = ['idle', '○', 'Still needed: ' + left.join(', ') + '.'];
   } else if (sv && sv.state === 'done') {
-    [cls, ic, txt] = ['bad', '✘', 'The calculation failed.'];
-    action = '<button data-open="cal-results-card">Details</button>';
+    const refused = (sv.variants || []).map(v => v.metrics && v.metrics.board_fit_refused_mm).find(x => x != null);
+    if (refused != null) {
+      [cls, ic, txt] = ['warn', '!', `Stopped at the board-shape check (${refused.toFixed(1)} mm, limit ${calEl('cal-boardfit').value} mm). Review the other checks before accepting.`];
+      action = '<button data-open="cal-results-card">Review</button>';
+    } else {
+      [cls, ic, txt] = ['bad', '✘', 'The calculation failed.'];
+      action = '<button data-open="cal-results-card">Details</button>';
+    }
   } else {
     [cls, ic, txt] = ['warn', '▶', 'Enough samples.'];
     action = '<button data-solve="1">Calculate</button>';
@@ -1816,9 +1824,20 @@ function calVariantHtml(v, i) {
     row(`${calBsName(p.id)} pos`, p.pos.map(c => (c >= 0 ? '+' : '') + c.toFixed(3)).join(' ') + ' m');
     row('', `Inc ${p.tilt.toFixed(1)}°  Dir ${p.dir.toFixed(1)}°  Roll ${p.roll.toFixed(1)}°`);
   });
-  return `<div class="cal-variant"><div class="vname">${calEsc(v.name)}${v.ok ? '' : ' — solver failed, see log'}</div>` +
+  // Stopped only by the board-shape check: explain it and offer to accept with a limit just above it.
+  const refused = !v.ok && m.board_fit_refused_mm != null ? m.board_fit_refused_mm : null;
+  const acceptAt = refused != null ? Math.ceil(refused * 2) / 2 + 0.5 : null;
+  const refusal = refused == null ? '' : `<div class="cal-verdict warn">
+      The solver stopped at the <b>board-shape check</b>: the four sensors, triangulated with these stations, differ
+      from the board in wand_sensors.json by <b>${refused.toFixed(2)} mm</b> (limit ${calEl('cal-boardfit').value} mm), so no geometry was written.
+      <br>Check the rows above: if the <b>baseline vs tape</b> is within ~3 % and the stations look right, the positions are reliable
+      and you can accept. Usual causes: the drone moved fast during the room recording, a sensor partly covered,
+      or a board layout that differs from wand_sensors.json (see "Board check per sensor" in the solver log).</div>` +
+    (acceptAt <= 10 ? `<div class="cal-btns"><button data-accept="${acceptAt}">Accept anyway (board check ≤ ${acceptAt} mm)</button></div>`
+      : `<div class="hint">Too far from the board to accept: record the room again, more slowly, and check wand_sensors.json.</div>`);
+  return `<div class="cal-variant"><div class="vname">${calEsc(v.name)}${v.ok ? '' : refused != null ? ' — stopped at the board check' : ' — solver failed, see log'}</div>` +
     `<div class="hint">${calEsc(v.dir)}</div>` +
-    `<table class="cal-metrics">${rows.join('')}</table>` +
+    `<table class="cal-metrics">${rows.join('')}</table>` + refusal +
     (v.ok ? `<div class="cal-btns"><button data-apply="${i}" title="Copy these stations into the Sandbox">Apply to sandbox</button>` +
             `<button data-export="${i}">Export header</button></div>` : '') + `</div>`;
 }
@@ -2120,7 +2139,7 @@ calEl('cal-importfile').addEventListener('change', async e => {
   await calCall('import_samples', calSettings(), await file.text());
   calLoadRuns();
 });
-['cal-xdist', 'cal-secs', 'cal-baseline', 'cal-bh', 'cal-reconvert', 'cal-auto'].forEach(id =>
+['cal-xdist', 'cal-secs', 'cal-baseline', 'cal-bh', 'cal-boardfit', 'cal-reconvert', 'cal-auto'].forEach(id =>
   calEl(id).addEventListener('change', () => calCall('config', calSettings())));
 
 let calVariantsKey = '';
@@ -2132,7 +2151,8 @@ function calRenderSolve(sv) {
   calEl('cal-resolve').disabled = sv.state === 'running';
   calEl('cal-state').textContent = sv.state === 'idle' ? 'Not calculated yet.' : sv.state === 'running' ? 'Calculating…'
     : sv.ok ? 'Check the figures (✔ good · ! borderline · ✘ out of range), then "Apply to sandbox" to keep these stations in the Sandbox, or "Export header" for the firmware.'
-    : 'The calculation failed — see the solver log.';
+    : (sv.variants || []).some(v => v.metrics && v.metrics.board_fit_refused_mm != null)
+      ? 'Stopped at the board-shape check — see below.' : 'The calculation failed — see the solver log.';
   calVariants = sv.state === 'running' ? [] : (sv.variants || []).map(v => ({
     ...v, poses: v.ok ? v.poses.map(p => ({ id: p.id, pos: p.position, ...calQuatToPose(p.quat) })) : null }));
   calRenderQuality(sv);
@@ -2177,7 +2197,12 @@ function calRenderQuality(sv) {
 }
 calEl('cal-evaluate').addEventListener('click', () => calCall('evaluate'));
 calEl('cal-variants').addEventListener('click', async e => {
-  const apply = e.target.dataset.apply, exp = e.target.dataset.export;
+  const apply = e.target.dataset.apply, exp = e.target.dataset.export, accept = e.target.dataset.accept;
+  if (accept != null) {  // re-solve with the board check just above the measured value
+    calEl('cal-boardfit').value = accept;
+    calCall('solve', calSettings());
+    return;
+  }
   if (apply != null) {
     calVariants[+apply].poses.forEach(p => {
       while (bsList.length <= p.id) {
