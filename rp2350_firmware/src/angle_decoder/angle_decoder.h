@@ -21,7 +21,11 @@
 // Compile-time constants
 // ---------------------------------------------------------------------------
 #define NUM_SENSORS 4   ///< Number of TS4231 photodiode sensors
-#define NUM_BS      2   ///< Number of basestations (BS4 → index 0, BS10 → index 1)
+/// Number of base stations. Index → physical station (channel = polynomial pair / 2):
+///   0 = BS4 (poly 8/9), 1 = BS10 (poly 20/21), 2 = BS0 (poly 0/1), 3 = BS1 (poly 2/3).
+/// BS4 / BS10 keep indices 0 / 1 so existing calibrations and recorded sessions stay valid.
+#define NUM_BS      4
+#define MIN_BS_FOR_POINT 2   ///< stations that must see a sensor to triangulate it
 
 #define EMA_ALPHA   0.2f         ///< EMA smoothing factor (α in paper)
 #define TAN_30      0.57735027f  ///< tan(30°) — used in elevation reconstruction
@@ -110,7 +114,13 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
 void angle_decoder_set_ootx_stream(bool enabled);
 
 /**
- * @brief  Return true if both basestations for sensor @p s have fresh angles.
+ * @brief  True if base station @p b has a fresh angle pair for sensor @p s.
+ */
+bool angle_decoder_bs_fresh(const lh2_angles_t out[NUM_SENSORS][NUM_BS],
+                            int s, int b, uint64_t now_us);
+
+/**
+ * @brief  True if at least MIN_BS_FOR_POINT base stations have fresh angles for sensor @p s.
  *
  * @param out    angle state table
  * @param s      sensor index [0, NUM_SENSORS)
@@ -119,5 +129,11 @@ void angle_decoder_set_ootx_stream(bool enabled);
 bool angle_decoder_is_fresh(const lh2_angles_t out[NUM_SENSORS][NUM_BS],
                             int s,
                             uint64_t now_us);
+
+/**
+ * @brief  Angle pairs decoded per base station since boot (all sensors), for the
+ *         decoder health line printed by main (STAT,...).
+ */
+uint32_t angle_decoder_pairs(int bs);
 
 #endif /* ANGLE_DECODER_H */

@@ -24,9 +24,11 @@
  *   mavlink/         — ODOMETRY (msg #331) over UART0               [core 0]
  *
  * Serial output (USB, 115200):
- *   A,<sensor>,0,<az_deg>,<el_deg>      angle update for lighthouse 0
- *   P,<sensor>,<x>,<y>,<z>              3D point
- *   C,<n>,<cx>,<cy>,<cz>                centroid (also sent as VPE)
+ *   A,<sensor>,<bs>,<h_deg>,<v_deg>     angles of a station that sees the sensor
+ *                                       (bs index: 0=BS4, 1=BS10, 2=BS0, 3=BS1)
+ *   P,<sensor>,<x>,<y>,<z>              3D point (from every calibrated station seeing it)
+ *   C,<n>,<cx>,<cy>,<cz>                centroid (also sent as ODOMETRY)
+ *   STAT,pairs/s,BS4=..,BS10=..,...     decoded angle pairs per station, each second
  *
  * Hardware pins (data, env):
  *   S0 10/11   S1 12/13   S2 18/19   S3 20/21
@@ -83,8 +85,10 @@
 // See utils/calibration/calib_runs/RESULTS.md.
 // ---------------------------------------------------------------------------
 
-#define LH2_PERIOD_BS0  947000.0f   /* BS index 0: poly 8/9   → mode 5  */
-#define LH2_PERIOD_BS1  919000.0f   /* BS index 1: poly 20/21 → mode 11 */
+#define LH2_PERIOD_BS0  947000.0f   /* BS index 0: poly 8/9   → mode 5  (BS4)  */
+#define LH2_PERIOD_BS1  919000.0f   /* BS index 1: poly 20/21 → mode 11 (BS10) */
+#define LH2_PERIOD_BS2  959000.0f   /* BS index 2: poly 0/1   → mode 1  (BS0)  */
+#define LH2_PERIOD_BS3  957000.0f   /* BS index 3: poly 2/3   → mode 2  (BS1)  */
 
 #define CAL_BS0_A0  (360.0f * 8.0f / LH2_PERIOD_BS0)
 #define CAL_BS0_B0  (-120.0f)
@@ -96,18 +100,52 @@
 #define CAL_BS1_A1  CAL_BS1_A0
 #define CAL_BS1_B1  (-240.0f)
 
+#define CAL_BS2_A0  (360.0f * 8.0f / LH2_PERIOD_BS2)
+#define CAL_BS2_B0  (-120.0f)
+#define CAL_BS2_A1  CAL_BS2_A0
+#define CAL_BS2_B1  (-240.0f)
+
+#define CAL_BS3_A0  (360.0f * 8.0f / LH2_PERIOD_BS3)
+#define CAL_BS3_B0  (-120.0f)
+#define CAL_BS3_A1  CAL_BS3_A0
+#define CAL_BS3_B1  (-240.0f)
+
+/* Stations whose factory calibration has not been decoded yet (lh2_ootx.py --header):
+ * no correction until then. */
+#ifndef LH2_FACTORY_CAL_BS0
+#define LH2_FACTORY_CAL_BS0 { { 0.0f } }
+#endif
+#ifndef LH2_FACTORY_CAL_BS1
+#define LH2_FACTORY_CAL_BS1 { { 0.0f } }
+#endif
+#ifndef LH2_FACTORY_CAL_BS2
+#define LH2_FACTORY_CAL_BS2 { { 0.0f } }
+#endif
+#ifndef LH2_FACTORY_CAL_BS3
+#define LH2_FACTORY_CAL_BS3 { { 0.0f } }
+#endif
+
 #ifdef SYNTHETIC_CAPTURE
 /* Synthetic counts are generated from ideal planes: no factory distortion to remove. */
 #undef  LH2_FACTORY_CAL_BS0
 #undef  LH2_FACTORY_CAL_BS1
+#undef  LH2_FACTORY_CAL_BS2
+#undef  LH2_FACTORY_CAL_BS3
 #define LH2_FACTORY_CAL_BS0 { { 0.0f } }
 #define LH2_FACTORY_CAL_BS1 { { 0.0f } }
+#define LH2_FACTORY_CAL_BS2 { { 0.0f } }
+#define LH2_FACTORY_CAL_BS3 { { 0.0f } }
 #endif
 
 static const lh2_cal_t CAL[NUM_BS] = {
     { .A0 = CAL_BS0_A0, .B0 = CAL_BS0_B0, .A1 = CAL_BS0_A1, .B1 = CAL_BS0_B1, .plane = LH2_FACTORY_CAL_BS0 },
     { .A0 = CAL_BS1_A0, .B0 = CAL_BS1_B0, .A1 = CAL_BS1_A1, .B1 = CAL_BS1_B1, .plane = LH2_FACTORY_CAL_BS1 },
+    { .A0 = CAL_BS2_A0, .B0 = CAL_BS2_B0, .A1 = CAL_BS2_A1, .B1 = CAL_BS2_B1, .plane = LH2_FACTORY_CAL_BS2 },
+    { .A0 = CAL_BS3_A0, .B0 = CAL_BS3_B0, .A1 = CAL_BS3_A1, .B1 = CAL_BS3_B1, .plane = LH2_FACTORY_CAL_BS3 },
 };
+
+/** Station names (index → physical base station), for the console. */
+static const char *const BS_NAME[NUM_BS] = { "BS4", "BS10", "BS0", "BS1" };
 
 // ---------------------------------------------------------------------------
 // Shared state (core 1 writes g_lh2, core 0 reads it)
@@ -144,11 +182,9 @@ static volatile bool g_home_set = false;
 #define SYN_SEG_US   8000000ULL    /* 8 s per square edge          */
 #define SYN_TICK_US  20000ULL      /* inject a fresh set every 20 ms (~LH2 rate) */
 
-/* Base-station slot indices in the lh2 array (basestation = polynomial >> 1). */
-#define SYN_SLOT_BS0 4u            /* poly 8/9  → slot 4  */
-#define SYN_SLOT_BS1 10u           /* poly 20/21 → slot 10 */
-#define SYN_POLY_BS0 8u
-#define SYN_POLY_BS1 20u
+/* Per base-station index: slot in the lh2 array (= polynomial >> 1) and first polynomial. */
+static const uint8_t SYN_SLOT[NUM_BS] = { 4u, 10u, 0u, 1u };
+static const uint8_t SYN_POLY[NUM_BS] = { 8u, 20u, 0u, 2u };
 
 /** Square corners (world frame, z-up), 1×1 m at z = 2 m. */
 static const float SYN_CORNERS[4][3] = {
@@ -254,15 +290,14 @@ static void core1_entry(void)
                            by + SYN_SENSOR_OFF[s][1],
                            bz };
 
-            /* Project through the SAME poses the firmware solves with → exact round-trip. */
-            float h0, v0, h1, v1;
-            syn_world_to_angles(&BS_POSES[0], w, &h0, &v0);
-            syn_world_to_angles(&BS_POSES[1], w, &h1, &v1);
-
-            syn_write_bs(s, SYN_SLOT_BS0, SYN_POLY_BS0,
-                         CAL_BS0_A0, CAL_BS0_B0, CAL_BS0_A1, CAL_BS0_B1, h0, v0);
-            syn_write_bs(s, SYN_SLOT_BS1, SYN_POLY_BS1,
-                         CAL_BS1_A0, CAL_BS1_B0, CAL_BS1_A1, CAL_BS1_B1, h1, v1);
+            /* Project through the SAME poses the firmware solves with → exact round-trip,
+             * for every calibrated station. */
+            for (int b = 0; b < NUM_BS; b++) {
+                if (!bs_pose_valid(&BS_POSES[b])) continue;
+                float h, v;
+                syn_world_to_angles(&BS_POSES[b], w, &h, &v);
+                syn_write_bs(s, SYN_SLOT[b], SYN_POLY[b], CAL[b].A0, CAL[b].B0, CAL[b].A1, CAL[b].B1, h, v);
+            }
         }
     }
 }
@@ -397,7 +432,17 @@ int main(void)
         uint64_t now_us = to_us_since_boot(get_absolute_time());
 
         if (now_us - last_debug_us >= 1000000ULL) {
-            printf("RUN: main loop\n");
+            /* Decoder health, once a second: angle pairs decoded per station in the last second
+             * (all sensors). ~50 per sensor per station is a full rate; a station far below
+             * the others is hard to decode (blocked, too far, or core 1 overloaded). */
+            static uint32_t last_pairs[NUM_BS];
+            printf("STAT,pairs/s");
+            for (int b = 0; b < NUM_BS; b++) {
+                uint32_t pairs = angle_decoder_pairs(b);
+                printf(",%s=%lu", BS_NAME[b], (unsigned long)(pairs - last_pairs[b]));
+                last_pairs[b] = pairs;
+            }
+            printf("\n");
             stdio_flush();
             last_debug_us = now_us;
         }
@@ -477,21 +522,21 @@ int main(void)
             last_sensor_log_us[s] = last_sensor_update_us[s];
         }
 
-        uint8_t angle_valid_mask = 0u;
+        uint16_t angle_valid_mask = 0u;
         float raw_angles[NUM_SENSORS][NUM_BS][2] = {{{0.0f}}};
-        uint16_t angle_age_ms[NUM_SENSORS][NUM_BS];
+        uint8_t angle_age_ms[NUM_SENSORS][NUM_BS];
         for (int s = 0; s < NUM_SENSORS; s++) {
             for (int bs = 0; bs < NUM_BS; bs++) {
-            angle_age_ms[s][bs] = UINT16_MAX;
+            angle_age_ms[s][bs] = UINT8_MAX;
                 if (!g_angles[s][bs].valid ||
                     (now_us - g_angles[s][bs].last_update_us) > FRESHNESS_US) {
                     continue;
                 }
-                angle_valid_mask |= (uint8_t)(1u << (s * NUM_BS + bs));
+                angle_valid_mask |= (uint16_t)(1u << (s * NUM_BS + bs));
                 raw_angles[s][bs][0] = g_angles[s][bs].raw_horiz;
                 raw_angles[s][bs][1] = g_angles[s][bs].raw_vert;
                 uint64_t age_ms = (now_us - g_angles[s][bs].last_update_us) / 1000ULL;
-                angle_age_ms[s][bs] = (age_ms > UINT16_MAX) ? UINT16_MAX : (uint16_t)age_ms;
+                angle_age_ms[s][bs] = (age_ms > UINT8_MAX) ? UINT8_MAX : (uint8_t)age_ms;
             }
         }
         if (angle_valid_mask != 0u) {
@@ -519,13 +564,14 @@ int main(void)
             if (!angle_decoder_is_fresh(g_angles, s, now_us)) continue;
 
             for (int bs = 0; bs < NUM_BS; bs++) {
+                if (!angle_decoder_bs_fresh(g_angles, s, bs, now_us)) continue;
                 float horiz = _rad2deg(g_angles[s][bs].ema_horiz);
                 float vert = _rad2deg(g_angles[s][bs].ema_vert);
 
                 printf("A,%d,%d,%.2f,%.2f\n", s, bs,
                        (double)horiz, (double)vert);
-                printf("ANG S%d | BS%d h=%+7.2f v=%+7.2f deg\n",
-                       s, bs, (double)horiz, (double)vert);
+                printf("ANG S%d | %s h=%+7.2f v=%+7.2f deg\n",
+                       s, BS_NAME[bs], (double)horiz, (double)vert);
             }
         }
 

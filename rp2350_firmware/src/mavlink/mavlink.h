@@ -9,14 +9,17 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "../angle_decoder/angle_decoder.h"  /* NUM_SENSORS, NUM_BS */
+
 void mavlink_init(void);
 void mavlink_send_odometry(uint64_t usec, float x, float y, float z);
 
-/* Send one complete, instantaneous LH2 angle snapshot in MAVLink TUNNEL. */
+/* Send one complete, instantaneous LH2 angle snapshot in MAVLink TUNNEL (format v3, see mavlink.c).
+ * valid_mask bit (sensor * NUM_BS + bs) set when that pair is fresh; ages in ms, 255 = not valid. */
 void mavlink_send_lh2_angles(uint64_t usec,
-							 const float angles[4][2][2],
-							 const uint16_t angle_age_ms[4][2],
-							 uint8_t valid_mask);
+                             const float angles[NUM_SENSORS][NUM_BS][2],
+                             const uint8_t angle_age_ms[NUM_SENSORS][NUM_BS],
+                             uint16_t valid_mask);
 
 /* RX — call every main-loop iteration to drain UART FIFO */
 void mavlink_rx_update(void);

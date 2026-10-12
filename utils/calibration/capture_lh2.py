@@ -56,11 +56,13 @@ import numpy as np  # noqa: E402
 from pymavlink import mavutil  # noqa: E402
 
 LH2_TUNNEL_TYPE = 0x4C48
-LH2_TUNNEL_DATA_LEN = 94
+LH2_TUNNEL_V2_LEN = 94   # 2 stations, float angles, u16 ages (firmware before feat/four-basestations)
+LH2_TUNNEL_V3_LEN = 95   # up to 4 stations, int16 angles (1/16384 rad), u8 ages
 GCS_SYSID = 255
 GCS_COMPID = 190  # the Pico addresses its TUNNEL to this component
 NUM_SENSORS = 4
-NUM_BS = 2
+NUM_BS = 4  # station indices: 0=BS4, 1=BS10, 2=BS0, 3=BS1 (firmware angle_decoder.h)
+MIN_BS = 2  # a snapshot is usable when at least this many stations see all four sensors
 
 DEFAULT_SENSORS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "wand_sensors.json")
 DEFAULT_RUNS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "calib_runs")
@@ -93,21 +95,34 @@ class _Tee:
 
 
 def parse_lh2_tunnel(payload: bytes) -> dict | None:
-    """Decode one LH2 TUNNEL v2 payload (see mavlink_send_lh2_angles in mavlink.c)."""
-    if len(payload) < LH2_TUNNEL_DATA_LEN or payload[:2] != b"LH" or payload[2] != 2:
+    """Decode one LH2 TUNNEL payload (mavlink_send_lh2_angles in mavlink.c), v2 or v3.
+
+    Angles are indexed sensor * n_bs + bs: v2 has 2 stations (float angles, u16 ages),
+    v3 up to 4 (int16 angles in 1/16384 rad, u8 ages, 16-bit valid mask)."""
+    if len(payload) < 3 or payload[:2] != b"LH":
         return None
-    sequence, timestamp_us, valid_mask = struct.unpack_from("<HQB", payload, 3)
-    angles = struct.unpack_from("<16f", payload, 14)
-    ages_ms = struct.unpack_from("<8H", payload, 78)
+    if payload[2] == 2 and len(payload) >= LH2_TUNNEL_V2_LEN:
+        sequence, timestamp_us, valid_mask = struct.unpack_from("<HQB", payload, 3)
+        angles = struct.unpack_from("<16f", payload, 14)
+        ages_ms = struct.unpack_from("<8H", payload, 78)
+        n_bs = 2
+    elif payload[2] == 3 and len(payload) >= LH2_TUNNEL_V3_LEN:
+        sequence, timestamp_us, valid_mask = struct.unpack_from("<HQH", payload, 3)
+        angles = tuple(v / 16384.0 for v in struct.unpack_from("<32h", payload, 15))
+        ages_ms = struct.unpack_from("<16B", payload, 79)
+        n_bs = 4
+    else:
+        return None
     return {"sequence": sequence, "timestamp_us": timestamp_us, "valid_mask": valid_mask,
-            "angles": angles, "ages_ms": ages_ms}
+            "angles": angles, "ages_ms": ages_ms, "n_bs": n_bs}
 
 
 def snapshot_to_records(snapshot: dict) -> list[dict]:
     """One record per base station that has all four sensors valid."""
     records = []
-    for bs in range(NUM_BS):
-        indices = [sensor * NUM_BS + bs for sensor in range(NUM_SENSORS)]
+    n_bs = snapshot.get("n_bs", 2)
+    for bs in range(n_bs):
+        indices = [sensor * n_bs + bs for sensor in range(NUM_SENSORS)]
         if not all(snapshot["valid_mask"] & (1 << index) for index in indices):
             continue
         records.append({
@@ -208,7 +223,7 @@ class Receiver:
                     packets += 1
                     new = snapshot_to_records(snapshot)
                     records.extend(new)
-                    if len(new) == NUM_BS:
+                    if len(new) >= MIN_BS:
                         complete += 1
                         window_total += 1
                         spans = [np.max(np.ptp(np.asarray(r["angles"]), axis=0)) for r in new]
@@ -223,7 +238,7 @@ class Receiver:
                         print(f"  [{label} {now - started:4.0f}s] no LH2 TUNNEL yet (heard: {heard})")
                     else:
                         quality = 100.0 * window_plausible / window_total if window_total else 0.0
-                        print(f"  [{label} {now - started:4.0f}s] snapshots {packets}, both stations {complete}, "
+                        print(f"  [{label} {now - started:4.0f}s] snapshots {packets}, >= {MIN_BS} stations {complete}, "
                               f"physically plausible {plausible} (last 2 s: {quality:.0f} %)")
                     window_total = window_plausible = 0
         except KeyboardInterrupt:

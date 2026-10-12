@@ -403,7 +403,7 @@ class CaptureManager:
             self.bs_last[record["base_station_id"]] = now
         if len(records) >= 2:
             self.live_records, self.live_at = records, now
-        complete = len(records) == lh2cap.NUM_BS
+        complete = len(records) >= lh2cap.MIN_BS  # at least two stations see all four sensors
         plausible = complete and self._plausible(records)
         self.recent = [r for r in self.recent if now - r[0] < 2.0] + [(now, complete, plausible)]
         cap = self.active

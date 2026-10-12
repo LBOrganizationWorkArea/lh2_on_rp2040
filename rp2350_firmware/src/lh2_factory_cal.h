@@ -10,4 +10,8 @@
 /* BS index 1: uid 66DB72B9, polynomials [20, 21] */
 #define LH2_FACTORY_CAL_BS1 { { 0.0f, -0.04656982421875f, 0.005252838134765625f, 0.544921875f }, { 0.0017528533935546875f, 0.0462646484375f, 0.0025386810302734375f, 1.923828125f } }
 
+/* BS index 2: not decoded yet */
+
+/* BS index 3: not decoded yet */
+
 #endif /* LH2_FACTORY_CAL_H */

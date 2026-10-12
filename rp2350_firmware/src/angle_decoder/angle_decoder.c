@@ -4,10 +4,11 @@
  *
  * Direct C port of utils/angle_lib/angle_decoder.py.
  *
- * Polynomial → basestation index mapping (from Python _determine_polynomial /
- * angle_decoder.py):
+ * Polynomial → basestation index mapping (see NUM_BS in angle_decoder.h):
  *   poly 8  or 9  → bs index 0  (physical base station 4)
  *   poly 20 or 21 → bs index 1  (physical base station 10)
+ *   poly 0  or 1  → bs index 2  (physical base station 0)
+ *   poly 2  or 3  → bs index 3  (physical base station 1)
  *   anything else → skip
  */
 
@@ -28,16 +29,21 @@
 
 static uint64_t s_last_lfsr_log_us[NUM_SENSORS][LH2_BASESTATION_COUNT][LH2_SWEEP_COUNT];
 static bool     s_ootx_stream = false;
+static uint32_t s_pairs[NUM_BS];  ///< angle pairs decoded per station (decoder health, STAT line)
 
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------
 
-/** Convert a polynomial number to a basestation index (0 or 1), or -1. */
+/** Physical base station (polynomial pair = poly / 2) → base-station index, or -1. */
+static const int8_t _PHYSICAL_TO_INDEX[LH2_BASESTATION_COUNT] = {
+    [0] = 2, [1] = 3, [2] = -1, [3] = -1, [4] = 0, [5] = -1, [6] = -1, [7] = -1,
+    [8] = -1, [9] = -1, [10] = 1, [11] = -1, [12] = -1, [13] = -1, [14] = -1, [15] = -1,
+};
+
+/** Convert a polynomial number to a basestation index (see NUM_BS), or -1. */
 static inline int _poly_to_bs(uint8_t poly) {
-    if (poly == 8 || poly == 9)   return 0;  // physical BS 4
-    if (poly == 20 || poly == 21) return 1;  // physical BS 10
-    return -1;
+    return (poly >> 1) < LH2_BASESTATION_COUNT ? _PHYSICAL_TO_INDEX[poly >> 1] : -1;
 }
 
 /**
@@ -238,6 +244,7 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
                 /* If both sweeps are now in, compute az/el */
                 if (ang->has_sweep[0] && ang->has_sweep[1]) {
                     _finalize_angles(ang, c, now_us);
+                    s_pairs[bs_idx]++;
                 }
             }
         }
@@ -249,15 +256,27 @@ void angle_decoder_set_ootx_stream(bool enabled)
     s_ootx_stream = enabled;
 }
 
+bool angle_decoder_bs_fresh(const lh2_angles_t out[NUM_SENSORS][NUM_BS],
+                            int s, int b, uint64_t now_us)
+{
+    if (s < 0 || s >= NUM_SENSORS || b < 0 || b >= NUM_BS) return false;
+    const lh2_angles_t *a = &out[s][b];
+    return a->valid && (now_us - a->last_update_us) <= FRESHNESS_US;
+}
+
 bool angle_decoder_is_fresh(const lh2_angles_t out[NUM_SENSORS][NUM_BS],
                             int s,
                             uint64_t now_us)
 {
-    if (s < 0 || s >= NUM_SENSORS) return false;
+    /* With more than two stations a sensor rarely sees all of them: any two are enough. */
+    int fresh = 0;
     for (int b = 0; b < NUM_BS; b++) {
-        const lh2_angles_t *a = &out[s][b];
-        if (!a->valid) return false;
-        if ((now_us - a->last_update_us) > FRESHNESS_US) return false;
+        if (angle_decoder_bs_fresh(out, s, b, now_us)) fresh++;
     }
-    return true;
+    return fresh >= MIN_BS_FOR_POINT;
+}
+
+uint32_t angle_decoder_pairs(int bs)
+{
+    return (bs >= 0 && bs < NUM_BS) ? s_pairs[bs] : 0u;
 }

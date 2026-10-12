@@ -10,14 +10,15 @@
 
 #define BS_POSE_SOURCE "yaml:utils/calibration/calib_runs/run_20261009_180300/geometry.yaml"
 
+/* Calibrated stations: 0 (BS4), 1 (BS10). Indices not listed stay all-zero: the solver ignores them (bs_pose_valid). */
 static const lh2_bs_pose_t BS_POSES[NUM_BS] = {
-    {  /* BS0  (poly 8/9,  BS4) */
+    [0] = {  /* BS0  (poly 8/9,  BS4) */
         .origin = {-1.231040f, 0.384252f, 2.803342f},
         .R = { {0.015263f, 0.999834f, 0.009930f},
                {-0.379031f, 0.014976f, -0.925263f},
                {-0.925258f, 0.010358f, 0.379197f} },
     },
-    {  /* BS1  (poly 20/21, BS10) */
+    [1] = {  /* BS1  (poly 20/21, BS10) */
         .origin = {1.004505f, 0.376265f, 2.812294f},
         .R = { {0.107504f, 0.993187f, -0.044970f},
                {-0.447998f, 0.008013f, -0.893999f},

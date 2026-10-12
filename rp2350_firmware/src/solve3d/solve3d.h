@@ -2,25 +2,20 @@
  * @file   solve3d.h
  * @brief  3D solver for the crossing-beams system — calibrated-pose variant.
  *
- * This is the original epipolar-geometry pipeline from data_processing.py,
- * *enhanced* to use KNOWN base-station poses instead of estimating them.
+ * Started as the epipolar pipeline of data_processing.py (angles_to_pixels →
+ * fundamental matrix → recover_pose → DLT), whose estimated pose was scale-ambiguous
+ * and unstable. The base stations are fixed and calibrated, so their poses are used
+ * directly; since the move to more than two stations each sensor is triangulated from
+ * every station that sees it (least-squares closest point to the rays, see solve3d.c).
  *
- * The original solve_3d_scene() did:
- *     angles_to_pixels → find_fundamental_mat → recover_pose → triangulate_points
- * The pose estimation (find_fundamental_mat + recover_pose) is scale-ambiguous
- * and ill-conditioned for a near-coplanar sensor cloud, which is what made the
- * output unstable. Since the base stations are fixed and calibrated, we keep the
- * validated front/back of the pipeline:
- *     angles_to_pixels  +  triangulate_points   (the DLT — unchanged)
- * and replace the estimated pose with projection matrices built directly from
- * the calibrated poses. The result is metric and stable.
- *
- * Depends on: cv/cv.h (triangulate_points), angle_decoder (lh2_angles_t).
+ * Depends on: angle_decoder (lh2_angles_t). angles_to_pixels() is kept for the
+ * original pipeline's tools.
  */
 
 #ifndef SOLVE3D_H
 #define SOLVE3D_H
 
+#include <stdbool.h>
 #include <stdint.h>
 
 #include "angle_decoder/angle_decoder.h"   /* lh2_angles_t, NUM_SENSORS, NUM_BS */
@@ -33,7 +28,11 @@
 typedef struct {
     float   xyz[3];
     uint8_t sensor_id;
+    uint8_t n_views;    ///< base stations used for this point (2..NUM_BS)
 } lh2_point3d_t;
+
+/** A ray farther than this from the point of the others is dropped (3+ stations) [m]. */
+#define SOLVE3D_OUTLIER_M 0.05
 
 /**
  * @brief  A base station's pose in the calibrated world frame.
@@ -45,6 +44,15 @@ typedef struct {
     float origin[3];    ///< base-station position [m]
     float R[3][3];      ///< base-station-local → world rotation
 } lh2_bs_pose_t;
+
+/** False for an all-zero pose: that station is not calibrated yet (bs_poses_cal.h). */
+static inline bool bs_pose_valid(const lh2_bs_pose_t *bs)
+{
+    for (int r = 0; r < 3; r++)
+        for (int c = 0; c < 3; c++)
+            if (bs->R[r][c] != 0.0f) return true;
+    return false;
+}
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -61,14 +69,13 @@ typedef struct {
 void angles_to_pixels(float az_rad, float el_rad, float px_out[2]);
 
 /**
- * @brief  Triangulate a metric 3D point for every sensor both base stations see.
+ * @brief  Triangulate a metric 3D point for every sensor seen by >= MIN_BS_FOR_POINT stations.
  *
- * For each sensor with fresh angles from both base stations:
- *   1. project the calibrated (horiz, vert) angles to pixels (angles_to_pixels),
- *   2. build each base station's world→image projection matrix from its pose,
- *   3. DLT-triangulate the pair (cv triangulate_points) → world point.
+ * For each sensor, every calibrated station (bs_pose_valid) with fresh angles gives a ray;
+ * the point is the least-squares closest point to those rays. With three or more rays, one
+ * that is farther than SOLVE3D_OUTLIER_M from the others' point is dropped.
  *
- * @param bs       array of NUM_BS calibrated base-station poses
+ * @param bs       array of NUM_BS base-station poses (all-zero entries = not calibrated)
  * @param angles   decoded angle table [NUM_SENSORS][NUM_BS]
  * @param now_us   current time [µs] for the freshness check
  * @param pts_out  caller buffer of at least NUM_SENSORS points

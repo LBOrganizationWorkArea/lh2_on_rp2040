@@ -39,6 +39,8 @@ import numpy as np
 BS_INDEX_NOTE = {
     0: "poly 8/9,  BS4",
     1: "poly 20/21, BS10",
+    2: "poly 0/1,  BS0",
+    3: "poly 2/3,  BS1",
 }
 
 
@@ -85,10 +87,10 @@ def synthetic_poses():
     -Z viewing direction -> well-conditioned).
     """
     R = _roty(90.0)   # local +X -> world -Z
-    return [
-        BsPose(origin=[0.0,  0.0, 3.45], R=R),   # BS0  (geos:0)
-        BsPose(origin=[2.26, 0.0, 3.45], R=R),   # BS1  (geos:1)
-    ]
+    return {
+        0: BsPose(origin=[0.0,  0.0, 3.45], R=R),   # BS0  (geos:0)
+        1: BsPose(origin=[2.26, 0.0, 3.45], R=R),   # BS1  (geos:1)
+    }
 
 
 # --------------------------------------------------------------------------- #
@@ -105,11 +107,9 @@ def poses_from_yaml(path):
     with open(path) as f:
         data = yaml.safe_load(f)
     geos = data["geos"]
-    poses = []
-    for idx in sorted(geos.keys(), key=int):
-        g = geos[idx]
-        poses.append(BsPose.from_quat_xyzw(g["position"], g["rotation_quat"]))
-    return poses
+    # {firmware index: pose}: a geometry may hold only some of the stations.
+    return {int(idx): BsPose.from_quat_xyzw(g["position"], g["rotation_quat"])
+            for idx, g in sorted(geos.items(), key=lambda kv: int(kv[0]))}
 
 
 # --------------------------------------------------------------------------- #
@@ -121,7 +121,7 @@ def print_summary(poses, source):
     print("World frame: origin=(0,0,0), +X -> x-axis sample, metres "
           "(scale = reference distance).")
     print("BS-local +X = boresight.\n")
-    for i, p in enumerate(poses):
+    for i, p in poses.items():
         note = BS_INDEX_NOTE.get(i, "")
         o = p.origin
         boresight = p.R @ np.array([1.0, 0.0, 0.0])  # world dir the BS faces
@@ -150,11 +150,14 @@ def write_header(poses, source, out_path):
     lines.append("")
     lines.append(f'#define BS_POSE_SOURCE "{source}"')
     lines.append("")
+    listed = ", ".join("%d (%s)" % (i, BS_INDEX_NOTE.get(i, "?").split(",")[-1].strip()) for i in poses)
+    lines.append(f"/* Calibrated stations: {listed}. Indices not listed stay all-zero: the solver ignores them"
+                 " (bs_pose_valid). */")
     lines.append("static const lh2_bs_pose_t BS_POSES[NUM_BS] = {")
-    for i, p in enumerate(poses):
+    for i, p in poses.items():
         note = BS_INDEX_NOTE.get(i, "")
         o = p.origin
-        lines.append(f"    {{  /* BS{i}  ({note}) */")
+        lines.append(f"    [{i}] = {{  /* BS{i}  ({note}) */")
         lines.append(f"        .origin = {{{o[0]:.6f}f, {o[1]:.6f}f, {o[2]:.6f}f}},")
         lines.append(f"        .R = {{ {_fmt_row(p.R[0])},")
         lines.append(f"               {_fmt_row(p.R[1])},")

@@ -45,6 +45,8 @@ import zlib
 from collections import Counter, defaultdict
 from pathlib import Path
 
+NUM_BS = 4  # firmware station indices: 0=BS4, 1=BS10, 2=BS0, 3=BS1 (angle_decoder.h)
+
 LFSR_CLOCK_HZ = 6_000_000
 # Rotor periods in 48 MHz ticks per mode (DotBots LH_PERIODS, Bitcraze CYCLE_PERIODS * 2).
 LH_PERIODS_48MHZ = [959000, 957000, 953000, 949000, 947000, 943000, 941000, 939000,
@@ -261,9 +263,12 @@ def write_header(results: dict[int, dict], path: Path) -> None:
         "#define LH2_FACTORY_CAL_H",
         "",
     ]
-    for bs in (0, 1):
-        if bs not in results:
-            raise ValueError(f"no calibration decoded for station index {bs}")
+    if not results:
+        raise ValueError("no station calibration to write")
+    for bs in range(NUM_BS):
+        if bs not in results:  # main.c uses no correction for it until it is decoded
+            lines += [f"/* BS index {bs}: not decoded yet */", ""]
+            continue
         calib = results[bs]
         planes = ", ".join(
             "{ " + ", ".join(f"{float(sweep[key])!r}f" for key in ("phase", "tilt", "gibmag", "gibphase")) + " }"
@@ -319,7 +324,11 @@ def main() -> int:
     parser.add_argument("--input", type=Path, help="decode a saved O-line log instead of the serial port")
     parser.add_argument("--save-log", type=Path, help="also write the raw O lines to this file")
     parser.add_argument("--seconds", type=float, default=120.0, help="give up after this long (default 120)")
-    parser.add_argument("--stations", type=int, default=2, help="stop once this many stations decode")
+    parser.add_argument("--stations", type=int, default=NUM_BS,
+                        help=f"stop once this many stations decode (default {NUM_BS})")
+    parser.add_argument("--replace", action="store_true",
+                        help="write only the stations decoded now (default: update them in the existing "
+                             "JSON and keep the others, e.g. stations out of view this time)")
     parser.add_argument("-o", "--output", type=Path,
                         default=Path(__file__).with_name("lh2_factory_calibration.json"))
     parser.add_argument("--header", type=Path,
@@ -346,11 +355,19 @@ def main() -> int:
               "drone still, all sensors in view, and run longer.", file=sys.stderr)
         return 1
     print_calibration(results)
+    merged = dict(results)
+    if not args.replace and args.output.exists():
+        with open(args.output, encoding="utf-8") as stream:
+            previous = {int(bs): calib for bs, calib in json.load(stream).items()}
+        kept = sorted(set(previous) - set(results))
+        merged = {**previous, **results}
+        if kept:
+            print(f"Kept from {args.output.name}: station index {', '.join(map(str, kept))} (not decoded this time)")
     with open(args.output, "w", encoding="utf-8") as stream:
-        json.dump({str(bs): calib for bs, calib in sorted(results.items())}, stream, indent=2)
+        json.dump({str(bs): calib for bs, calib in sorted(merged.items())}, stream, indent=2)
     print(f"\nWrote {args.output}")
     if args.header:
-        write_header(results, args.header)
+        write_header(merged, args.header)
         print(f"Wrote {args.header} — rebuild the firmware to use it")
     return 0 if len(results) >= args.stations else 1
 

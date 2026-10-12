@@ -57,6 +57,7 @@
 
 #include "mavlink.h"
 
+#include <math.h>
 #include <string.h>
 #include <stdbool.h>
 
@@ -83,7 +84,8 @@
 #define MSGID_TUNNEL     385u
 #define CRC_EXTRA_TUNNEL 147u
 #define TUNNEL_TYPE_LH2  0x4C48u
-#define TUNNEL_DATA_LEN  94u
+#define TUNNEL_DATA_LEN  95u   /* LH2 TUNNEL v3, see mavlink_send_lh2_angles() */
+#define LH2_ANGLE_LSB    16384.0f  /* int16 angle units per radian: 1/16384 rad, range +-2 rad */
 #define TUNNEL_FRAME_LEN (10u + 133u + 2u)
 #define MAV_GCS_SYSID    255u
 #define MAV_GCS_COMPID   190u
@@ -440,10 +442,31 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
     uart_write_blocking(MAV_UART, frame, FRAME_LEN);
 }
 
+/*
+ * LH2 TUNNEL v3 payload (95 bytes, little-endian):
+ *   "LH", version 3, sequence u16, timestamp_us u64, valid_mask u16,
+ *   then for index = sensor * NUM_BS + bs (4 sensors x 4 stations):
+ *     angles int16[16][2]  horizontal, vertical in 1/16384 rad (range +-2 rad, ~0.06 mrad steps)
+ *     ages   uint8[16]     age of that pair [ms], 255 = 255 ms or older / not valid
+ * v2 (two stations, float angles, u16 ages) did not fit 4 stations in TUNNEL's 128 bytes;
+ * utils/calibration/capture_lh2.py parses both.
+ */
+_Static_assert(20 + NUM_SENSORS * NUM_BS * 4 + NUM_SENSORS * NUM_BS <= 5 + 128 - 1,
+               "LH2 TUNNEL v3 payload does not fit in the 128-byte TUNNEL payload");
+_Static_assert(NUM_SENSORS * NUM_BS <= 16, "valid_mask is 16 bits");
+
+static int16_t _angle_to_i16(float rad)
+{
+    float v = rad * LH2_ANGLE_LSB;
+    if (v > 32767.0f) v = 32767.0f;
+    if (v < -32767.0f) v = -32767.0f;
+    return (int16_t)lroundf(v);
+}
+
 void mavlink_send_lh2_angles(uint64_t usec,
-                             const float angles[4][2][2],
-                             const uint16_t angle_age_ms[4][2],
-                             uint8_t valid_mask)
+                             const float angles[NUM_SENSORS][NUM_BS][2],
+                             const uint8_t angle_age_ms[NUM_SENSORS][NUM_BS],
+                             uint16_t valid_mask)
 {
     uint8_t frame[TUNNEL_FRAME_LEN];
     memset(frame, 0, sizeof(frame));
@@ -464,17 +487,16 @@ void mavlink_send_lh2_angles(uint64_t usec,
     p[4] = TUNNEL_DATA_LEN;
     p[5] = 'L';
     p[6] = 'H';
-    p[7] = 2u;
+    p[7] = 3u;
     write_u16_le(&p[8], s_lh2_seq++);
     write_u64_le(&p[10], usec);
-    p[18] = valid_mask;
-    uint8_t *data = &p[19];
-    for (int sensor = 0; sensor < 4; sensor++) {
-        for (int bs = 0; bs < 2; bs++) {
-            int index = sensor * 2 + bs;
-            write_f32(data + index * 8, angles[sensor][bs][0]);
-            write_f32(data + index * 8 + 4, angles[sensor][bs][1]);
-            write_u16_le(&p[83 + index * 2], angle_age_ms[sensor][bs]);
+    write_u16_le(&p[18], valid_mask);
+    for (int sensor = 0; sensor < NUM_SENSORS; sensor++) {
+        for (int bs = 0; bs < NUM_BS; bs++) {
+            int index = sensor * NUM_BS + bs;
+            write_u16_le(&p[20 + index * 4], (uint16_t)_angle_to_i16(angles[sensor][bs][0]));
+            write_u16_le(&p[22 + index * 4], (uint16_t)_angle_to_i16(angles[sensor][bs][1]));
+            p[84 + index] = angle_age_ms[sensor][bs];
         }
     }
     p[132] = 0xA5u;  /* Keep MAVLink 2 from trimming the unused TUNNEL tail. */
