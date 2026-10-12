@@ -125,7 +125,7 @@ def print_summary(poses, source):
         note = BS_INDEX_NOTE.get(i, "")
         o = p.origin
         boresight = p.R @ np.array([1.0, 0.0, 0.0])  # world dir the BS faces
-        print(f"BS{i} ({note}):")
+        print(f"index {i} ({note}):")
         print(f"    position : [{o[0]:.4f}, {o[1]:.4f}, {o[2]:.4f}] m")
         print(f"    boresight: R*(1,0,0) = "
               f"[{boresight[0]:+.3f}, {boresight[1]:+.3f}, {boresight[2]:+.3f}]")
@@ -157,7 +157,7 @@ def write_header(poses, source, out_path):
     for i, p in poses.items():
         note = BS_INDEX_NOTE.get(i, "")
         o = p.origin
-        lines.append(f"    [{i}] = {{  /* BS{i}  ({note}) */")
+        lines.append(f"    [{i}] = {{  /* index {i}: {note} */")
         lines.append(f"        .origin = {{{o[0]:.6f}f, {o[1]:.6f}f, {o[2]:.6f}f}},")
         lines.append(f"        .R = {{ {_fmt_row(p.R[0])},")
         lines.append(f"               {_fmt_row(p.R[1])},")

@@ -86,6 +86,9 @@ def load_solve_result(directory, name):
         match = re.search(pattern, log)
         if match:
             result["metrics"][key] = float(match.group(1))
+    distances = re.search(r"Station distances: (.+)", log)  # printed with three or more stations
+    if distances:
+        result["distances"] = distances.group(1).strip()
     geometry = os.path.join(directory, "geometry.yaml")
     if not os.path.exists(geometry):
         return result

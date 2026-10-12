@@ -392,7 +392,8 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     <div class="sec-title">C CODE</div>
     <div id="code-wrap">
     <div class="grp-lbl">C CODE — bs_poses_cal.h</div>
-    <div id="warn">NUM_BS &ne; 2 &mdash; also update NUM_BS in angle_decoder.h.</div>
+    <div id="warn">More than 4 stations &mdash; the firmware supports 4 (NUM_BS in angle_decoder.h).</div>
+    <div class="hint">A plan from the Sandbox. The header to flash comes from Calibration &rarr; Result &rarr; Export header (calibrate_export.py).</div>
     <textarea id="code-out" readonly spellcheck="false"></textarea>
     <button id="copy-btn">Copy</button>
   </div>
@@ -442,7 +443,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <div id="cal-variants"></div>
       <div class="cal-quality">
         <div class="grp-lbl" style="display:block;">QUALITY CHECK</div>
-        <div class="hint">Recalculates the calibration 12 times, each with a different 70% of the room recording, to see how stable the result is and how well it explains readings it never saw (about 30 s).</div>
+        <div class="hint">Recalculates the calibration 12 times, each with a different 70% of the room recording, to see how stable the result is and how well it explains readings it never saw (about 30 s with two stations, a few minutes with four).</div>
         <button id="cal-evaluate">Evaluate quality</button>
         <div id="cal-qreport"></div>
       </div>
@@ -475,7 +476,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <summary>Settings &amp; previous runs</summary>
       <div class="cal-field"><label for="cal-xdist">X-axis mark distance</label>
         <input id="cal-xdist" type="number" step="0.1" value="1.0"><span>m</span></div>
-      <div class="cal-field"><label for="cal-baseline" title="Tape-measured distance between the two base stations, used as a check">Tape BS0 – BS1</label>
+      <div class="cal-field"><label for="cal-baseline" title="Tape-measured distance between BS4 and BS10 (firmware index 0 and 1), used as a check">Tape BS4 – BS10</label>
         <input id="cal-baseline" type="number" step="0.01" value="2.26"><span>m</span></div>
       <div class="cal-field"><label for="cal-bh" title="Height of the sensor board above the floor while on the marks: Z = 0 becomes the floor">Board height</label>
         <input id="cal-bh" type="number" step="0.01" value="0"><span>m</span></div>
@@ -625,9 +626,12 @@ class OdomTelemetryParser {
 const PALETTE = [0xFF66FF, 0x66FFFF, 0xFFCC44, 0x88FF66, 0xFF6666, 0x6699FF];
 let uid = 0;
 const bsList = [
-  // Firmware bs_poses_cal.h (calib_runs/run_20261009_180300/geometry.yaml)
-  { id: uid++, name: 'BS0 (poly 8/9, BS4)',   x: -1.2310, y: 0.3843, z: 2.8033, tilt: 22.293, dir: 272.306, roll: 1.565 },
-  { id: uid++, name: 'BS1 (poly 20/21, BS10)', x: 1.0045,  y: 0.3763, z: 2.8123, tilt: 27.433, dir: 283.494, roll: 14.616 },
+  // Firmware index order (angle_decoder.h). BS4 / BS10: bs_poses_cal.h (calib_runs/run_20261009_180300).
+  { id: uid++, name: 'BS4 (poly 8/9)',   x: -1.2310, y: 0.3843, z: 2.8033, tilt: 22.293, dir: 272.306, roll: 1.565 },
+  { id: uid++, name: 'BS10 (poly 20/21)', x: 1.0045, y: 0.3763, z: 2.8123, tilt: 27.433, dir: 283.494, roll: 14.616 },
+  // BS0 / BS1: a first guess on the opposite wall, facing the room — move them where they will be mounted.
+  { id: uid++, name: 'BS0 (poly 0/1)',   x: -1.2310, y: -2.6000, z: 2.8000, tilt: 25, dir: 90, roll: 0 },
+  { id: uid++, name: 'BS1 (poly 2/3)',   x: 1.0045,  y: -2.6000, z: 2.8000, tilt: 25, dir: 90, roll: 0 },
 ];
 
 const fovHInp = document.getElementById('fov-h');
@@ -749,10 +753,10 @@ const warnEl = document.getElementById('warn');
 function fmt(v) { return v.toFixed(6) + 'f'; }
 
 function generateCode() {
-  warnEl.style.display = bsList.length === 2 ? 'none' : 'block';
-  const entries = bsList.map(bs => {
+  warnEl.style.display = bsList.length <= 4 ? 'none' : 'block';
+  const entries = bsList.slice(0, 4).map((bs, i) => {  // list order = firmware index (0=BS4, 1=BS10, 2=BS0, 3=BS1)
     const R = colsToR(bsCols(bs));
-    return `    {  /* ${bs.name} */\n` +
+    return `    [${i}] = {  /* ${bs.name} */\n` +
       `        .origin = {${fmt(bs.x)}, ${fmt(bs.y)}, ${fmt(bs.z)}},\n` +
       `        .R = { {${fmt(R[0][0])}, ${fmt(R[0][1])}, ${fmt(R[0][2])}},\n` +
       `               {${fmt(R[1][0])}, ${fmt(R[1][1])}, ${fmt(R[1][2])}},\n` +
@@ -764,7 +768,7 @@ function generateCode() {
 #ifndef BS_POSES_CAL_H
 #define BS_POSES_CAL_H
 #include "solve3d/solve3d.h"
-#define BS_POSE_SOURCE "bs_pose_editor"
+#define BS_POSE_SOURCE "bs_pose_editor (sandbox plan)"
 static const lh2_bs_pose_t BS_POSES[NUM_BS] = {\n${entries}\n};
 #endif
 `;
@@ -1594,7 +1598,7 @@ const CAL_STEPS = [
   { kind: 'verify',   short: 'Check',   title: 'Check the accuracy',   color: 0xffcc44 },
 ];
 // Station index in the firmware -> the name used in the lab (poly 8/9 -> BS4, poly 20/21 -> BS10).
-const CAL_BS_NAMES = ['BS4', 'BS10'];
+const CAL_BS_NAMES = ['BS4', 'BS10', 'BS0', 'BS1'];
 const calBsName = id => CAL_BS_NAMES[id] || `BS${id}`;
 const CAL_KIND_COLOR = Object.fromEntries(CAL_STEPS.map(s => [s.kind, s.color]));
 let calStep = 0, calStatus = null, calSolve = null, calSolveVersion = -1, calResultKey = '', calBridgeError = '';
@@ -1611,7 +1615,7 @@ function calInstr(kind) {
     xy_plane: `Put the drone flat on the floor at <b>another spot</b>, away from the X axis, and press <b>Add point</b>.
       <ul><li>Do it for <b>3 or more</b> spots, spread out.</li><li>They define the floor (Z = 0).</li></ul>`,
     sweep: `Pick the drone up, press <b>Start</b> and walk it <b>slowly through the whole flight space</b>.
-      <ul><li>Low, middle and high; tilted a bit; turning it around.</li><li>Keep the sensors visible to both stations.</li>
+      <ul><li>Low, middle and high; tilted a bit; turning it around.</li><li>Keep the sensors visible to at least two stations, and pass where the stations' views overlap so all of them are tied together.</li>
       <li>Press <b>Stop</b> after 1–3 minutes. You can add more later.</li></ul>`,
     verify: `Optional: put the drone on spots you can check (e.g. marked points) and press <b>Add check</b>.
       <ul><li>These are <b>not used</b> for the calibration.</li><li>They show how accurate the result is.</li></ul>`,
@@ -1641,7 +1645,7 @@ function calIllus(kind) {
   else if (kind === 'sweep') body = `<path d="M70,130 C110,40 170,150 210,70 S300,30 340,110" fill="none" stroke="#8adcf0" stroke-width="2" stroke-dasharray="4 5"/>` +
     drone(210, 66, -18) + arrow(372, 120, 372, 52, '#8adcf0') + arrow(372, 70, 372, 140, '#8adcf0') + label(200, 162, 'low · middle · high · tilted · all headings');
   else body = ring(140, 120) + ring(270, 110) + drone(140, 98) + '<path d="M260,108 l7,7 l14,-16" fill="none" stroke="#ffcc44" stroke-width="3"/>' + label(200, 162, 'not used by the solver');
-  return `<svg viewBox="0 0 400 170" xmlns="http://www.w3.org/2000/svg">${defs}${floor}${station(70, calBsName(0))}${station(330, calBsName(1))}${body}</svg>`;
+  return `<svg viewBox="0 0 400 170" xmlns="http://www.w3.org/2000/svg">${defs}${floor}${[0, 1, 2, 3].map(i => station(55 + i * 96.7, calBsName(i))).join('')}${body}</svg>`;
 }
 
 function calStepState(kind, s) {
@@ -1671,8 +1675,8 @@ function calFeedbackText(lr, s) {
     return ['good', `✔ ${what} saved (${lr.complete} good readings).`];
   }
   return ['bad', {
-    no_data: '✘ No readings with both stations. Check the drone is connected and both base stations see all four sensors, then retry.',
-    few: `✘ Only ${lr.complete} readings with both stations (10 needed). Make sure nothing blocks the sensors, then retry.`,
+    no_data: '✘ No readings seen by at least two stations. Check the drone is connected and the base stations see all four sensors, then retry.',
+    few: `✘ Only ${lr.complete} readings seen by at least two stations (10 needed). Make sure nothing blocks the sensors, then retry.`,
     implausible: '✘ Most readings were inconsistent between the sensors. Check the sensor board, then retry.',
     moving: '✘ The drone moved during the measurement. Keep it still and retry.',
   }[lr.reason] || ('✘ ' + lr.message)];
@@ -1813,9 +1817,10 @@ function calVariantHtml(v, i) {
     calGrade(m.mark_dist_m - 1, 0.05, 0.1));
   if (m.baseline_m != null) {
     const tape = m.tape_m, err = tape ? 100 * (m.baseline_m - tape) / tape : null;
-    row('Baseline BS0–BS1', `${m.baseline_m.toFixed(3)} m${sd('baseline_per_mark')}` +
+    row('Baseline BS4–BS10', `${m.baseline_m.toFixed(3)} m${sd('baseline_per_mark')}` +
       (err != null ? ` (${err >= 0 ? '+' : ''}${err.toFixed(1)} % vs tape ${tape.toFixed(2)})` : ''), calGrade(err, 3, 6));
   }
+  if (v.distances) row('Station distances', calEsc(v.distances).replace(/, /g, '<br>'));
   if (v.ok) v.poses.forEach(p => {
     const accel = calFactory[p.id] && calFactory[p.id].accel_tilt_deg;
     const d = accel != null ? p.tilt - accel : null;
@@ -2012,7 +2017,7 @@ function calRenderHud() {
     : '<span class="todo">○ Stations not found yet</span>';
   const live = s && s.live
     ? `Drone (${s.live.position.map(c => c.toFixed(2)).join(', ')}) m`
-    : final || preview ? '<span class="todo">Drone not in view of both stations right now</span>'
+    : final || preview ? '<span class="todo">Drone not in view of two stations right now</span>'
     : '<span class="todo">Drone position appears once the stations are estimated</span>';
   const html = `<div class="t">CALIBRATION VIEW${s && s.simulation ? ' · SIMULATION' : ''}</div>` +
     (sm ? [item(sm.origin, 'Origin'), item(sm.x_axis, 'X axis'), item(sm.xy_plane.length > 0, `Floor ${sm.xy_plane.length}`),
@@ -2174,7 +2179,7 @@ function calRenderQuality(sv) {
       calGrade(Math.max(...st.map(([, v]) => v.position_spread_mm)), 10, 30));
     row('Station tilt spread', st.map(([b, v]) => `${calBsName(+b)} ±${v.tilt_deg.std.toFixed(2)}°`).join(' · '),
       calGrade(Math.max(...st.map(([, v]) => v.tilt_deg.std)), 0.2, 0.5));
-    row('Baseline BS0–BS1', `${r.baseline_m.mean.toFixed(3)} m ± ${(r.baseline_m.std * 1000).toFixed(1)} mm`,
+    row('Baseline BS4–BS10', `${r.baseline_m.mean.toFixed(3)} m ± ${(r.baseline_m.std * 1000).toFixed(1)} mm`,
       calGrade(r.baseline_m.std * 1000, 5, 15));
     row('Error on unseen readings', `${r.holdout.median_mm.toFixed(1)} mm typical · ${r.holdout.p90_mm.toFixed(1)} mm (90%)`,
       calGrade(r.holdout.median_mm, 5, 8));
