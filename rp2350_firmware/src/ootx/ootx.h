@@ -11,7 +11,9 @@
  * Same algorithm as utils/calibration/lh2_ootx.py (which decodes logged "O," lines):
  *   rotor turn start = capture time - lfsr / 6 MHz; the hits of one turn vote the bit;
  *   frame = 17 zeros + 1, 16-bit length (byte-swapped), 16-bit words each followed by a
- *   stuffing 1, CRC32 of the payload. A missing or tied turn restarts the frame search.
+ *   stuffing 1, CRC32 of the payload. The station repeats the frame back to back, so each
+ *   turn is voted into slot (turn mod 443) of a ring and missing turns fill in on later
+ *   repetitions: decoding works with many sweeps lost (four stations in view).
  */
 
 #ifndef OOTX_H
@@ -27,7 +29,9 @@
 /** What one station's OOTX stream has produced so far. */
 typedef struct {
     uint32_t bits;                          ///< OOTX bits received (rotor turns)
+    uint32_t missed;                        ///< rotor turns without a usable bit (holes)
     uint16_t frames_ok;                     ///< frames with a valid CRC
+    uint8_t  coverage;                      ///< % of the cycle's bits known so far
     bool     valid;                         ///< payload holds a decoded frame
     uint8_t  payload_len;
     uint8_t  payload[OOTX_MAX_PAYLOAD];     ///< latest valid frame (struct ootxDataFrame_s, little-endian)

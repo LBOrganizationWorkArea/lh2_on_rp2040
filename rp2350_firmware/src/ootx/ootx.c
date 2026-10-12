@@ -16,6 +16,17 @@
  * once they are TURN_LAG turns older than the newest one seen. */
 #define TURN_LAG         5
 #define OPEN_TURNS       12
+/* A frame takes ~440 rotor turns and with four stations in view many turns get no sweep at
+ * all, so frames are rarely received whole. A station repeats the same frame back to back
+ * (17 zeros, 1, length, data, CRC), always 43 bytes on LH2: the stream is periodic with
+ * CYCLE_BITS turns. Each turn's bit is voted into slot (turn mod CYCLE_BITS) of a ring, a
+ * missing turn is just a slot not voted this time, and the frame is read from the ring,
+ * starting after its preamble, once every bit is known and the CRC matches. */
+#define FRAME_WORDS      ((OOTX_MAX_PAYLOAD + 1) / 2 + 2)          ///< data words + 2 CRC words
+#define CYCLE_BITS       (PREAMBLE_ZEROS + 1 + 17 * (1 + FRAME_WORDS))  ///< 443 turns
+#define MAX_GAP_TURNS    1000     ///< a longer silence (20 s) may have lost the turn count
+#define VOTE_LIMIT       4        ///< saturation: a changed frame takes over after a few cycles
+#define RESET_CYCLES     8        ///< complete but CRC still bad after this many: start over
 
 /** Rotor period [us] per physical station (DotBots LH_PERIODS / 48 MHz). */
 static const double PERIOD_US[16] = {
@@ -23,8 +34,6 @@ static const double PERIOD_US[16] = {
     941000 / 48.0, 939000 / 48.0, 937000 / 48.0, 929000 / 48.0, 919000 / 48.0, 911000 / 48.0,
     907000 / 48.0, 901000 / 48.0, 893000 / 48.0, 887000 / 48.0,
 };
-
-typedef enum { SEARCH, LENGTH, DATA } frame_state_t;
 
 typedef struct {
     double   start_us;     ///< turn start (first hit of the turn)
@@ -37,15 +46,11 @@ typedef struct {
     int      n_open;
     bool     have_closed;
     double   closed_start_us;  ///< start of the last turn turned into a bit
-    /* frame decoder */
-    frame_state_t state;
-    uint32_t zeros;
-    uint16_t word;
-    uint8_t  word_bits;      ///< bits of `word` received (16 data + 1 stuffing)
-    uint16_t length;
-    uint16_t words_needed;
-    uint16_t words_done;
-    uint8_t  buf[OOTX_MAX_PAYLOAD + 1 + 4];
+    /* bit votes per slot of the cycle: > 0 means 1, < 0 means 0, 0 unknown */
+    int8_t   vote[CYCLE_BITS];
+    uint16_t slot;             ///< slot of the last turn
+    uint16_t cycle_turns;      ///< turns since the last decode attempt
+    uint8_t  tries;            ///< complete cycles whose CRC failed since the last reset
     /* output */
     ootx_station_t out;
     bool     updated;
@@ -68,82 +73,119 @@ static uint32_t _crc32(const uint8_t *data, int len)
 }
 
 // ---------------------------------------------------------------------------
-// Frame decoder: one bit at a time
+// Ring of voted bits -> frame
 // ---------------------------------------------------------------------------
 
-static void _restart(station_t *st)
+static int8_t _bit(const station_t *st, int i)
 {
-    st->state = SEARCH;
-    st->zeros = 0;
+    return st->vote[((i % CYCLE_BITS) + CYCLE_BITS) % CYCLE_BITS];
 }
 
-static void _frame_complete(station_t *st)
+/** 16 data bits starting at ring index @p at, most significant first; false while one is unknown. */
+static bool _word(const station_t *st, int at, uint16_t *word)
 {
-    const int data_bytes = st->words_needed * 2 - 4;
-    const uint8_t *crc_bytes = &st->buf[data_bytes];
-    uint32_t crc = (uint32_t)crc_bytes[0] | ((uint32_t)crc_bytes[1] << 8)
-                 | ((uint32_t)crc_bytes[2] << 16) | ((uint32_t)crc_bytes[3] << 24);
-    if (_crc32(st->buf, st->length) == crc) {
-        bool changed = !st->out.valid || st->out.payload_len != st->length
-                       || memcmp(st->out.payload, st->buf, st->length) != 0;
-        memcpy(st->out.payload, st->buf, st->length);
-        st->out.payload_len = (uint8_t)st->length;
-        st->out.valid = true;
-        st->out.frames_ok++;
-        if (changed) st->updated = true;
+    uint16_t v = 0;
+    for (int b = 0; b < 16; b++) {
+        int8_t x = _bit(st, at + b);
+        if (x == 0) return false;
+        v = (uint16_t)((v << 1) | (x > 0));
     }
-    _restart(st);
+    *word = v;
+    return true;
 }
 
+static void _start_over(station_t *st)
+{
+    memset(st->vote, 0, sizeof st->vote);
+    st->tries = 0;
+}
+
+/** Once per cycle: find the preamble in the ring and read the frame after it. */
+static void _try_decode(station_t *st)
+{
+    int known = 0;
+    for (int i = 0; i < CYCLE_BITS; i++) known += st->vote[i] != 0;
+    st->out.coverage = (uint8_t)(known * 100 / CYCLE_BITS);
+
+    int start = -1;                                  /* index of the preamble's final 1 */
+    for (int p = 0; p < CYCLE_BITS && start < 0; p++) {
+        if (st->vote[p] <= 0) continue;
+        int z = 1;
+        while (z <= PREAMBLE_ZEROS && _bit(st, p - z) < 0) z++;
+        if (z > PREAMBLE_ZEROS) start = p;
+    }
+    if (start < 0) return;                           /* preamble not complete yet */
+
+    uint16_t w;
+    if (!_word(st, start + 1, &w)) return;
+    const uint16_t length = (uint16_t)(((w & 0xFFu) << 8) | (w >> 8));  /* byte-swapped */
+    if (length == 0 || length > OOTX_MAX_PAYLOAD) {
+        if (++st->tries >= RESET_CYCLES) _start_over(st);
+        return;
+    }
+    uint8_t buf[OOTX_MAX_PAYLOAD + 1 + 4];
+    const int words = (length + 1) / 2 + 2;          /* data words, then CRC0, CRC1 */
+    for (int k = 0; k < words; k++) {
+        if (!_word(st, start + 1 + 17 * (1 + k), &w)) return;  /* holes left: next cycle */
+        buf[2 * k]     = (uint8_t)(w >> 8);          /* received byte order */
+        buf[2 * k + 1] = (uint8_t)(w & 0xFFu);
+    }
+    const uint8_t *c = &buf[words * 2 - 4];
+    uint32_t crc = (uint32_t)c[0] | ((uint32_t)c[1] << 8) | ((uint32_t)c[2] << 16) | ((uint32_t)c[3] << 24);
+    if (_crc32(buf, length) != crc) {
+        if (++st->tries >= RESET_CYCLES) _start_over(st);
+        return;
+    }
+    st->tries = 0;
+    bool changed = !st->out.valid || st->out.payload_len != length
+                   || memcmp(st->out.payload, buf, length) != 0;
+    memcpy(st->out.payload, buf, length);
+    st->out.payload_len = (uint8_t)length;
+    st->out.valid = true;
+    st->out.frames_ok++;
+    if (changed) st->updated = true;
+}
+
+/** One rotor turn's bit: 0, 1, or -1 when the turn had no sweep or a tied vote. */
 static void _push_bit(station_t *st, int bit)
 {
-    st->out.bits++;
-    if (st->state == SEARCH) {
-        if (bit == 1 && st->zeros >= PREAMBLE_ZEROS) {
-            st->state = LENGTH;
-            st->word = 0;
-            st->word_bits = 0;
-        }
-        st->zeros = bit ? 0 : st->zeros + 1;
-        return;
-    }
-    if (st->word_bits < 16) {  /* data bits, most significant first */
-        st->word = (uint16_t)((st->word << 1) | (bit & 1));
-        st->word_bits++;
-        return;
-    }
-    /* 17th bit: stuffing, must be 1 */
-    st->word_bits = 0;
-    if (bit != 1) { _restart(st); return; }
-    if (st->state == LENGTH) {
-        st->length = (uint16_t)(((st->word & 0xFFu) << 8) | (st->word >> 8));  /* byte-swapped */
-        if (st->length > OOTX_MAX_PAYLOAD) { _restart(st); return; }
-        st->words_needed = (uint16_t)((st->length + 1) / 2 + 2);  /* data words, then CRC0, CRC1 */
-        st->words_done = 0;
-        st->state = DATA;
+    st->slot = (uint16_t)((st->slot + 1) % CYCLE_BITS);
+    if (bit < 0) {
+        st->out.missed++;
     } else {
-        st->buf[st->words_done * 2]     = (uint8_t)(st->word >> 8);   /* received byte order */
-        st->buf[st->words_done * 2 + 1] = (uint8_t)(st->word & 0xFFu);
-        if (++st->words_done == st->words_needed) _frame_complete(st);
+        st->out.bits++;
+        int8_t *v = &st->vote[st->slot];
+        if (bit && *v < VOTE_LIMIT) (*v)++;
+        else if (!bit && *v > -VOTE_LIMIT) (*v)--;
+        if (*v == 0) *v = bit ? 1 : -1;              /* a tie keeps the newest bit, not a hole */
     }
-    st->word = 0;
+    if (++st->cycle_turns >= CYCLE_BITS) {
+        st->cycle_turns = 0;
+        _try_decode(st);
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Rotor turns -> bits
 // ---------------------------------------------------------------------------
 
-/** Vote the oldest open turn into a bit (a missing or tied turn restarts the frame search). */
+/** Vote the oldest open turn into a bit; the turns skipped since the previous one are holes. */
 static void _close_oldest(station_t *st, double period)
 {
     turn_t turn = st->open[0];
     st->n_open--;
     memmove(&st->open[0], &st->open[1], (size_t)st->n_open * sizeof(turn_t));
-    if (st->have_closed && lround((turn.start_us - st->closed_start_us) / period) != 1) _restart(st);
+    long step = st->have_closed ? lround((turn.start_us - st->closed_start_us) / period) : 1;
+    if (step < 1) return;                            /* not a new turn: timing glitch, ignore */
     st->have_closed = true;
     st->closed_start_us = turn.start_us;
-    if (turn.votes[0] == turn.votes[1]) _restart(st);
-    else _push_bit(st, turn.votes[1] > turn.votes[0] ? 1 : 0);
+    if (step > MAX_GAP_TURNS) {                      /* the ring's alignment is no longer sure */
+        _start_over(st);
+        st->out.missed += (uint32_t)(step - 1);
+    } else {
+        for (long k = 1; k < step; k++) _push_bit(st, -1);
+    }
+    _push_bit(st, turn.votes[0] == turn.votes[1] ? -1 : turn.votes[1] > turn.votes[0]);
 }
 
 void ootx_add_hit(int bs, uint8_t poly, uint32_t lfsr, uint64_t t_us)

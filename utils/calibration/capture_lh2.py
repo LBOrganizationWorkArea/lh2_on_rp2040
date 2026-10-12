@@ -118,14 +118,22 @@ def parse_lh2_tunnel(payload: bytes) -> dict | None:
 
 
 def parse_lh2_ootx(payload: bytes) -> dict | None:
-    """Decode an "LO" v1 TUNNEL payload: a station's on-board OOTX state (mavlink.c,
-    mavlink_send_lh2_ootx). `frame` is the latest CRC-valid factory-calibration frame, ready
-    for lh2_ootx.parse_payload(), or None while the drone is still decoding."""
-    if len(payload) < 10 or payload[:3] != b"LO\x01":
+    """Decode an "LO" TUNNEL payload: a station's on-board OOTX state (mavlink.c,
+    mavlink_send_lh2_ootx; v1 lacks missed/coverage). `frame` is the latest CRC-valid
+    factory-calibration frame, ready for lh2_ootx.parse_payload(), or None while decoding."""
+    if len(payload) < 10 or payload[:2] != b"LO" or payload[2] not in (1, 2):
         return None
-    bs, flags, frames_ok, bits, length = struct.unpack_from("<BBHHB", payload, 3)
-    frame = bytes(payload[10:10 + length]) if flags & 1 and len(payload) >= 10 + length else None
-    return {"bs": bs, "valid": frame is not None, "frames_ok": frames_ok, "bits": bits, "frame": frame}
+    bs, flags, frames_ok, bits = struct.unpack_from("<BBHH", payload, 3)
+    missed = coverage = None
+    if payload[2] == 2:
+        if len(payload) < 13:
+            return None
+        missed, coverage = struct.unpack_from("<HB", payload, 9)
+    at = 13 if payload[2] == 2 else 10
+    length = payload[at - 1]
+    frame = bytes(payload[at:at + length]) if flags & 1 and len(payload) >= at + length else None
+    return {"bs": bs, "valid": frame is not None, "frames_ok": frames_ok, "bits": bits,
+            "missed": missed, "coverage": coverage, "frame": frame}
 
 
 def snapshot_to_records(snapshot: dict) -> list[dict]:

@@ -171,7 +171,7 @@ class OotxReader:
         """An "LO" TUNNEL from the drone: what it has decoded by itself (capture_lh2.parse_lh2_ootx)."""
         bs = message["bs"]
         entry = {"bits": message["bits"], "frames_ok": message["frames_ok"], "valid": message["valid"],
-                 "at": time.time()}
+                 "missed": message.get("missed"), "coverage": message.get("coverage"), "at": time.time()}
         if message["valid"]:
             try:
                 import lh2_ootx

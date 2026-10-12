@@ -2285,7 +2285,11 @@ function calOotxRender() {
   calEl('cal-ootx-wl').textContent = ids.length ? ids.map(id => {
     const w = wl[id], name = calBsName(+id).padEnd(5);
     const stale = w.age_s > 5 ? `  (last news ${Math.round(w.age_s)} s ago)` : '';
-    if (!w.valid) return `${name} decoding… ${w.bits} bits received, no complete frame yet${stale}`;
+    const turns = w.bits + (w.missed || 0);
+    const lost = w.missed != null && turns ? `, ${Math.round(100 * w.missed / turns)}% turns without sweeps` : '';
+    if (!w.valid) return w.coverage != null
+      ? `${name} decoding… ${w.coverage}% of the frame collected${lost}${stale}`
+      : `${name} decoding… ${w.bits} bits received, no complete frame yet${stale}`;
     const f = calFactory[id], same = f && f.uid === w.uid;
     const note = same ? 'same as saved' : (f ? `differs from saved uid ${f.uid} — station replaced?` : 'not saved yet');
     return `${name} ✔ uid ${w.uid}  ${w.frames_ok} frames  — ${note}${stale}`;

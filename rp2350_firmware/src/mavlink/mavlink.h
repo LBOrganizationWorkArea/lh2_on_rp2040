@@ -23,7 +23,7 @@ void mavlink_send_lh2_angles(uint64_t usec,
                              uint16_t valid_mask);
 
 /* Send one station's on-board OOTX decoding state (and its latest valid factory-calibration
- * frame) in MAVLink TUNNEL, payload "LO" v1 (see mavlink.c). */
+ * frame) in MAVLink TUNNEL, payload "LO" v2 (see mavlink.c). */
 void mavlink_send_lh2_ootx(int bs, const ootx_station_t *station);
 
 /* RX — call every main-loop iteration to drain UART FIFO */

@@ -520,25 +520,28 @@ void mavlink_send_lh2_angles(uint64_t usec,
 }
 
 /*
- * LH2 OOTX status, payload "LO" v1 (10 + payload_len bytes, little-endian):
- *   "LO", version 1, station index u8, flags u8 (bit 0: payload valid), frames_ok u16,
- *   bits u16 (saturating), payload_len u8, then the latest CRC-valid OOTX frame
+ * LH2 OOTX status, payload "LO" v2 (13 + payload_len bytes, little-endian):
+ *   "LO", version 2, station index u8, flags u8 (bit 0: payload valid), frames_ok u16,
+ *   bits u16 and missed turns u16 (saturating), coverage u8 (% of the frame's bits known),
+ *   payload_len u8, then the latest CRC-valid OOTX frame
  *   (struct ootxDataFrame_s, as utils/calibration/lh2_ootx.py parse_payload() reads it).
  */
 void mavlink_send_lh2_ootx(int bs, const ootx_station_t *station)
 {
-    uint8_t d[10 + OOTX_MAX_PAYLOAD];
+    uint8_t d[13 + OOTX_MAX_PAYLOAD];
     uint8_t len = station->valid ? station->payload_len : 0u;
     d[0] = 'L';
     d[1] = 'O';
-    d[2] = 1u;
+    d[2] = 2u;
     d[3] = (uint8_t)bs;
     d[4] = station->valid ? 1u : 0u;
     write_u16_le(&d[5], station->frames_ok);
     write_u16_le(&d[7], (uint16_t)(station->bits > 0xFFFFu ? 0xFFFFu : station->bits));
-    d[9] = len;
-    memcpy(&d[10], station->payload, len);
-    _send_lh2_tunnel(d, (uint8_t)(10 + len));
+    write_u16_le(&d[9], (uint16_t)(station->missed > 0xFFFFu ? 0xFFFFu : station->missed));
+    d[11] = station->coverage;
+    d[12] = len;
+    memcpy(&d[13], station->payload, len);
+    _send_lh2_tunnel(d, (uint8_t)(13 + len));
 }
 
 void mavlink_rx_update(void)
