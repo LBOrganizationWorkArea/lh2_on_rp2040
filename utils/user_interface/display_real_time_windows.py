@@ -64,6 +64,8 @@ _LOG_METRICS = (
     ("baseline_m", r"Estimated baseline: ([\d.]+) m"),
     ("tape_m", r"Tape baseline ([\d.]+) m"),
     ("samples", r"final solve used (\d+)"),
+    # The solver stopped at the board-shape check: geometry not written (see board_fit_mm).
+    ("board_fit_refused_mm", r"do not form the wand .*?\(median rigid-fit error ([\d.]+) mm >"),
 )
 
 
@@ -179,7 +181,7 @@ class CaptureManager:
         self.lock = threading.Lock()
         self.session_dir = ""
         self.config = {"x_axis_dist": 1.0, "static_seconds": 5.0, "baseline": 0.0, "board_height": 0.0,
-                       "reconvert": "", "auto_solve": True}
+                       "reconvert": "", "auto_solve": True, "max_board_fit": 5.0}
         self.target = None  # (host, port) where the extra GCS heartbeat goes
         self.span_limit = None
         self.seen = set()
@@ -484,6 +486,8 @@ class CaptureManager:
                 command += ["--baseline", str(config["baseline"])]
             if config.get("board_height"):
                 command += ["--board-height", str(config["board_height"])]
+            # A preview only places things in 3D while recording: never stop it at the board check.
+            command += ["--max-board-fit-mm", str(max(10.0, float(config.get("max_board_fit") or 5.0)))]
             process = subprocess.Popen(command, cwd=CALIB_DIR, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                        text=True, encoding="utf-8", errors="replace", env=_CHILD_ENV)
             with self.lock:
@@ -899,7 +903,7 @@ class CaptureManager:
             session = self.session_dir
             self._clean_session_files(session)
             args = (session, float(self.config.get("baseline") or 0), float(self.config.get("board_height") or 0),
-                    reconvert)
+                    reconvert, float(self.config.get("max_board_fit") or 5.0))
         threading.Thread(target=self._run_solve, args=args, daemon=True).start()
 
     def _stream(self, command, log_path):
@@ -917,7 +921,7 @@ class CaptureManager:
         with self.lock:
             self.solve["log"] += text
 
-    def _run_solve(self, session, baseline, board_height, reconvert):
+    def _run_solve(self, session, baseline, board_height, reconvert, max_board_fit=5.0):
         # Same flow as capture_lh2.solve_session(): the firmware angles as recorded and, for sessions
         # recorded with the old fitted CAL_BS* firmware, a re-converted copy <session>_<model>.
         targets = [(session, "firmware angles")]
@@ -937,6 +941,7 @@ class CaptureManager:
                     command += ["--baseline", str(baseline)]
                 if board_height:
                     command += ["--board-height", str(board_height)]
+                command += ["--max-board-fit-mm", str(max_board_fit)]
                 if not self._stream(command, os.path.join(target, "solve.log")):
                     geometry = os.path.join(target, "geometry.yaml")
                     if os.path.exists(geometry):  # do not show a previous solve's poses as this one's
@@ -1251,6 +1256,7 @@ def make_handler(state, capture):
                 "board_height": number("board_height", 0.0),
                 "reconvert": arg("reconvert"),
                 "auto_solve": arg("auto_solve", "1") not in ("0", "false"),
+                "max_board_fit": min(20.0, max(1.0, number("max_board_fit", 5.0))),
             }
 
         def _lh2(self, request, body=None):
