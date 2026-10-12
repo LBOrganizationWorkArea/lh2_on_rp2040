@@ -58,7 +58,10 @@ async function startBackend({ packaged, resourcesPath, runsDir, logFile, timeout
   // --parent-pid: the bridge quits by itself if the app dies, so no orphan keeps UDP 14550 busy.
   const child = spawn(python, [...pythonArgs, '--http-port', String(port), ...udp, '--parent-pid', String(process.pid)], {
     cwd: path.dirname(bridge),
-    env: { ...process.env, LH2_RUNS_DIR: runsDir, PYTHONUNBUFFERED: '1', PYTHONUTF8: '1' },
+    // Packaged: the install folder is read-only, so the factory calibration (OOTX) saved from the
+    // drone goes next to the sessions (Documents\LH2); in development it stays in the repository.
+    env: { ...process.env, LH2_RUNS_DIR: runsDir, ...(packaged ? { LH2_DATA_DIR: path.dirname(runsDir) } : {}),
+           PYTHONUNBUFFERED: '1', PYTHONUTF8: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });

@@ -10,6 +10,7 @@
 #include <stdbool.h>
 
 #include "../angle_decoder/angle_decoder.h"  /* NUM_SENSORS, NUM_BS */
+#include "../ootx/ootx.h"                    /* ootx_station_t */
 
 void mavlink_init(void);
 void mavlink_send_odometry(uint64_t usec, float x, float y, float z);
@@ -20,6 +21,10 @@ void mavlink_send_lh2_angles(uint64_t usec,
                              const float angles[NUM_SENSORS][NUM_BS][2],
                              const uint8_t angle_age_ms[NUM_SENSORS][NUM_BS],
                              uint16_t valid_mask);
+
+/* Send one station's on-board OOTX decoding state (and its latest valid factory-calibration
+ * frame) in MAVLink TUNNEL, payload "LO" v1 (see mavlink.c). */
+void mavlink_send_lh2_ootx(int bs, const ootx_station_t *station);
 
 /* RX — call every main-loop iteration to drain UART FIFO */
 void mavlink_rx_update(void);

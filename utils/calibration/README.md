@@ -200,7 +200,12 @@ Check the printout:
 **Same flow from the browser** (Crazyflie-client-style wizard). Run
 `python utils/user_interface/display_real_time_windows.py` and open `bs_pose_editor.html` → **Calib**.
 - *Base station status* shows, per station, Receiving (all four sensors seen), Calibration (OOTX
-  data in `lh2_factory_calibration.json`) and Geometry (solved in this session).
+  data in `lh2_factory_calibration.json`, or decoded by the drone right now) and Geometry (solved in this session).
+- *Settings → Factory calibration (OOTX)*: the drone decodes every station's factory calibration
+  by itself (about a minute per station in view) and sends it over the telemetry link, like the
+  Crazyflie. **Save decoded stations** merges it into `lh2_factory_calibration.json` and rewrites
+  `rp2350_firmware/src/lh2_factory_cal.h` (the power-up default; the drone already uses what it
+  decoded). Older firmware: read it over USB from the same card (same as `lh2_ootx.py`).
 - *Sample collection*: Origin, X-axis, any number of XY-plane samples, XYZ-space (the sweep;
   every recording is appended to `sweep.json`) and optional Verification samples
   (`verify_<n>.json`, never given to the solver). The first measurement creates

@@ -501,6 +501,22 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <button id="cal-open">Open run</button>
       <div class="grp-lbl" style="display:block;margin-top:6px;">FACTORY CALIBRATION (OOTX)</div>
       <div id="cal-factory" class="cal-log" style="max-height:none;">—</div>
+      <div class="hint" title="Like the Crazyflie: every base station broadcasts its factory calibration one bit per rotor turn. The drone decodes it by itself, uses it right away and sends it here over the telemetry link. It takes about a minute per station after power-up.">From the drone (wireless) — needs the Drone connection; ~1 min per station.</div>
+      <div id="cal-ootx-wl" class="cal-log" style="max-height:none;">—</div>
+      <button id="cal-ootx-wlsave" disabled>Save decoded stations</button>
+      <details id="cal-ootx-usb" style="margin-top:6px;">
+        <summary class="hint" style="cursor:pointer;">Over USB instead (older firmware)</summary>
+        <div class="cal-field"><label for="cal-ootx-port">USB port</label>
+          <select id="cal-ootx-port"><option value="">— refresh —</option></select></div>
+        <div style="display:flex;gap:6px;">
+          <button id="cal-ootx-ports">Refresh ports</button>
+          <button id="cal-ootx-start">Read</button>
+          <button id="cal-ootx-stop">Stop</button>
+          <button id="cal-ootx-save" disabled>Save</button>
+        </div>
+        <div id="cal-ootx-usblog" class="cal-log" style="max-height:none;">—</div>
+      </details>
+      <div id="cal-ootx-saved" class="hint"></div>
     </details>
   </div>
   <div class="sec" id="sec-help">
@@ -2259,6 +2275,56 @@ calEl('cal-open').addEventListener('click', () => {
   const dir = calEl('cal-runs').value;
   if (dir) calNewSession(dir);
 });
+// ─── Factory calibration (OOTX): decoded on board and sent over the link, or read over USB ───
+let calOotx = null, calOotxTick = 0;
+function calOotxRender() {
+  const o = calOotx;
+  if (!o) return;
+  const wl = o.wireless || {}, ids = Object.keys(wl).sort();
+  const known = new Set(Object.keys(calFactory));
+  calEl('cal-ootx-wl').textContent = ids.length ? ids.map(id => {
+    const w = wl[id], name = calBsName(+id).padEnd(5);
+    const stale = w.age_s > 5 ? `  (last news ${Math.round(w.age_s)} s ago)` : '';
+    if (!w.valid) return `${name} decoding… ${w.bits} bits received, no complete frame yet${stale}`;
+    const f = calFactory[id], same = f && f.uid === w.uid;
+    const note = same ? 'same as saved' : (f ? `differs from saved uid ${f.uid} — station replaced?` : 'not saved yet');
+    return `${name} ✔ uid ${w.uid}  ${w.frames_ok} frames  — ${note}${stale}`;
+  }).join('\n') : 'Nothing from the drone yet. Connect in the Drone tab and keep the stations in view.';
+  calEl('cal-ootx-wlsave').disabled = !ids.some(id => wl[id].valid);
+  const usb = [];
+  if (o.state !== 'idle') usb.push(`${o.state}${o.port ? ' on ' + o.port : ''}  ${Math.round(o.elapsed)} s, ${o.lines} lines`);
+  Object.entries(o.stations || {}).forEach(([id, st]) => {
+    const d = (o.decoded || {})[id];
+    usb.push(`${calBsName(+id).padEnd(5)} ${d ? '✔ uid ' + d.uid : 'decoding…'}  ${st.hits} hits, longest run ${st.longest_bits} bits`);
+  });
+  if (o.error) usb.push('✘ ' + o.error);
+  calEl('cal-ootx-usblog').textContent = usb.join('\n') || '—';
+  calEl('cal-ootx-save').disabled = !Object.keys(o.decoded || {}).length;
+  calEl('cal-ootx-start').disabled = o.state === 'reading';
+  const sv = o.saved;
+  calEl('cal-ootx-saved').textContent = sv ? `Saved ${sv.updated.map(i => calBsName(i)).join(', ')} (${sv.source}) to ${sv.json}`
+    + (sv.header ? ` and ${sv.header}` : '') + (sv.kept && sv.kept.length ? `; kept ${sv.kept.map(i => calBsName(i)).join(', ')}` : '')
+    + '. The drone already applies it; rebuild the firmware only to make it the power-up default.' : '';
+}
+async function calOotxCall(command, params) {
+  try {
+    calOotx = await calApi('ootx/' + command, params);
+    if (command === 'save') calLoadRuns();  // the station grid and the list above show the new data
+  } catch (err) { calOotx = Object.assign({}, calOotx || {}, { error: err.message }); }
+  calOotxRender();
+}
+calEl('cal-ootx-wlsave').addEventListener('click', () => calOotxCall('save', { source: 'wireless' }));
+calEl('cal-ootx-save').addEventListener('click', () => calOotxCall('save', { source: 'usb' }));
+calEl('cal-ootx-start').addEventListener('click', () => calOotxCall('start', { port: calEl('cal-ootx-port').value }));
+calEl('cal-ootx-stop').addEventListener('click', () => calOotxCall('stop'));
+calEl('cal-ootx-ports').addEventListener('click', async () => {
+  try {
+    const r = await calApi('ootx/ports'), sel = calEl('cal-ootx-port');
+    sel.innerHTML = r.ports.length ? r.ports.map(p => `<option value="${calEsc(p.device)}">${calEsc(p.device)}${p.pico ? ' — Pico' : ''} ${calEsc(p.description)}</option>`).join('')
+                                   : '<option value="">no serial ports</option>';
+  } catch (err) { calEl('cal-ootx-usblog').textContent = '✘ ' + err.message; }
+});
+
 let calWasOpen = false, calTick = 0;
 setInterval(async () => {
   const open = panelEl.dataset.sec === 'calib';
@@ -2266,6 +2332,7 @@ setInterval(async () => {
   calWasOpen = open;
   const busy = calStatus && (calStatus.capture || (calSolve && calSolve.state === 'running'));
   if (open || busy || appMode === 'calib' || (++calTick % 6 === 0 && calStatus)) await calCall('status');
+  if (open && ++calOotxTick % 2 === 0) calOotxCall('status');
 }, 500);
 calRender();
 

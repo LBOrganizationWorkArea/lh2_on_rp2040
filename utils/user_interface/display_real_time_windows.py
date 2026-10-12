@@ -44,7 +44,11 @@ def session_path(directory):
     if parts and parts[0] == "calib_runs":
         parts = parts[1:]
     return os.path.abspath(os.path.join(RUNS_DIR, *parts))
-FACTORY_CAL = os.path.join(CALIB_DIR, "lh2_factory_calibration.json")
+# Base stations' factory calibration (OOTX, utils/calibration/lh2_ootx.py). The desktop app sets
+# LH2_DATA_DIR to a writable folder; until something is read there the shipped file is used.
+DATA_DIR = os.path.abspath(os.environ.get("LH2_DATA_DIR") or CALIB_DIR)
+SHIPPED_FACTORY_CAL = os.path.join(CALIB_DIR, "lh2_factory_calibration.json")
+FACTORY_CAL = os.path.join(DATA_DIR, "lh2_factory_calibration.json")
 # Station poses compiled into the firmware: repo layout, then the Windows bundle layout.
 FIRMWARE_POSES = next((p for p in (os.path.join(CALIB_DIR, "..", "..", "rp2350_firmware", "src", "bs_poses_cal.h"),
                                     os.path.join(CALIB_DIR, "..", "..", "firmware", "bs_poses_cal.h"))
@@ -102,12 +106,8 @@ def load_solve_result(directory, name):
     return result
 
 
-def load_factory_calibration():
-    """OOTX factory data per station (lh2_ootx.py), with the tilt its accelerometer reports."""
-    if not os.path.exists(FACTORY_CAL):
-        return {}
-    with open(FACTORY_CAL, encoding="utf-8") as stream:
-        data = json.load(stream)
+def factory_summary(data):
+    """{station index: uid, polynomials, accelerometer tilt, plane phase/tilt/gibmag [deg]} for the page."""
     stations = {}
     for bs, calib in data.items():
         frame = calib.get("raw_frame", {})
@@ -120,8 +120,181 @@ def load_factory_calibration():
             "polynomials": calib.get("polynomials"),
             "accel_tilt_deg": tilt,
             "planes": [{k: math.degrees(s[k]) for k in ("phase", "tilt", "gibmag")} for s in calib.get("sweeps", [])],
+            "frames_decoded": calib.get("frames_decoded"),
         }
     return stations
+
+
+def load_factory_calibration():
+    """OOTX factory data per station (lh2_ootx.py), with the tilt its accelerometer reports."""
+    path = FACTORY_CAL if os.path.exists(FACTORY_CAL) else SHIPPED_FACTORY_CAL
+    if not os.path.exists(path):
+        return {}
+    with open(path, encoding="utf-8") as stream:
+        return factory_summary(json.load(stream))
+
+
+def factory_header_path():
+    """Where lh2_factory_cal.h goes: the firmware sources when running from the repository,
+    else the data folder (the desktop app cannot rebuild the firmware)."""
+    if FIRMWARE_POSES and os.path.basename(os.path.dirname(FIRMWARE_POSES)) == "src" \
+            and os.access(os.path.dirname(FIRMWARE_POSES), os.W_OK):
+        return os.path.normpath(os.path.join(os.path.dirname(FIRMWARE_POSES), "lh2_factory_cal.h"))
+    return os.path.join(DATA_DIR, "lh2_factory_cal.h")
+
+
+class OotxReader:
+    """Reads the base stations' factory calibration (OOTX) from the Pico's USB serial port.
+
+    The firmware streams one "O,..." line per decoded sweep after receiving 'o' (see
+    angle_decoder_set_ootx_stream); lh2_ootx.Collector turns them into OOTX frames. A frame
+    needs ~6-8 s of unbroken rotor turns per station: drone still, sensors in view."""
+
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.stop_event = threading.Event()
+        self.thread = None
+        self._reset()
+
+    def _reset(self, **extra):
+        wireless = self.state.get("wireless", {}) if hasattr(self, "state") else {}
+        self.state = {"state": "idle", "port": None, "elapsed": 0.0, "lines": 0, "stations": {},
+                      "decoded": {}, "error": None, "saved": None, "wireless": wireless, **extra}
+        self.results = {}
+        if not hasattr(self, "wireless_results"):
+            self.wireless_results = {}  # {station index: lh2_ootx calibration dict}, from the drone
+
+    # Firmware station index -> polynomial pair (angle_decoder.h)
+    POLYNOMIALS = {0: [8, 9], 1: [20, 21], 2: [0, 1], 3: [2, 3]}
+
+    def feed_wireless(self, message):
+        """An "LO" TUNNEL from the drone: what it has decoded by itself (capture_lh2.parse_lh2_ootx)."""
+        bs = message["bs"]
+        entry = {"bits": message["bits"], "frames_ok": message["frames_ok"], "valid": message["valid"],
+                 "at": time.time()}
+        if message["valid"]:
+            try:
+                import lh2_ootx
+                calibration = lh2_ootx.to_calibration(lh2_ootx.parse_payload(message["frame"]))
+            except Exception:  # malformed frame: keep the counters only
+                calibration = None
+            if calibration is not None:
+                calibration["frames_decoded"] = message["frames_ok"]
+                calibration["polynomials"] = self.POLYNOMIALS.get(bs, [])
+                entry.update(factory_summary({str(bs): calibration})[str(bs)])
+                with self.lock:
+                    self.wireless_results[bs] = calibration
+        with self.lock:
+            self.state["wireless"][str(bs)] = entry
+
+    def wireless_ids(self):
+        with self.lock:
+            return {str(bs) for bs in self.wireless_results}
+
+    @staticmethod
+    def ports():
+        try:
+            from serial.tools import list_ports
+        except ImportError:
+            return []
+        found = []
+        for port in list_ports.comports():
+            pico = port.vid == 0x2E8A  # Raspberry Pi (RP2040 / RP2350)
+            found.append({"device": port.device, "description": port.description or "", "pico": pico})
+        return sorted(found, key=lambda p: (not p["pico"], p["device"]))
+
+    def start(self, port, seconds, expected):
+        with self.lock:
+            if self.state["state"] == "reading":
+                raise ValueError("already reading")
+            if not port:
+                raise ValueError("choose the drone's USB serial port")
+            self._reset(state="reading", port=port)
+            self.stop_event.clear()
+        self.thread = threading.Thread(target=self._run, args=(port, seconds, expected), daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.stop_event.set()
+
+    def _run(self, port, seconds, expected):
+        try:
+            import serial  # pyserial
+            import lh2_ootx
+        except ImportError as error:
+            with self.lock:
+                self.state.update(state="error", error=f"missing module: {error}")
+            return
+        collector = lh2_ootx.Collector()
+        started = last = time.monotonic()
+        error = None
+        try:
+            with serial.Serial(port, 115200, timeout=0.2) as link:
+                link.write(b"o")  # start the O-line stream
+                try:
+                    while not self.stop_event.is_set() and time.monotonic() - started < seconds:
+                        line = link.readline().decode(errors="replace")
+                        if line:
+                            collector.add(line)
+                        now = time.monotonic()
+                        if now - last >= 2.0:
+                            last = now
+                            self._update(collector, lh2_ootx, now - started)
+                            if len(self.results) >= expected:
+                                break
+                finally:
+                    link.write(b"x")  # stop it again
+        except Exception as exc:  # port busy / unplugged / not a serial device
+            error = f"{type(exc).__name__}: {exc}"
+        self._update(collector, lh2_ootx, time.monotonic() - started)
+        with self.lock:
+            if error:
+                self.state.update(state="error", error=error)
+            elif collector.lines == 0:
+                self.state.update(state="error", error="no O lines from this port: is it the drone's Pico, "
+                                                       "running the LH2 firmware?")
+            else:
+                self.state["state"] = "done"
+
+    def _update(self, collector, lh2_ootx, elapsed):
+        stations = {}
+        for bs, hits in sorted(collector.hits.items()):
+            longest = max((len(segment) for segment in lh2_ootx.bit_segments(hits)), default=0)
+            stations[str(bs)] = {"hits": len(hits), "longest_bits": longest}
+        results = collector.decode()
+        with self.lock:
+            self.results = results
+            self.state.update(elapsed=elapsed, lines=collector.lines, stations=stations,
+                              decoded=factory_summary({str(k): v for k, v in results.items()}))
+
+    def save(self, source="usb"):
+        """Merge the stations decoded now (over USB, or by the drone itself: source="wireless")
+        into the factory-calibration JSON and write the header."""
+        import shutil as _shutil
+        import lh2_ootx
+        from pathlib import Path
+        with self.lock:
+            results = dict(self.wireless_results if source == "wireless" else self.results)
+        if not results:
+            raise ValueError("no station decoded yet")
+        if not os.path.exists(FACTORY_CAL) and os.path.exists(SHIPPED_FACTORY_CAL):
+            os.makedirs(DATA_DIR, exist_ok=True)
+            _shutil.copy2(SHIPPED_FACTORY_CAL, FACTORY_CAL)  # keep the stations decoded before
+        header = factory_header_path()
+        merged, kept = lh2_ootx.save_calibration(results, Path(FACTORY_CAL), Path(header))
+        saved = {"json": FACTORY_CAL, "header": header, "stations": sorted(merged), "kept": kept,
+                 "updated": sorted(results), "source": source}
+        with self.lock:
+            self.state["saved"] = saved
+        return saved
+
+    def status(self):
+        now = time.time()
+        with self.lock:
+            state = dict(self.state)
+            state["wireless"] = {bs: {**entry, "age_s": round(now - entry["at"], 1)}
+                                 for bs, entry in self.state["wireless"].items()}
+            return state
 
 
 def list_runs():
@@ -1132,7 +1305,7 @@ class GcsEncoder:
         return frames
 
 
-def udp_receiver(state, capture, listen_host, listen_port):
+def udp_receiver(state, capture, ootx, listen_host, listen_port):
     parser = mavlink2.MAVLink(None)
     parser.robust_parsing = True
     encoder = GcsEncoder()
@@ -1205,7 +1378,13 @@ def udp_receiver(state, capture, listen_host, listen_port):
 
                 if kind == "TUNNEL":
                     if message.payload_type == 0x4C48:
-                        capture.feed(bytes(message.payload[:message.payload_length]))
+                        payload = bytes(message.payload[:message.payload_length])
+                        if payload[:2] == b"LO":  # the drone's own OOTX decode
+                            decoded = lh2cap.parse_lh2_ootx(payload) if lh2cap else None
+                            if decoded:
+                                ootx.feed_wireless(decoded)
+                        else:
+                            capture.feed(payload)
                     continue
 
                 if kind != "ODOMETRY":
@@ -1227,7 +1406,7 @@ def udp_receiver(state, capture, listen_host, listen_port):
                     )
 
 
-def make_handler(state, capture):
+def make_handler(state, capture, ootx):
     class Handler(BaseHTTPRequestHandler):
         def _cors_headers(self):
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -1272,6 +1451,22 @@ def make_handler(state, capture):
                     capture.set_target(host, int(arg("port", "14555")))
                 if action == "status":
                     pass
+                elif action.startswith("ootx/"):
+                    command = action[len("ootx/"):]
+                    if command == "ports":
+                        self._json({"ports": OotxReader.ports()})
+                        return
+                    if command == "start":
+                        ootx.start(arg("port"), float(arg("seconds", "120") or 120), int(arg("expected", "4") or 4))
+                    elif command == "stop":
+                        ootx.stop()
+                    elif command == "save":
+                        ootx.save(arg("source", "usb"))
+                    elif command != "status":
+                        self.send_error(404)
+                        return
+                    self._json(ootx.status())
+                    return
                 elif action == "runs":
                     self._json({"runs": list_runs(), "factory": load_factory_calibration()})
                     return
@@ -1314,7 +1509,8 @@ def make_handler(state, capture):
                 self._json({"error": str(error)}, 400)
                 return
             since, dsince = arg("since"), arg("dsince")
-            self._json(capture.status(set(load_factory_calibration()), int(since) if since.isdigit() else None,
+            self._json(capture.status(set(load_factory_calibration()) | ootx.wireless_ids(),
+                                      int(since) if since.isdigit() else None,
                                       int(dsince) if dsince.isdigit() else None))
 
         def do_POST(self):
@@ -1394,14 +1590,15 @@ def main():
     # Import the solver modules (scipy) now, in the background, so the first live-position
     # request does not stall the HTTP replies for seconds while holding the capture lock.
     threading.Thread(target=lambda: __import__("locate_samples"), daemon=True).start()
+    ootx = OotxReader()
     receiver = threading.Thread(
         target=udp_receiver,
-        args=(state, capture, args.udp_host, args.udp_port),
+        args=(state, capture, ootx, args.udp_host, args.udp_port),
         daemon=True,
     )
     receiver.start()
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture))
+    server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture, ootx))
     print(f"HTTP API: http://127.0.0.1:{args.http_port}/api/odometry")
     print(f"Calibration sessions: {RUNS_DIR}")
     print(f"READY http://127.0.0.1:{args.http_port}", flush=True)  # the desktop app waits for this line

@@ -279,6 +279,24 @@ def write_header(results: dict[int, dict], path: Path) -> None:
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def save_calibration(results: dict[int, dict], json_path: Path, header_path: Path | None = None,
+                     replace: bool = False) -> tuple[dict[int, dict], list[int]]:
+    """Write the JSON (and optionally the firmware header). Unless `replace`, stations decoded now
+    update the existing JSON and the others are kept. Returns (all stations written, kept ids)."""
+    merged, kept = dict(results), []
+    if not replace and json_path.exists():
+        with open(json_path, encoding="utf-8") as stream:
+            previous = {int(bs): calib for bs, calib in json.load(stream).items()}
+        kept = sorted(set(previous) - set(results))
+        merged = {**previous, **results}
+    json_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(json_path, "w", encoding="utf-8") as stream:
+        json.dump({str(bs): calib for bs, calib in sorted(merged.items())}, stream, indent=2)
+    if header_path is not None:
+        write_header(merged, header_path)
+    return merged, kept
+
+
 def print_calibration(results: dict[int, dict]) -> None:
     for bs, calib in sorted(results.items()):
         print(f"\nBS{bs}  uid {calib['uid']}  mode {calib['mode']}  polys {calib['polynomials']}  "
@@ -355,19 +373,11 @@ def main() -> int:
               "drone still, all sensors in view, and run longer.", file=sys.stderr)
         return 1
     print_calibration(results)
-    merged = dict(results)
-    if not args.replace and args.output.exists():
-        with open(args.output, encoding="utf-8") as stream:
-            previous = {int(bs): calib for bs, calib in json.load(stream).items()}
-        kept = sorted(set(previous) - set(results))
-        merged = {**previous, **results}
-        if kept:
-            print(f"Kept from {args.output.name}: station index {', '.join(map(str, kept))} (not decoded this time)")
-    with open(args.output, "w", encoding="utf-8") as stream:
-        json.dump({str(bs): calib for bs, calib in sorted(merged.items())}, stream, indent=2)
+    merged, kept = save_calibration(results, args.output, args.header, args.replace)
+    if kept:
+        print(f"Kept from {args.output.name}: station index {', '.join(map(str, kept))} (not decoded this time)")
     print(f"\nWrote {args.output}")
     if args.header:
-        write_header(merged, args.header)
         print(f"Wrote {args.header} — rebuild the firmware to use it")
     return 0 if len(results) >= args.stations else 1
 

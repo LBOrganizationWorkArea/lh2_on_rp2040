@@ -34,6 +34,7 @@ add_executable(crossing_beams
     lh2/lh2.c
     lh2/lh2_decoder.c
     angle_decoder/angle_decoder.c
+    ootx/ootx.c
     cv/cv.c
     solve3d/solve3d.c
     mavlink/mavlink.c
@@ -77,6 +78,7 @@ target_compile_options(crossing_beams PRIVATE
 add_executable(crossing_beams_synthetic
     main.c
     angle_decoder/angle_decoder.c
+    ootx/ootx.c
     cv/cv.c
     solve3d/solve3d.c
     mavlink/mavlink.c

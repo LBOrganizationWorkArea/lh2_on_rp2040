@@ -117,6 +117,17 @@ def parse_lh2_tunnel(payload: bytes) -> dict | None:
             "angles": angles, "ages_ms": ages_ms, "n_bs": n_bs}
 
 
+def parse_lh2_ootx(payload: bytes) -> dict | None:
+    """Decode an "LO" v1 TUNNEL payload: a station's on-board OOTX state (mavlink.c,
+    mavlink_send_lh2_ootx). `frame` is the latest CRC-valid factory-calibration frame, ready
+    for lh2_ootx.parse_payload(), or None while the drone is still decoding."""
+    if len(payload) < 10 or payload[:3] != b"LO\x01":
+        return None
+    bs, flags, frames_ok, bits, length = struct.unpack_from("<BBHHB", payload, 3)
+    frame = bytes(payload[10:10 + length]) if flags & 1 and len(payload) >= 10 + length else None
+    return {"bs": bs, "valid": frame is not None, "frames_ok": frames_ok, "bits": bits, "frame": frame}
+
+
 def snapshot_to_records(snapshot: dict) -> list[dict]:
     """One record per base station that has all four sensors valid."""
     records = []

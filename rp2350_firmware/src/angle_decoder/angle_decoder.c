@@ -24,6 +24,7 @@
 #include <string.h>
 
 #include "pico/time.h"
+#include "../ootx/ootx.h"
 
 #define LFSR_LOG_INTERVAL_US 250000ULL
 
@@ -221,9 +222,11 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
                     continue;  /* unknown polynomial — skip */
                 }
 
+                uint64_t capture_us = to_us_since_boot(lh2[s].timestamps[sweep][slot]);
+                ootx_add_hit(bs_idx, poly, lfsr, capture_us);  /* factory calibration, decoded on board */
                 if (s_ootx_stream) {
                     printf("O,%d,%d,%u,%lu,%llu\n", s, bs_idx, poly, (unsigned long)lfsr,
-                           (unsigned long long)to_us_since_boot(lh2[s].timestamps[sweep][slot]));
+                           (unsigned long long)capture_us);
                 }
 
                 const lh2_cal_t *c = &cal[bs_idx];

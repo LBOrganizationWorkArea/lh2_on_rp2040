@@ -463,10 +463,8 @@ static int16_t _angle_to_i16(float rad)
     return (int16_t)lroundf(v);
 }
 
-void mavlink_send_lh2_angles(uint64_t usec,
-                             const float angles[NUM_SENSORS][NUM_BS][2],
-                             const uint8_t angle_age_ms[NUM_SENSORS][NUM_BS],
-                             uint16_t valid_mask)
+/** Send one TUNNEL (payload type LH2) whose payload data is @p data[0 .. len). */
+static void _send_lh2_tunnel(const uint8_t *data, uint8_t len)
 {
     uint8_t frame[TUNNEL_FRAME_LEN];
     memset(frame, 0, sizeof(frame));
@@ -484,21 +482,8 @@ void mavlink_send_lh2_angles(uint64_t usec,
     write_u16_le(&p[0], TUNNEL_TYPE_LH2);
     p[2] = MAV_GCS_SYSID;
     p[3] = MAV_GCS_COMPID;
-    p[4] = TUNNEL_DATA_LEN;
-    p[5] = 'L';
-    p[6] = 'H';
-    p[7] = 3u;
-    write_u16_le(&p[8], s_lh2_seq++);
-    write_u64_le(&p[10], usec);
-    write_u16_le(&p[18], valid_mask);
-    for (int sensor = 0; sensor < NUM_SENSORS; sensor++) {
-        for (int bs = 0; bs < NUM_BS; bs++) {
-            int index = sensor * NUM_BS + bs;
-            write_u16_le(&p[20 + index * 4], (uint16_t)_angle_to_i16(angles[sensor][bs][0]));
-            write_u16_le(&p[22 + index * 4], (uint16_t)_angle_to_i16(angles[sensor][bs][1]));
-            p[84 + index] = angle_age_ms[sensor][bs];
-        }
-    }
+    p[4] = len;
+    memcpy(&p[5], data, len);
     p[132] = 0xA5u;  /* Keep MAVLink 2 from trimming the unused TUNNEL tail. */
 
     uint16_t crc = 0xFFFFu;
@@ -508,6 +493,52 @@ void mavlink_send_lh2_angles(uint64_t usec,
     frame[143] = (uint8_t)(crc & 0xFFu);
     frame[144] = (uint8_t)(crc >> 8u);
     uart_write_blocking(MAV_UART, frame, 145u);
+}
+
+void mavlink_send_lh2_angles(uint64_t usec,
+                             const float angles[NUM_SENSORS][NUM_BS][2],
+                             const uint8_t angle_age_ms[NUM_SENSORS][NUM_BS],
+                             uint16_t valid_mask)
+{
+    uint8_t d[TUNNEL_DATA_LEN];
+    memset(d, 0, sizeof(d));
+    d[0] = 'L';
+    d[1] = 'H';
+    d[2] = 3u;
+    write_u16_le(&d[3], s_lh2_seq++);
+    write_u64_le(&d[5], usec);
+    write_u16_le(&d[13], valid_mask);
+    for (int sensor = 0; sensor < NUM_SENSORS; sensor++) {
+        for (int bs = 0; bs < NUM_BS; bs++) {
+            int index = sensor * NUM_BS + bs;
+            write_u16_le(&d[15 + index * 4], (uint16_t)_angle_to_i16(angles[sensor][bs][0]));
+            write_u16_le(&d[17 + index * 4], (uint16_t)_angle_to_i16(angles[sensor][bs][1]));
+            d[79 + index] = angle_age_ms[sensor][bs];
+        }
+    }
+    _send_lh2_tunnel(d, TUNNEL_DATA_LEN);
+}
+
+/*
+ * LH2 OOTX status, payload "LO" v1 (10 + payload_len bytes, little-endian):
+ *   "LO", version 1, station index u8, flags u8 (bit 0: payload valid), frames_ok u16,
+ *   bits u16 (saturating), payload_len u8, then the latest CRC-valid OOTX frame
+ *   (struct ootxDataFrame_s, as utils/calibration/lh2_ootx.py parse_payload() reads it).
+ */
+void mavlink_send_lh2_ootx(int bs, const ootx_station_t *station)
+{
+    uint8_t d[10 + OOTX_MAX_PAYLOAD];
+    uint8_t len = station->valid ? station->payload_len : 0u;
+    d[0] = 'L';
+    d[1] = 'O';
+    d[2] = 1u;
+    d[3] = (uint8_t)bs;
+    d[4] = station->valid ? 1u : 0u;
+    write_u16_le(&d[5], station->frames_ok);
+    write_u16_le(&d[7], (uint16_t)(station->bits > 0xFFFFu ? 0xFFFFu : station->bits));
+    d[9] = len;
+    memcpy(&d[10], station->payload, len);
+    _send_lh2_tunnel(d, (uint8_t)(10 + len));
 }
 
 void mavlink_rx_update(void)
