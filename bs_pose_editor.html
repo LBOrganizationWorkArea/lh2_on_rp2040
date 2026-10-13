@@ -501,8 +501,8 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <button id="cal-open">Open run</button>
       <div class="grp-lbl" style="display:block;margin-top:6px;">FACTORY CALIBRATION (OOTX)</div>
       <div id="cal-factory" class="cal-log" style="max-height:none;">—</div>
-      <div class="hint" title="Like the Crazyflie: every base station broadcasts its factory calibration one bit per rotor turn. The drone decodes it by itself, uses it right away and sends it here over the telemetry link. It takes about a minute per station after power-up.">From the drone (wireless) — needs the Drone connection; ~1 min per station.</div>
-      <div id="cal-ootx-wl" class="cal-log" style="max-height:none;">—</div>
+      <div class="hint" title="Like the Crazyflie: every base station broadcasts its factory calibration one bit per rotor turn. The drone decodes it by itself, uses it right away and sends it here over the telemetry link. It takes about a minute per station after power-up.">From the drone (wireless). Needed once per station: saved stations are built into the firmware; the drone re-reads them at every power-up only to check for a replaced station.</div>
+      <div id="cal-ootx-wl" class="cal-log" style="max-height:none;white-space:pre-wrap;">—</div>
       <button id="cal-ootx-wlsave" disabled>Save decoded stations</button>
       <details id="cal-ootx-usb" style="margin-top:6px;">
         <summary class="hint" style="cursor:pointer;">Over USB instead (older firmware)</summary>
@@ -2287,14 +2287,15 @@ function calOotxRender() {
     const stale = w.age_s > 5 ? `  (last news ${Math.round(w.age_s)} s ago)` : '';
     const turns = w.bits + (w.missed || 0);
     const lost = w.missed != null && turns ? `, ${Math.round(100 * w.missed / turns)}% turns without sweeps` : '';
-    if (!w.valid) return w.coverage != null
-      ? `${name} decoding… ${w.coverage}% of the frame collected${lost}${stale}`
-      : `${name} decoding… ${w.bits} bits received, no complete frame yet${stale}`;
+    const progress = w.coverage != null ? `${w.coverage}% of the frame collected${lost}` : `${w.bits} bits received`;
+    if (!w.valid) return calFactory[id]
+      ? `${name} ✔ saved (uid ${calFactory[id].uid}) — the drone is re-reading it to check: ${progress}${stale}`
+      : `${name} decoding… ${progress}, no complete frame yet${stale}`;
     const f = calFactory[id], same = f && f.uid === w.uid;
     const note = same ? 'same as saved' : (f ? `differs from saved uid ${f.uid} — station replaced?` : 'not saved yet');
     return `${name} ✔ uid ${w.uid}  ${w.frames_ok} frames  — ${note}${stale}`;
   }).join('\n') : 'Nothing from the drone yet. Connect in the Drone tab and keep the stations in view.';
-  calEl('cal-ootx-wlsave').disabled = !ids.some(id => wl[id].valid);
+  calEl('cal-ootx-wlsave').disabled = !ids.some(id => wl[id].valid && !(calFactory[id] && calFactory[id].uid === wl[id].uid));
   const usb = [];
   if (o.state !== 'idle') usb.push(`${o.state}${o.port ? ' on ' + o.port : ''}  ${Math.round(o.elapsed)} s, ${o.lines} lines`);
   Object.entries(o.stations || {}).forEach(([id, st]) => {
