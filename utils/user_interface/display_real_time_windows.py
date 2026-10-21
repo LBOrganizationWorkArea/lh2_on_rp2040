@@ -1415,6 +1415,13 @@ def udp_receiver(state, capture, ootx, listen_host, listen_port):
                     "y": north * WORLD_HEADING[1] - east * WORLD_HEADING[0],
                     "z": -float(message.z),
                 }
+                # Yaw (main.c: clockwise about down, + the +X heading) -> world, CCW from +X.
+                qw, qz = float(message.q[0]), float(message.q[3])
+                if math.isfinite(qw) and math.isfinite(qz) and (qw or qz):
+                    yaw_ned = 2.0 * math.atan2(qz, qw)
+                    heading = math.atan2(WORLD_HEADING[1], WORLD_HEADING[0])
+                    world = math.degrees(heading - yaw_ned)
+                    position["yaw"] = (world + 180.0) % 360.0 - 180.0
                 sequence = state.publish(position)
                 if sequence == 1 or sequence % 10 == 0:
                     print(

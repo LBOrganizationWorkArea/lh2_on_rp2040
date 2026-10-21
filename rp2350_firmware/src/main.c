@@ -174,6 +174,57 @@ static volatile bool g_home_set = false;
 /* World +X heading (BS_WORLD_HEADING_DEG), applied to ODOMETRY: set in main(). */
 static float s_heading_cos = 1.0f, s_heading_sin = 0.0f;
 
+/* ── Drone yaw from the four sensors (ArduPilot EK3_SRC1_YAW = 6, ExtNav: no compass) ──
+ * Sensor layout of the board seen from above, component side up, X toward S1, Y toward
+ * the S0-S1 edge [m] (utils/calibration/wand_sensors.json, whose Y points the other way). */
+static const float BOARD_XY[NUM_SENSORS][2] = {
+    { 0.000f,  0.000f },   /* S0 upper-left  */
+    { 0.040f,  0.000f },   /* S1 upper-right */
+    { 0.040f, -0.040f },   /* S2 lower-right */
+    { 0.000f, -0.040f },   /* S3 lower-left  */
+};
+/* Where the drone's nose points on that board [deg, counter-clockwise from S0->S1]:
+ * 90 = toward the S0-S1 edge. Check: nose toward the 1 m mark -> the USB "YAW," line reads ~0. */
+#ifndef BOARD_NOSE_DEG
+#define BOARD_NOSE_DEG 90.0f
+#endif
+#define YAW_MIN_SENSORS 3        ///< a yaw needs at least this many triangulated sensors
+#define YAW_STALE_US    500000ULL ///< older yaw: sent with YAW_VAR_UNKNOWN
+#define YAW_VAR_UNKNOWN 2.0f     ///< [rad^2]: ArduPilot clamps the error to its maximum
+#define YAW_VAR_4       0.02f    ///< yaw variance with 4 sensors [rad^2] (~8 deg, from board-fit scatter)
+
+/**
+ * Yaw of the drone in the world frame [rad, counter-clockwise from +X, Z up]: the rotation
+ * that best maps BOARD_XY onto the measured sensor positions (2D least squares, any subset).
+ * Returns false with fewer than YAW_MIN_SENSORS valid sensors.
+ */
+static bool _board_yaw(const float xyz[NUM_SENSORS][3], const bool valid[NUM_SENSORS],
+                       float *yaw, float *var)
+{
+    float bx = 0.0f, by = 0.0f, mx = 0.0f, my = 0.0f;
+    int n = 0;
+    for (int s = 0; s < NUM_SENSORS; s++) {
+        if (!valid[s]) continue;
+        bx += BOARD_XY[s][0]; by += BOARD_XY[s][1];
+        mx += xyz[s][0];      my += xyz[s][1];
+        n++;
+    }
+    if (n < YAW_MIN_SENSORS) return false;
+    bx /= n; by /= n; mx /= n; my /= n;
+    float cross = 0.0f, dot = 0.0f;
+    for (int s = 0; s < NUM_SENSORS; s++) {
+        if (!valid[s]) continue;
+        const float px = BOARD_XY[s][0] - bx, py = BOARD_XY[s][1] - by;
+        const float qx = xyz[s][0] - mx,      qy = xyz[s][1] - my;
+        cross += px * qy - py * qx;
+        dot   += px * qx + py * qy;
+    }
+    *yaw = atan2f(cross, dot) + BOARD_NOSE_DEG * (float)M_PI / 180.0f;
+    *yaw = atan2f(sinf(*yaw), cosf(*yaw));   /* wrap to [-pi, pi] */
+    *var = YAW_VAR_4 * 4.0f / (float)n;
+    return true;
+}
+
 // ---------------------------------------------------------------------------
 // Core 1 — all sensor capture
 //
@@ -204,7 +255,7 @@ static const float SYN_CORNERS[4][3] = {
 
 /** Sensor offsets on the rigid body [x, y] metres (flat 5×5 cm square). */
 static const float SYN_SENSOR_OFF[NUM_SENSORS][2] = {
-    {0.000f, 0.000f}, {0.050f, 0.000f}, {0.050f, 0.050f}, {0.000f, 0.050f},
+    {0.000f, 0.000f}, {0.050f, 0.000f}, {0.050f, -0.050f}, {0.000f, -0.050f},  /* same order as BOARD_XY */
 };
 
 /**
@@ -437,6 +488,8 @@ int main(void)
     /* ④ Compute loop */
     uint64_t last_print_us = 0;
     float    last_cx = 0.0f, last_cy = 0.0f, last_cz = 0.0f;
+    float    last_yaw = 0.0f, last_yaw_var = 0.0f;   /* world, CCW from +X [rad] */
+    uint64_t last_yaw_us = 0;
     float    last_sensor_xyz[NUM_SENSORS][3] = {{0.0f}};
     bool     last_sensor_valid[NUM_SENSORS] = {false};
     uint64_t last_sensor_update_us[NUM_SENSORS] = {0};
@@ -528,6 +581,12 @@ int main(void)
                     last_cy = sy / na;
                     last_cz = sz / na;
                 }
+                float yaw, yaw_var;
+                if (_board_yaw(last_sensor_xyz, last_sensor_valid, &yaw, &yaw_var)) {
+                    last_yaw = yaw;
+                    last_yaw_var = yaw_var;
+                    last_yaw_us = now_us;
+                }
             }
         }
 
@@ -591,9 +650,17 @@ int main(void)
              * reads these as north / east, so the frame is turned by the heading of +X
              * (BS_WORLD_HEADING_DEG); a wrong heading makes position hold circle the spot. */
             const float fwd = last_cx, right = -last_cy;
-            mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
-                                  fwd * s_heading_cos - right * s_heading_sin,
-                                  fwd * s_heading_sin + right * s_heading_cos, -last_cz);
+            /* Yaw goes the same way: clockwise (FRD) = -world, then + the +X heading. A yaw
+             * older than YAW_STALE_US is still sent, flagged as unknown by a large variance. */
+            const float yaw_ned = -last_yaw + BS_WORLD_HEADING_DEG * (float)M_PI / 180.0f;
+            const bool  yaw_fresh = last_yaw_us != 0 && now_us - last_yaw_us < YAW_STALE_US;
+            if (last_yaw_us != 0) {
+                mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
+                                      fwd * s_heading_cos - right * s_heading_sin,
+                                      fwd * s_heading_sin + right * s_heading_cos, -last_cz,
+                                      yaw_ned, yaw_fresh ? last_yaw_var : YAW_VAR_UNKNOWN);
+            }
+            printf("YAW,%.1f,%d\n", (double)_rad2deg(last_yaw), yaw_fresh ? 1 : 0);
         }
 
         /* Send DO_SET_HOME exactly once — the first time EKF reports healthy.

@@ -13,7 +13,9 @@
 #include "../ootx/ootx.h"                    /* ootx_station_t */
 
 void mavlink_init(void);
-void mavlink_send_odometry(uint64_t usec, float x, float y, float z);
+/* ODOMETRY in MAV_FRAME_LOCAL_FRD: position [m] and yaw [rad, clockwise about down] with its
+ * variance [rad^2] (roll/pitch are left to the flight controller's IMU). */
+void mavlink_send_odometry(uint64_t usec, float x, float y, float z, float yaw, float yaw_var);
 
 /* Send one complete, instantaneous LH2 angle snapshot in MAVLink TUNNEL (format v3, see mavlink.c).
  * valid_mask bit (sensor * NUM_BS + bs) set when that pair is fresh; ages in ms, 255 = not valid. */

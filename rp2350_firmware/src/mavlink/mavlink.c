@@ -381,7 +381,7 @@ void mavlink_init(void)
     gpio_set_function(MAV_RX_PIN, GPIO_FUNC_UART);
 }
 
-void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
+void mavlink_send_odometry(uint64_t usec, float x, float y, float z, float yaw, float yaw_var)
 {
     uint8_t frame[FRAME_LEN];
     memset(frame, 0, sizeof(frame));
@@ -404,8 +404,11 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
     write_f32(&frame[22], y);               /* y */
     write_f32(&frame[26], z);               /* z */
 
-    static const float q_unit[4] = {1.0f, 0.0f, 0.0f, 0.0f};
-    memcpy(&frame[30], q_unit, 16u);        /* q[4] */
+    /* q[4] = w, x, y, z: yaw only, about the down axis (roll/pitch come from the FC's IMU) */
+    write_f32(&frame[30], cosf(0.5f * yaw));
+    write_f32(&frame[34], 0.0f);
+    write_f32(&frame[38], 0.0f);
+    write_f32(&frame[42], sinf(0.5f * yaw));
 
     /* vx/vy/vz = NaN (position-only; AP handles this gracefully) */
     memcpy(&frame[46], k_nan, 4u);
@@ -414,11 +417,14 @@ void mavlink_send_odometry(uint64_t usec, float x, float y, float z)
     /* rollspeed/pitchspeed/yawspeed stay 0.0 (memset) */
 
     /* pose_covariance[21]: upper triangle of 6×6 (pos xyz + att rpy).
-     * AP uses indices [0],[6],[11] for x,y,z position variance to compute
-     * posErr. All other elements stay 0. */
+     * AP uses the diagonal: [0],[6],[11] for the position error, [15],[18],[20]
+     * for the attitude error (yaw, with EK3_SRC1_YAW = ExtNav). Others stay 0. */
     write_f32(&frame[70],  POS_VAR);        /* cov[0]  = x variance  */
     write_f32(&frame[94],  POS_VAR);        /* cov[6]  = y variance  */
     write_f32(&frame[114], POS_VAR);        /* cov[11] = z variance  */
+    write_f32(&frame[130], yaw_var);        /* cov[15] = roll variance  */
+    write_f32(&frame[142], yaw_var);        /* cov[18] = pitch variance */
+    write_f32(&frame[150], yaw_var);        /* cov[20] = yaw variance   */
 
     /* velocity_covariance[21]: unused by AP — NaN throughout */
     for (int i = 0; i < 21; i++)

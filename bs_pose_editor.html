@@ -535,6 +535,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   <div class="odo-row" id="ox"><span class="ax">X</span><span class="val" id="odo-x">—</span><span class="un">m</span></div>
   <div class="odo-row" id="oy"><span class="ax">Y</span><span class="val" id="odo-y">—</span><span class="un">m</span></div>
   <div class="odo-row" id="oz"><span class="ax">Z</span><span class="val" id="odo-z">—</span><span class="un">m</span></div>
+  <div class="odo-row" id="oyaw" title="Drone yaw from the four sensors, counter-clockwise from +X (0 = nose toward the 1 m mark)"><span class="ax" style="width:auto">Yaw</span><span class="val" id="odo-yaw">—</span><span class="un">°</span></div>
   <div id="tracking-status">Disconnected</div>
 </div>
 
@@ -862,6 +863,7 @@ function updateDronePosition(position) {
   document.getElementById('odo-x').textContent = position.x.toFixed(3);
   document.getElementById('odo-y').textContent = position.y.toFixed(3);
   document.getElementById('odo-z').textContent = position.z.toFixed(3);
+  document.getElementById('odo-yaw').textContent = position.yaw != null ? position.yaw.toFixed(1) : '—';
   document.getElementById('tracking-status').textContent = `ODOMETRY live · ${odometryCount}`;
 }
 
