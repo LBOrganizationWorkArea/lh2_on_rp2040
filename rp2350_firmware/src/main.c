@@ -575,8 +575,11 @@ int main(void)
 
         /* Send ODOMETRY at 10 Hz with timestamp corrected to FC timebase. */
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
+            /* World frame is right-handed Z-up (X -> the 1 m mark, Y left); LOCAL_FRD is
+             * X forward, Y right, Z down: flip Y and Z. Flipping Z alone mirrors the
+             * lateral axis and position hold runs away sideways. */
             mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
-                                  last_cx, last_cy, -last_cz);
+                                  last_cx, -last_cy, -last_cz);
         }
 
         /* Send DO_SET_HOME exactly once — the first time EKF reports healthy.

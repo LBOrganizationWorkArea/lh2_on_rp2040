@@ -1394,7 +1394,7 @@ def udp_receiver(state, capture, ootx, listen_host, listen_port):
 
                 position = {
                     "x": float(message.x),
-                    "y": float(message.y),
+                    "y": -float(message.y),  # FRD -> the calibration world (Y left, Z up)
                     "z": -float(message.z),
                 }
                 sequence = state.publish(position)
