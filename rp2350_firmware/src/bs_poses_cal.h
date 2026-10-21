@@ -10,6 +10,10 @@
 
 #define BS_POSE_SOURCE "yaml:Documents/LH2/calib_runs/run_20261021_115439/geometry.yaml"
 
+/* Compass heading of the world +X axis [deg, clockwise from magnetic north]: main.c rotates
+ * ODOMETRY by it, because ArduPilot with compass yaw reads external positions as north-aligned. */
+#define BS_WORLD_HEADING_DEG 332.0f
+
 /* Calibrated stations: 0 (BS4), 1 (BS10), 2 (BS0), 3 (BS1). Indices not listed stay all-zero: the solver ignores them (bs_pose_valid). */
 static const lh2_bs_pose_t BS_POSES[NUM_BS] = {
     [0] = {  /* index 0: poly 8/9,  BS4 */
