@@ -189,6 +189,13 @@ static const float BOARD_XY[NUM_SENSORS][2] = {
 #ifndef BOARD_NOSE_DEG
 #define BOARD_NOSE_DEG 180.0f
 #endif
+/* The four sensors sit on a 4 cm board (5.7 cm diagonal): a sensor farther than this from the
+ * median of the others has a bad ray behind it and is left out; two sensors farther apart than
+ * this are both dropped. A centre jump larger than JUMP_GATE_M is believed only once it has
+ * lasted JUMP_PERSIST_US (flight log 2026-10-21: isolated spikes up to metres in ODOMETRY). */
+#define BOARD_MAX_SPREAD_M 0.08f
+#define JUMP_GATE_M        0.30f
+#define JUMP_PERSIST_US    200000ULL
 #define YAW_MIN_SENSORS 3        ///< a yaw needs at least this many triangulated sensors
 #define YAW_STALE_US    500000ULL ///< older yaw: sent with YAW_VAR_UNKNOWN
 #define YAW_VAR_UNKNOWN 2.0f     ///< [rad^2]: ArduPilot clamps the error to its maximum
@@ -196,6 +203,41 @@ static const float BOARD_XY[NUM_SENSORS][2] = {
  * and 1 s averages wander up to ~20 deg (sensor noise on a 4 cm board); the EKF averages it
  * against the gyros. ArduPilot also clamps it from below with VISO_YAW_M_NSE. */
 #define YAW_VAR_4       0.12f
+
+static float _median3(float a, float b, float c)
+{
+    return a > b ? (b > c ? b : (a > c ? c : a)) : (a > c ? a : (b > c ? c : b));
+}
+
+/** Leave out sensors that do not fit on the board (BOARD_MAX_SPREAD_M); returns how many remain. */
+static int _board_check(const float xyz[NUM_SENSORS][3], bool valid[NUM_SENSORS])
+{
+    int idx[NUM_SENSORS], n = 0;
+    for (int s = 0; s < NUM_SENSORS; s++) if (valid[s]) idx[n++] = s;
+    if (n == 2) {
+        float d2 = 0.0f;
+        for (int k = 0; k < 3; k++) { float d = xyz[idx[0]][k] - xyz[idx[1]][k]; d2 += d * d; }
+        if (d2 > BOARD_MAX_SPREAD_M * BOARD_MAX_SPREAD_M) { valid[idx[0]] = valid[idx[1]] = false; return 0; }
+        return 2;
+    }
+    if (n < 3) return n;
+    float med[3];
+    for (int k = 0; k < 3; k++) {         /* median of 3 or 4 values (mean of the middle two) */
+        float v[NUM_SENSORS];
+        for (int i = 0; i < n; i++) v[i] = xyz[idx[i]][k];
+        if (n == 3) { med[k] = _median3(v[0], v[1], v[2]); continue; }
+        for (int i = 1; i < n; i++) for (int j = i; j > 0 && v[j - 1] > v[j]; j--) { float t = v[j]; v[j] = v[j - 1]; v[j - 1] = t; }
+        med[k] = 0.5f * (v[1] + v[2]);
+    }
+    int kept = 0;
+    for (int i = 0; i < n; i++) {
+        float d2 = 0.0f;
+        for (int k = 0; k < 3; k++) { float d = xyz[idx[i]][k] - med[k]; d2 += d * d; }
+        if (d2 > BOARD_MAX_SPREAD_M * BOARD_MAX_SPREAD_M) valid[idx[i]] = false;
+        else kept++;
+    }
+    return kept;
+}
 
 /**
  * Yaw of the drone in the world frame [rad, counter-clockwise from +X, Z up]: the rotation
@@ -494,6 +536,7 @@ int main(void)
     float    last_cx = 0.0f, last_cy = 0.0f, last_cz = 0.0f;
     float    last_yaw = 0.0f, last_yaw_var = 0.0f;   /* world, CCW from +X [rad] */
     uint64_t last_yaw_us = 0;
+    uint64_t jump_since_us = 0;      /* first solve of a centre jump > JUMP_GATE_M, 0 = none */
     float    last_sensor_xyz[NUM_SENSORS][3] = {{0.0f}};
     bool     last_sensor_valid[NUM_SENSORS] = {false};
     uint64_t last_sensor_update_us[NUM_SENSORS] = {0};
@@ -555,8 +598,6 @@ int main(void)
             for (int s = 0; s < NUM_SENSORS; s++) last_sensor_valid[s] = false;
 
             if (n > 0) {
-                float sx = 0.0f, sy = 0.0f, sz = 0.0f;
-                int   na = 0;
                 float acc_x[NUM_SENSORS]={0}, acc_y[NUM_SENSORS]={0}, acc_z[NUM_SENSORS]={0};
                 int   cnt[NUM_SENSORS]={0};
                 for (int i = 0; i < n; i++) {
@@ -568,25 +609,43 @@ int main(void)
                         cnt[s]++;
                     }
                 }
+                float xyz[NUM_SENSORS][3];
+                bool  ok[NUM_SENSORS];
                 for (int s = 0; s < NUM_SENSORS; s++) {
-                    if (!cnt[s]) continue;
-                    last_sensor_xyz[s][0] = acc_x[s] / cnt[s];
-                    last_sensor_xyz[s][1] = acc_y[s] / cnt[s];
-                    last_sensor_xyz[s][2] = acc_z[s] / cnt[s];
-                    last_sensor_valid[s] = true;
-                    last_sensor_update_us[s] = now_us;
-                    sx += last_sensor_xyz[s][0];
-                    sy += last_sensor_xyz[s][1];
-                    sz += last_sensor_xyz[s][2];
-                    na++;
+                    ok[s] = cnt[s] > 0;
+                    if (!ok[s]) continue;
+                    xyz[s][0] = acc_x[s] / cnt[s];
+                    xyz[s][1] = acc_y[s] / cnt[s];
+                    xyz[s][2] = acc_z[s] / cnt[s];
                 }
-                if (na > 0) {
+                float sx = 0.0f, sy = 0.0f, sz = 0.0f;
+                int   na = _board_check(xyz, ok);
+                for (int s = 0; s < NUM_SENSORS; s++) {
+                    if (!ok[s]) continue;
+                    sx += xyz[s][0]; sy += xyz[s][1]; sz += xyz[s][2];
+                }
+                bool accept = na > 0;
+                if (accept && (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f)) {
+                    const float dx = sx / na - last_cx, dy = sy / na - last_cy, dz = sz / na - last_cz;
+                    if (dx * dx + dy * dy + dz * dz > JUMP_GATE_M * JUMP_GATE_M) {
+                        if (jump_since_us == 0) jump_since_us = now_us;
+                        accept = now_us - jump_since_us >= JUMP_PERSIST_US;  /* it lasts: real */
+                    }
+                }
+                if (accept) {
+                    jump_since_us = 0;
+                    for (int s = 0; s < NUM_SENSORS; s++) {
+                        if (!ok[s]) continue;
+                        for (int k = 0; k < 3; k++) last_sensor_xyz[s][k] = xyz[s][k];
+                        last_sensor_valid[s] = true;
+                        last_sensor_update_us[s] = now_us;
+                    }
                     last_cx = sx / na;
                     last_cy = sy / na;
                     last_cz = sz / na;
                 }
                 float yaw, yaw_var;
-                if (_board_yaw(last_sensor_xyz, last_sensor_valid, &yaw, &yaw_var)) {
+                if (accept && _board_yaw(last_sensor_xyz, last_sensor_valid, &yaw, &yaw_var)) {
                     last_yaw = yaw;
                     last_yaw_var = yaw_var;
                     last_yaw_us = now_us;

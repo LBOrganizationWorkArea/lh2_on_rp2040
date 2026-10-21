@@ -28,6 +28,13 @@
 #define MIN_BS_FOR_POINT 2   ///< stations that must see a sensor to triangulate it
 
 #define EMA_ALPHA   0.2f         ///< EMA smoothing factor (α in paper)
+/* A pair farther than this from its EMA is a mis-decoded sweep (flight log 2026-10-21: one
+ * wrong ray in ~13 % of snapshots) and is left out of the EMA; ANGLE_GATE_N in a row are real
+ * motion and restart it. After EMA_RESET_US without data the EMA restarts too, instead of
+ * blending in an old angle. */
+#define ANGLE_GATE_RAD  0.052f   ///< 3 deg
+#define ANGLE_GATE_N    3
+#define EMA_RESET_US    100000ULL
 #define TAN_30      0.57735027f  ///< tan(30°) — used in elevation reconstruction
 #define FRESHNESS_US 500000ULL   ///< Maximum age before an angle is considered stale [µs]
 
@@ -68,6 +75,7 @@ typedef struct {
     float    raw_horiz;          ///< Instantaneous horizontal angle [radians]
     float    raw_vert;           ///< Instantaneous vertical angle [radians]
     bool     valid;              ///< true once at least one complete pair has been decoded
+    uint8_t  gated;              ///< consecutive pairs left out of the EMA (ANGLE_GATE_RAD)
     uint64_t last_update_us;     ///< timestamp of last successful decode [µs since boot]
 } lh2_angles_t;
 

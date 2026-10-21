@@ -141,8 +141,19 @@ static void _finalize_angles(lh2_angles_t *slot,
     slot->raw_horiz = horiz_rad;
     slot->raw_vert  = vert_rad;
 
-    /* EMA update */
-    if (!slot->valid) {
+    /* EMA update: restart after a gap, leave out a lone outlier (ANGLE_GATE_RAD) */
+    const bool stale = !slot->valid || now_us - slot->last_update_us > EMA_RESET_US;
+    if (!stale && (fabsf(horiz_rad - slot->ema_horiz) > ANGLE_GATE_RAD ||
+                   fabsf(vert_rad  - slot->ema_vert)  > ANGLE_GATE_RAD)) {
+        if (++slot->gated < ANGLE_GATE_N) {
+            slot->has_sweep[0] = false;
+            slot->has_sweep[1] = false;
+            return;                       /* EMA and last_update_us untouched */
+        }
+        slot->valid = false;              /* it keeps disagreeing: real motion, restart */
+    }
+    slot->gated = 0;
+    if (stale || !slot->valid) {
         slot->ema_az    = az_raw;
         slot->ema_el    = el_raw;
         slot->ema_horiz = horiz_rad;
