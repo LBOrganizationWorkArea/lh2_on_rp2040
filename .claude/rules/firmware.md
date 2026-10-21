@@ -33,7 +33,7 @@ All `db_lh2_init()` calls must run on **core 1** — they arm PIO IRQs on the ex
 ## MAVLink ODOMETRY (msg #331)
 
 - **frame_id = 20** (`MAV_FRAME_LOCAL_FRD`), **child_frame_id = 12** (`MAV_FRAME_BODY_FRD`). ArduPilot's `handle_odometry()` silently discards anything else — LOCAL_NED (1/8) does **not** work.
-- World frame is right-handed z-up (X → 1 m mark, Y left); `LOCAL_FRD` is X forward, Y right, Z down → negate **y and z** on send: `mavlink_send_odometry(..., last_cx, -last_cy, -last_cz)`. Negating z alone mirrors the lateral axis (position hold drifts away sideways). The bridge negates both back for the UI.
+- World frame is right-handed z-up (X → 1 m mark, Y left); `LOCAL_FRD` is X forward, Y right, Z down → negate **y and z** on send: `mavlink_send_odometry(..., last_cx, -last_cy, -last_cz)`. Negating z alone mirrors the lateral axis (position hold drifts away sideways). The bridge negates both back for the UI. With compass yaw ArduPilot treats these positions as north/east, so `main.c` then turns them by `BS_WORLD_HEADING_DEG` (compass heading of world +X, written into `bs_poses_cal.h` by `calibrate_export.py --heading-deg`; missing = 0). A wrong heading makes position hold circle the spot (toilet bowl). The bridge reads the same define and undoes it.
 - Odometry is sent at **10 Hz** gated by `PRINT_INTERVAL_US = 100000ULL`.
 - Timestamp is corrected to FC timebase via `mavlink_timesync_corrected_us()`.
 

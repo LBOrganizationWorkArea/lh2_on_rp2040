@@ -53,6 +53,22 @@ FACTORY_CAL = os.path.join(DATA_DIR, "lh2_factory_calibration.json")
 FIRMWARE_POSES = next((p for p in (os.path.join(CALIB_DIR, "..", "..", "rp2350_firmware", "src", "bs_poses_cal.h"),
                                     os.path.join(CALIB_DIR, "..", "..", "firmware", "bs_poses_cal.h"))
                        if os.path.exists(p)), None)
+
+
+def _world_heading():
+    """(cos, sin) of BS_WORLD_HEADING_DEG, the +X heading main.c turns ODOMETRY by (env
+    LH2_WORLD_HEADING_DEG overrides the header, for a drone flashed with another build)."""
+    degrees = os.environ.get("LH2_WORLD_HEADING_DEG")
+    if degrees is None and FIRMWARE_POSES:
+        import re
+        with open(FIRMWARE_POSES, encoding="utf-8", errors="replace") as stream:
+            found = re.search(r"#define\s+BS_WORLD_HEADING_DEG\s+([-+0-9.eE]+)", stream.read())
+        degrees = found.group(1) if found else None
+    angle = math.radians(float(degrees or 0.0))
+    return math.cos(angle), math.sin(angle)
+
+
+WORLD_HEADING = _world_heading()
 DISPLAY_CLOUD_MAX = 2000  # room-recording points kept for the 3D view
 # Calibration scripts print and write UTF-8 (e.g. headers) also on Windows, where the default is cp1252.
 # One BLAS thread per solver: ~2x faster on these small problems, and parallel solves do not fight.
@@ -1392,9 +1408,11 @@ def udp_receiver(state, capture, ootx, listen_host, listen_port):
                 if message.frame_id != 20 or message.child_frame_id != 12:
                     continue
 
+                # Undo main.c: world (X, Y left, Z up) -> FRD -> turned by the +X heading.
+                north, east = float(message.x), float(message.y)
                 position = {
-                    "x": float(message.x),
-                    "y": -float(message.y),  # FRD -> the calibration world (Y left, Z up)
+                    "x": north * WORLD_HEADING[0] + east * WORLD_HEADING[1],
+                    "y": north * WORLD_HEADING[1] - east * WORLD_HEADING[0],
                     "z": -float(message.z),
                 }
                 sequence = state.publish(position)
