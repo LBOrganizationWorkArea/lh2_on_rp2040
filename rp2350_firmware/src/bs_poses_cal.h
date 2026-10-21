@@ -8,21 +8,33 @@
 
 #include "solve3d/solve3d.h"   /* lh2_bs_pose_t, NUM_BS */
 
-#define BS_POSE_SOURCE "yaml:utils/calibration/calib_runs/run_20261009_180300/geometry.yaml"
+#define BS_POSE_SOURCE "yaml:Documents/LH2/calib_runs/run_20261021_115439/geometry.yaml"
 
-/* Calibrated stations: 0 (BS4), 1 (BS10). Indices not listed stay all-zero: the solver ignores them (bs_pose_valid). */
+/* Calibrated stations: 0 (BS4), 1 (BS10), 2 (BS0), 3 (BS1). Indices not listed stay all-zero: the solver ignores them (bs_pose_valid). */
 static const lh2_bs_pose_t BS_POSES[NUM_BS] = {
     [0] = {  /* index 0: poly 8/9,  BS4 */
-        .origin = {-1.231040f, 0.384252f, 2.803342f},
-        .R = { {0.015263f, 0.999834f, 0.009930f},
-               {-0.379031f, 0.014976f, -0.925263f},
-               {-0.925258f, 0.010358f, 0.379197f} },
+        .origin = {-1.332072f, 1.830203f, 2.206555f},
+        .R = { {0.021267f, 0.999645f, 0.016053f},
+               {-0.381286f, 0.022953f, -0.924172f},
+               {-0.924212f, 0.013534f, 0.381639f} },
     },
     [1] = {  /* index 1: poly 20/21, BS10 */
-        .origin = {1.004505f, 0.376265f, 2.812294f},
-        .R = { {0.107504f, 0.993187f, -0.044970f},
-               {-0.447998f, 0.008013f, -0.893999f},
-               {-0.887548f, 0.116255f, 0.445807f} },
+        .origin = {0.894738f, 1.848040f, 2.221014f},
+        .R = { {0.115500f, 0.992568f, -0.038333f},
+               {-0.452654f, 0.018243f, -0.891499f},
+               {-0.884174f, 0.120320f, 0.451397f} },
+    },
+    [2] = {  /* index 2: poly 0/1,  BS0 */
+        .origin = {0.909304f, -1.407571f, 2.377594f},
+        .R = { {-0.062707f, -0.995974f, -0.064067f},
+               {0.344056f, -0.081831f, 0.935376f},
+               {-0.936853f, 0.036612f, 0.347802f} },
+    },
+    [3] = {  /* index 3: poly 2/3,  BS1 */
+        .origin = {-1.308332f, -1.409924f, 2.373089f},
+        .R = { {0.019878f, -0.999485f, 0.025192f},
+               {0.304463f, 0.030052f, 0.952050f},
+               {-0.952317f, -0.011255f, 0.304904f} },
     },
 };
 

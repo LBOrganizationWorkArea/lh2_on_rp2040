@@ -148,6 +148,7 @@ def write_header(poses, source, out_path):
     lines.append("")
     lines.append('#include "solve3d/solve3d.h"   /* lh2_bs_pose_t, NUM_BS */')
     lines.append("")
+    source = source.replace("\\", "/").replace('"', "'")  # Windows paths: a backslash is a C escape
     lines.append(f'#define BS_POSE_SOURCE "{source}"')
     lines.append("")
     listed = ", ".join("%d (%s)" % (i, BS_INDEX_NOTE.get(i, "?").split(",")[-1].strip()) for i in poses)
