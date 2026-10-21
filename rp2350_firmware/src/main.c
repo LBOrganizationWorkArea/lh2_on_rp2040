@@ -184,14 +184,18 @@ static const float BOARD_XY[NUM_SENSORS][2] = {
     { 0.000f, -0.040f },   /* S3 lower-left  */
 };
 /* Where the drone's nose points on that board [deg, counter-clockwise from S0->S1]:
- * 90 = toward the S0-S1 edge. Check: nose toward the 1 m mark -> the USB "YAW," line reads ~0. */
+ * 180 = from S1 toward S0 (flight log 2026-10-21: board +X yaw - compass = 165..172 deg).
+ * Check: nose toward the 1 m mark -> the USB "YAW," line and the app read ~0. */
 #ifndef BOARD_NOSE_DEG
-#define BOARD_NOSE_DEG 90.0f
+#define BOARD_NOSE_DEG 180.0f
 #endif
 #define YAW_MIN_SENSORS 3        ///< a yaw needs at least this many triangulated sensors
 #define YAW_STALE_US    500000ULL ///< older yaw: sent with YAW_VAR_UNKNOWN
 #define YAW_VAR_UNKNOWN 2.0f     ///< [rad^2]: ArduPilot clamps the error to its maximum
-#define YAW_VAR_4       0.02f    ///< yaw variance with 4 sensors [rad^2] (~8 deg, from board-fit scatter)
+/* Yaw variance with 4 sensors [rad^2]: ~20 deg. In flight one snapshot is off by 6..15 deg
+ * and 1 s averages wander up to ~20 deg (sensor noise on a 4 cm board); the EKF averages it
+ * against the gyros. ArduPilot also clamps it from below with VISO_YAW_M_NSE. */
+#define YAW_VAR_4       0.12f
 
 /**
  * Yaw of the drone in the world frame [rad, counter-clockwise from +X, Z up]: the rotation
