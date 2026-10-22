@@ -35,8 +35,14 @@ button, input, select, textarea { font-family: inherit; }
 .mode-switch button.on[data-mode=sandbox] { background: #2c4a2f; color: #fff; font-weight: 600; }
 .mode-switch button.on[data-mode=calib] { background: #1f4f7a; color: #fff; font-weight: 600; }
 .tb-btn.mode-hidden { display: none; }
-body[data-mode=calib] #odo { display: none; }
-#cal-hud { position: absolute; right: 14px; top: 12px; z-index: 5; pointer-events: none; display: none;
+#right-col { position: absolute; top: 12px; right: 14px; z-index: 5; pointer-events: none;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+/* Calibration mode: the calibration panel, and under it only battery / mode / hold */
+body[data-mode=calib] #odo:not(.has-fc), body[data-mode=calib] #odo > .odo-row,
+body[data-mode=calib] #odo-title, body[data-mode=calib] #odo > #tracking-status { display: none; }
+body[data-mode=calib] #odo-fc { border-top: none; margin-top: 0; padding-top: 0; }
+body[data-mode=calib] #odo { order: 2; }
+#cal-hud { pointer-events: none; display: none;
   background: rgba(18,22,28,0.82); border: 1px solid #2f5a7a; border-radius: 8px; padding: 10px 14px;
   font-size: 13px; color: #ddd; line-height: 1.6; min-width: 260px; }
 body[data-mode=calib] #cal-hud { display: block; }
@@ -77,7 +83,7 @@ body[data-mode=calib] #cal-hud { display: block; }
 .sec > .bs-card > .grp-lbl:first-child, #code-wrap > .grp-lbl:first-child { display: none; }
 .sec-title { font-size: 14px; color: #fff; letter-spacing: .5px; font-weight: 600; }
 #odo {
-  position: absolute; top: 12px; right: 14px; z-index: 5; pointer-events: none;
+  pointer-events: none;
   background: rgba(20,20,20,0.72); border: 1px solid #2c5968; border-radius: 8px;
   padding: 10px 16px; text-align: right;
 }
@@ -565,6 +571,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   </div>
 </div>
 
+<div id="right-col">
 <div id="odo">
   <div id="odo-title">ODOMETRY · m</div>
   <div class="odo-row" id="ox"><span class="ax">X</span><span class="val" id="odo-x">—</span><span class="un">m</span></div>
@@ -581,9 +588,10 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   </div>
   <div id="tracking-status">Disconnected</div>
 </div>
+<div id="cal-hud"></div>
+</div>
 
 <div id="scene-container"></div>
-<div id="cal-hud"></div>
 <button id="fit-view" title="Frame the base stations and the floor marks">⤢ Fit view</button>
 <div id="hud-wrap" title="Flight-controller telemetry (needs the UDP bridge link)">
   <canvas id="hud"></canvas>
@@ -945,6 +953,7 @@ const odoEl = id => document.getElementById(id);
 function updateOdoFc() {
   const d = hudData;
   odoEl('odo-fc').classList.toggle('show', !!d);
+  odoEl('odo').classList.toggle('has-fc', !!d);
   if (!d) return;
   const stale = Date.now() - hudAt > 3000 || d.age > 3;
   const bat = odoEl('odo-bat');
@@ -956,18 +965,33 @@ function updateOdoFc() {
   armed.textContent = stale ? '' : d.armed ? 'ARMED' : 'DISARMED';
   armed.style.color = d.armed ? '#ff5a5a' : '#8aa';
 }
-let hold = null;   // { mode, settleUntil, ax, ay, az, n, sum2, max, sum2z, maxz, t0 }
+let hold = null;   // { mode, settleUntil, moving, ax, ay, az, n, sum2, max, sum2z, maxz, t0 }
+const STICKS = [['roll', 1, STICK_DZ], ['pitch', 2, STICK_DZ], ['throttle', 3, 100], ['yaw', 4, STICK_DZ]];
+/** The stick the pilot is moving ("throttle ch1 1650"), or null; channels from RCMAP_* (bridge). */
+function fcStickInput(d) {
+  const rc = d.rc || [], map = d.rcmap || {};
+  for (const [name, def, dz] of STICKS) {
+    const ch = map[name] || def, v = rc[ch - 1];
+    if (v > 800 && v < 2200 && Math.abs(v - 1500) > dz) return `${name} ch${ch} ${v}`;
+  }
+  return null;
+}
 function updateHold(p) {
   const d = hudData, now = Date.now();
-  const active = d && Date.now() - hudAt < 3000 && d.armed && HOLD_MODES.includes(d.mode);
-  odoEl('odo-hold').classList.toggle('show', !!active);
-  if (!active) { hold = null; return; }
-  const rc = d.rc || [], moving = [0, 1, 2, 3].some(i => rc[i] > 800 && Math.abs(rc[i] - 1500) > (i === 2 ? 100 : STICK_DZ));
-  if (!hold || hold.mode !== d.mode || moving) hold = { mode: d.mode, settleUntil: now + HOLD_SETTLE_MS, moving };
+  const live = d && now - hudAt < 3000 && d.age < 3 && d.armed;
+  odoEl('odo-hold').classList.toggle('show', !!live);
   const val = odoEl('odo-hold-val'), sub = odoEl('odo-hold-sub');
+  if (!live || !p) { hold = null; return; }
+  if (!HOLD_MODES.includes(d.mode)) {
+    hold = null; val.textContent = '—'; val.className = 'val';
+    sub.textContent = 'switch to PosHold or Loiter to measure';
+    return;
+  }
+  const moving = fcStickInput(d);
+  if (!hold || hold.mode !== d.mode || moving) hold = { mode: d.mode, settleUntil: now + HOLD_SETTLE_MS, moving };
   if (now < hold.settleUntil) {
     val.textContent = '…'; val.className = 'val';
-    sub.textContent = hold.moving ? 'pilot input — reference set when the sticks are centred' : 'settling…';
+    sub.textContent = hold.moving ? `pilot input (${hold.moving}) — new reference when centred` : 'settling…';
     return;
   }
   if (hold.ax == null) Object.assign(hold, { ax: p.x, ay: p.y, az: p.z, n: 0, sum2: 0, max: 0, sum2z: 0, maxz: 0, t0: now });

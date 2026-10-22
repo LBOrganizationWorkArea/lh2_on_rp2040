@@ -393,7 +393,10 @@ class FlightController:
             if kind == "HEARTBEAT":
                 if message.autopilot != mavlink2.MAV_AUTOPILOT_ARDUPILOTMEGA:
                     return
+                first = self.sysid is None
                 self.sysid, self.compid, self.address = message.get_srcSystem(), message.get_srcComponent(), address
+                if first:  # which channel is which stick (RCMAP_*), for the hold accuracy
+                    threading.Thread(target=self._read_rcmap, daemon=True).start()
                 h["armed"] = bool(message.base_mode & mavlink2.MAV_MODE_FLAG_SAFETY_ARMED)
                 try:
                     from pymavlink import mavutil
@@ -423,8 +426,8 @@ class FlightController:
                 h.update(time_unix=message.time_unix_usec / 1e6, time_boot=message.time_boot_ms / 1000.0)
             elif kind == "EKF_STATUS_REPORT":
                 h["ekf_flags"] = message.flags
-            elif kind == "RC_CHANNELS":       # sticks: roll, pitch, throttle, yaw (default RCMAP)
-                h["rc"] = [message.chan1_raw, message.chan2_raw, message.chan3_raw, message.chan4_raw]
+            elif kind == "RC_CHANNELS":       # channels 1..8; which one is which stick: hud["rcmap"]
+                h["rc"] = [getattr(message, f"chan{i}_raw") for i in range(1, 9)]
             elif kind == "STATUSTEXT":
                 h["text"] = message.text.rstrip("\x00")
                 h["text_at"] = now
@@ -433,6 +436,22 @@ class FlightController:
                 self.params[name] = {"value": float(message.param_value), "type": message.param_type, "at": now}
                 self.cond.notify_all()
             self.last_at = now
+
+    def _read_rcmap(self):
+        """RCMAP_ROLL / PITCH / THROTTLE / YAW (1-based channels; radios often put throttle on 1)."""
+        rcmap = {}
+        for attempt in range(5):
+            for stick in ("ROLL", "PITCH", "THROTTLE", "YAW"):
+                if stick.lower() not in rcmap:
+                    try:
+                        rcmap[stick.lower()] = int(self.param("RCMAP_" + stick)["value"])
+                    except (ValueError, OSError):
+                        pass
+            if len(rcmap) == 4:
+                break
+            time.sleep(2.0)
+        with self.cond:
+            self.hud["rcmap"] = rcmap
 
     def snapshot(self):
         now = time.monotonic()
