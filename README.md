@@ -314,6 +314,11 @@ zip, run `npm run dist:win-zip`. Details are in [ELECTRON_GUI/README.md](ELECTRO
 (`avvia.bat` starts the bridge and opens the editor in the browser). It is the older path and
 LightHouse Studio replaces it.
 
+**Delay plot.** `utils/analysis/plot_ext_nav_delay.py` (Windows: `plot_delay.bat`, double-click or drop a
+`.bin` on it) measures how late the lighthouse position reaches the flight controller from a
+back-and-forth test log: IMU velocity vs lighthouse velocity, the shift that matches them best, and the
+part `VISO_DELAY_MS` must cover. It writes a 4-panel PNG next to the log.
+
 **GCS and logs.** `docs/index.html` is a browser GCS (EKF flags, attitude, 2D map). It needs
 `utils/user_interface/display_real_time.py`. `docs/logview.html` replays ArduPilot DataFlash
 `.bin` logs and MAVLink logs in 3D.
