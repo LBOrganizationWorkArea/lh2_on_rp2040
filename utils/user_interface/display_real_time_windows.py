@@ -329,6 +329,8 @@ class BridgeState:
         self.lock = threading.Lock()
         self.sequence = 0
         self.odometry = None
+        self.odometry_at = 0.0
+        self.history = []           # (time, x, y, z) of the last 2 s, to compare with the late EKF
         self.target_host = ""
         self.target_port = 14550
 
@@ -345,7 +347,23 @@ class BridgeState:
         with self.lock:
             self.sequence += 1
             self.odometry = message
+            self.odometry_at = time.monotonic()
+            self.history.append((self.odometry_at, message["x"], message["y"], message["z"]))
+            while self.history and self.odometry_at - self.history[0][0] > 2.0:
+                self.history.pop(0)
             return self.sequence
+
+    def recent(self, since, until):
+        """World positions received between two monotonic times."""
+        with self.lock:
+            return [(x, y, z) for t, x, y, z in self.history if since <= t <= until]
+
+    def latest(self):
+        """(world position dict, age [s]) of the last ODOMETRY, or (None, inf)."""
+        with self.lock:
+            if self.odometry is None:
+                return None, float("inf")
+            return dict(self.odometry), time.monotonic() - self.odometry_at
 
     def snapshot(self):
         with self.lock:
@@ -372,6 +390,7 @@ class FlightController:
         self.last_at = 0.0
         self.last_seq = None
         self.link = []              # (time, received, lost) per FC message, last 5 s
+        self.local_ned = None       # (north, east, down, time) from LOCAL_POSITION_NED
 
     def attach(self, udp, encoder):
         self.udp, self.encoder = udp, encoder
@@ -412,6 +431,8 @@ class FlightController:
                 h.setdefault("alt", message.alt)
             elif kind == "GLOBAL_POSITION_INT":
                 h["alt"] = message.relative_alt / 1000.0      # above home, like Mission Planner
+            elif kind == "LOCAL_POSITION_NED":
+                self.local_ned = (message.x, message.y, message.z, now)
             elif kind == "SYS_STATUS":
                 h.update(voltage=message.voltage_battery / 1000.0,
                          current=message.current_battery / 100.0 if message.current_battery >= 0 else None,
@@ -466,6 +487,43 @@ class FlightController:
                 hud["text_age"] = round(now - hud.pop("text_at"), 1)
             return hud
 
+    def local(self):
+        """((north, east, down), age [s]) of the EKF position, or (None, inf)."""
+        with self.cond:
+            if self.local_ned is None:
+                return None, float("inf")
+            n, e, d, at = self.local_ned
+            return (n, e, d), time.monotonic() - at
+
+    def local_at(self):
+        """((north, east, down), monotonic time it arrived) or (None, None)."""
+        with self.cond:
+            if self.local_ned is None:
+                return None, None
+            n, e, d, at = self.local_ned
+            return (n, e, d), at
+
+    def status(self):
+        with self.cond:
+            return {"armed": self.hud.get("armed"), "mode": self.hud.get("mode"),
+                    "yaw": self.hud.get("yaw"), "age": time.monotonic() - self.last_at if self.last_at else None}
+
+    def goto_ned(self, north, east, down, yaw_deg):
+        """GUIDED position target in the EKF frame (MAV_FRAME_LOCAL_NED), holding the given yaw."""
+        with self.cond:
+            sysid, compid = self.sysid, self.compid
+        mask = 0x9F8  # use position + yaw; ignore velocity, acceleration, yaw rate
+        self._send(self.encoder.mav.set_position_target_local_ned_encode(
+            0, sysid, compid, mavlink2.MAV_FRAME_LOCAL_NED, mask, north, east, down,
+            0, 0, 0, 0, 0, 0, math.radians(yaw_deg), 0).pack(self.encoder.mav))
+
+    def set_speed(self, speed):
+        """MAV_CMD_DO_CHANGE_SPEED: horizontal speed of GUIDED moves [m/s]."""
+        with self.cond:
+            sysid, compid = self.sysid, self.compid
+        self._send(self.encoder.mav.command_long_encode(
+            sysid, compid, mavlink2.MAV_CMD_DO_CHANGE_SPEED, 0, 1, speed, -1, 0, 0, 0, 0).pack(self.encoder.mav))
+
     def _send(self, frame):
         if self.udp is None or self.address is None:
             raise ValueError("no flight controller yet: connect in the Drone tab and wait for its heartbeat")
@@ -508,6 +566,206 @@ class FlightController:
                         raise ValueError(f"{name}: the flight controller kept {got:g}")
                     return {"name": name, "value": got}
         raise ValueError(f"{name}: no answer from the flight controller")
+
+
+def world_to_ned(x, y, z):
+    """Room coordinates (X to the 1 m mark, Y left, Z up) -> the EKF's NED: the same turn main.c
+    gives ODOMETRY (FRD, then the +X heading); the EKF frame is the ODOMETRY frame."""
+    c, s = WORLD_HEADING
+    return x * c + y * s, x * s - y * c, -z
+
+
+def station_area(margin=0.3):
+    """Rectangle of the room the stations cover [xmin, xmax, ymin, ymax]: between the calibrated
+    stations (bs_poses_cal.h origins), shrunk by `margin`; None without a pose header."""
+    if not FIRMWARE_POSES:
+        return None
+    import re
+    with open(FIRMWARE_POSES, encoding="utf-8", errors="replace") as stream:
+        origins = [tuple(float(v) for v in m.groups()) for m in
+                   re.finditer(r"\.origin\s*=\s*\{\s*([-0-9.eE+]+)f?\s*,\s*([-0-9.eE+]+)f?\s*,\s*([-0-9.eE+]+)f?", stream.read())]
+    origins = [o for o in origins if any(o)]
+    if len(origins) < 2:
+        return None
+    xs, ys = [o[0] for o in origins], [o[1] for o in origins]
+    area = [min(xs) + margin, max(xs) - margin, min(ys) + margin, max(ys) - margin]
+    return area if area[0] < area[1] and area[2] < area[3] else None
+
+
+class MissionRunner:
+    """A list of room points flown one by one in GUIDED: the target goes to the flight controller
+    in its NED frame, arrival is judged on the lighthouse position. The pilot stays in charge:
+    targets are sent only while the FC is armed in GUIDED, and any other mode on the radio
+    (Loiter, PosHold) ends the mission at once."""
+
+    Z_RANGE = (0.4, 2.0)          # allowed target heights [m]
+    MAX_SPEED = 1.0               # [m/s]
+    AGREE_M = 0.15                # EKF vs lighthouse position: larger = do not send targets
+    EKF_LAG_S = 0.8               # the EKF position may be this much behind the lighthouse one
+    PERSIST_S = 1.0               # a failed check must last this long to stop a running mission
+    ODOMETRY_MAX_AGE = 0.5        # [s]
+
+    def __init__(self, state, fc):
+        self.state, self.fc = state, fc
+        self.lock = threading.Lock()
+        self.stop_event = threading.Event()
+        self.thread = None
+        self.status_ = {"state": "idle", "points": [], "leg": None, "message": "", "log": [], "distance": None,
+                        "area": None}
+
+    def _log(self, text):
+        with self.lock:
+            self.status_["message"] = text
+            self.status_["log"] = (self.status_["log"] + [f"{time.strftime('%H:%M:%S')} {text}"])[-30:]
+
+    def checks(self):
+        """Pre-flight checks the editor shows live: {name: (ok, detail)}."""
+        st = self.fc.status()
+        pos, odo_age = self.state.latest()
+        local, local_age = self.fc.local()
+        out = {
+            "fc": (st["age"] is not None and st["age"] < 3, "flight controller telemetry"),
+            "armed": (bool(st["armed"]), "armed"),
+            "guided": (st["mode"] == "GUIDED", "mode GUIDED" if st["mode"] == "GUIDED"
+                       else f"mode {st['mode'] or '?'}: switch to GUIDED on the radio"),
+            "lighthouse": (odo_age < self.ODOMETRY_MAX_AGE, f"lighthouse position {'%.1f s old' % odo_age if odo_age < 99 else 'missing'}"),
+        }
+        if pos and local and local_age < 2.0:
+            # The EKF position arrives a few times a second and late: compare it with the lighthouse
+            # positions of the moments it can refer to, and keep the best match.
+            _, at = self.fc.local_at()
+            candidates = self.state.recent(at - self.EKF_LAG_S, at + 0.05) or [(pos["x"], pos["y"], pos["z"])]
+            gap = min(math.dist(world_to_ned(*p), local) for p in candidates)
+            out["agree"] = (gap < self.AGREE_M, f"EKF and lighthouse agree within {100 * gap:.0f} cm")
+        else:
+            out["agree"] = (False, "EKF position (LOCAL_POSITION_NED) missing")
+        return {k: {"ok": ok, "detail": detail} for k, (ok, detail) in out.items()}
+
+    def validate(self, points):
+        area = station_area()
+        bad = []
+        for i, p in enumerate(points):
+            x, y, z = p
+            if not self.Z_RANGE[0] <= z <= self.Z_RANGE[1]:
+                bad.append(f"point {i + 1}: height {z:.2f} m outside {self.Z_RANGE[0]}..{self.Z_RANGE[1]} m")
+            if area and not (area[0] <= x <= area[1] and area[2] <= y <= area[3]):
+                bad.append(f"point {i + 1}: ({x:.2f}, {y:.2f}) outside the covered area "
+                           f"X {area[0]:.2f}..{area[1]:.2f}, Y {area[2]:.2f}..{area[3]:.2f}")
+        return bad
+
+    def start(self, points, speed, tolerance, settle):
+        with self.lock:
+            if self.status_["state"] == "running":
+                raise ValueError("a mission is already running")
+        points = [[float(v) for v in p] for p in points]
+        if not points or any(len(p) != 3 or not all(math.isfinite(v) for v in p) for p in points):
+            raise ValueError("give at least one point as [x, y, z]")
+        if len(points) > 50:
+            raise ValueError("at most 50 points")
+        bad = self.validate(points)
+        if bad:
+            raise ValueError("; ".join(bad))
+        failed = [c["detail"] for c in self.checks().values() if not c["ok"]]
+        if failed:
+            raise ValueError("not ready: " + "; ".join(failed))
+        speed = min(self.MAX_SPEED, max(0.1, float(speed)))
+        tolerance = min(0.5, max(0.03, float(tolerance)))
+        settle = min(5.0, max(0.0, float(settle)))
+        with self.lock:
+            self.status_.update(state="running", points=points, leg=0, distance=None, log=[], area=station_area())
+        self.stop_event.clear()
+        self.thread = threading.Thread(target=self._run, args=(points, speed, tolerance, settle), daemon=True)
+        self.thread.start()
+
+    def stop(self, reason="stopped from the editor"):
+        if self.thread and self.thread.is_alive():
+            self.stop_event.set()
+            self.thread.join(timeout=3.0)
+        with self.lock:
+            running = self.status_["state"] == "running"
+        if running:
+            self._hold_here()
+            self._finish("aborted", reason)
+
+    def _hold_here(self):
+        """Target = where the drone is now (only while still in GUIDED): it stops and hovers."""
+        local, age = self.fc.local()
+        st = self.fc.status()
+        if local and age < 2.0 and st["mode"] == "GUIDED":
+            try:
+                self.fc.goto_ned(*local, st["yaw"] or 0.0)
+            except (ValueError, OSError):
+                pass
+
+    def _finish(self, state, text):
+        self._log(text)
+        with self.lock:
+            self.status_.update(state=state, distance=None)
+
+    def _run(self, points, speed, tolerance, settle):
+        try:
+            yaw = self.fc.status()["yaw"] or 0.0      # keep the heading the drone has now
+            self.fc.set_speed(speed)
+            self._log(f"start: {len(points)} points at {speed:.2f} m/s, yaw held at {yaw:.0f} deg")
+            for leg, (x, y, z) in enumerate(points):
+                with self.lock:
+                    self.status_["leg"] = leg
+                pos, _ = self.state.latest()
+                distance = math.dist((pos["x"], pos["y"], pos["z"]), (x, y, z))
+                timeout = 8.0 + 2.0 * distance / speed
+                self._log(f"point {leg + 1}/{len(points)}: ({x:.2f}, {y:.2f}, {z:.2f}), {distance:.2f} m away")
+                started = sent = time.monotonic()
+                self.fc.goto_ned(*world_to_ned(x, y, z), yaw)
+                inside_since = failing_since = None
+                while True:
+                    if self.stop_event.wait(0.1):
+                        return
+                    now = time.monotonic()
+                    st = self.fc.status()
+                    if st["mode"] != "GUIDED" or not st["armed"]:
+                        self._finish("aborted", f"pilot took over (mode {st['mode']}, {'armed' if st['armed'] else 'disarmed'})")
+                        return
+                    checks = self.checks()
+                    failing = [checks[n]["detail"] for n in ("lighthouse", "agree", "fc") if not checks[n]["ok"]]
+                    if failing:
+                        failing_since = failing_since or now
+                        if now - failing_since >= self.PERSIST_S:
+                            self._hold_here()
+                            self._finish("aborted", f"stopped, holding position: {'; '.join(failing)}")
+                            return
+                    else:
+                        failing_since = None
+                    pos, _ = self.state.latest()
+                    d = math.dist((pos["x"], pos["y"], pos["z"]), (x, y, z))
+                    with self.lock:
+                        self.status_["distance"] = d
+                    if d <= tolerance:
+                        inside_since = inside_since or now
+                        if now - inside_since >= settle:
+                            break
+                    else:
+                        inside_since = None
+                    if now - started > timeout:
+                        self._hold_here()
+                        self._finish("aborted", f"point {leg + 1} not reached in {timeout:.0f} s ({100 * d:.0f} cm away): holding position")
+                        return
+                    if now - sent > 1.0:              # repeat the target: a lost packet is harmless
+                        self.fc.goto_ned(*world_to_ned(x, y, z), yaw)
+                        sent = now
+                self._log(f"point {leg + 1} reached")
+            self._finish("done", "mission complete: hovering at the last point (GUIDED) — take over on the radio")
+        except Exception as error:  # link or socket trouble: stop where we are
+            self._hold_here()
+            self._finish("error", f"{type(error).__name__}: {error}")
+
+    def snapshot(self):
+        with self.lock:
+            out = dict(self.status_)
+        out["checks"] = self.checks()
+        if out["area"] is None:
+            out["area"] = station_area()
+        out["z_range"] = list(self.Z_RANGE)
+        return out
 
 
 class CaptureManager:
@@ -1597,7 +1855,7 @@ def udp_receiver(state, capture, ootx, fc, listen_host, listen_port):
                     )
 
 
-def make_handler(state, capture, ootx, fc):
+def make_handler(state, capture, ootx, fc, mission):
     class Handler(BaseHTTPRequestHandler):
         def _cors_headers(self):
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -1720,6 +1978,23 @@ def make_handler(state, capture, ootx, fc):
             if request.path.startswith("/api/lh2/"):
                 self._lh2(request)
                 return
+            if request.path.startswith("/api/fc/mission/"):
+                action = request.path[len("/api/fc/mission/"):]
+                try:
+                    if action == "start":
+                        length = int(self.headers.get("Content-Length") or 0)
+                        body = json.loads(self.rfile.read(length) or b"{}") if 0 < length < 65536 else {}
+                        mission.start(body.get("points", []), body.get("speed", 0.3),
+                                      body.get("tolerance", 0.10), body.get("settle", 1.0))
+                    elif action == "stop":
+                        mission.stop()
+                    elif action != "status":
+                        self.send_error(404)
+                        return
+                    self._json(mission.snapshot())
+                except (ValueError, OSError, TypeError) as error:
+                    self._json(dict(mission.snapshot(), error=str(error)), 400)
+                return
             if request.path == "/api/fc/param":
                 query = parse_qs(request.query)
                 value = query.get("value", [""])[0].strip()
@@ -1743,7 +2018,7 @@ def make_handler(state, capture, ootx, fc):
                 return
 
             state.set_target(host, port)
-            self._json(dict(state.snapshot(), fc=fc.snapshot()))
+            self._json(dict(state.snapshot(), fc=fc.snapshot(), mission=mission.snapshot()))
 
         def log_message(self, _format, *_args):
             pass
@@ -1791,6 +2066,7 @@ def main():
     threading.Thread(target=lambda: __import__("locate_samples"), daemon=True).start()
     ootx = OotxReader()
     fc = FlightController()
+    mission = MissionRunner(state, fc)
     receiver = threading.Thread(
         target=udp_receiver,
         args=(state, capture, ootx, fc, args.udp_host, args.udp_port),
@@ -1798,7 +2074,7 @@ def main():
     )
     receiver.start()
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture, ootx, fc))
+    server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture, ootx, fc, mission))
     print(f"HTTP API: http://127.0.0.1:{args.http_port}/api/odometry")
     print(f"Calibration sessions: {RUNS_DIR}")
     print(f"READY http://127.0.0.1:{args.http_port}", flush=True)  # the desktop app waits for this line

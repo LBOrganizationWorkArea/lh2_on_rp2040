@@ -114,6 +114,7 @@ The window has two modes, switched at the top left:
 | **Measure** | both | Distance tool in the 3D view. |
 | **Code** | Sandbox | The `bs_poses_cal.h` content for the poses on screen. |
 | **Calib** | Calibration | The calibration wizard (below). |
+| **Mission** | both | A list of room points (X / Y / Z, the same as the ODOMETRY panel) flown one by one in GUIDED — see [Automatic mission](#automatic-mission-guided). |
 | **?** | both | Help. |
 
 ### The Calib panel
@@ -177,6 +178,28 @@ and Import / Export of a whole session as one JSON file.
   replaced station.
 - **Over USB instead**: the older path, which reads the `O,` lines from the Pico's USB port. It is
   only needed for firmware that predates on-board decoding.
+
+### Automatic mission (GUIDED)
+
+The **Mission** tab flies a list of room points: type them, add the drone's position, or start
+from a figure around the drone (square or cross of 0.5 m, 1 m forward and back). The path is drawn
+in 3D with the covered area on the floor.
+
+1. Take off by hand and hover; switch to **GUIDED** on the radio.
+2. When every check is green, press **Start**. The checks are: telemetry, armed, GUIDED, a fresh
+   lighthouse position, the EKF agreeing with the lighthouse within 15 cm, and every point
+   inside the covered area at 0.4–2 m height.
+3. The bridge sends one `SET_POSITION_TARGET_LOCAL_NED` at a time. It converts room coordinates
+   to the EKF frame with the same turn the firmware applies to ODOMETRY, and holds the current yaw
+   with `DO_CHANGE_SPEED` set as configured. A point counts as reached when the lighthouse
+   position stays within the arrival radius for the hold time; then the next one is sent.
+4. At the end the drone hovers at the last point (still GUIDED): take over on the radio.
+
+**The pilot stays in charge.** Targets are sent only while the drone is armed in GUIDED. Any other
+mode on the radio (Loiter, PosHold) ends the mission at once and the app sends nothing more.
+**Stop** sends "hover here". A point not reached in time, or a lighthouse / EKF problem lasting
+over a second, also stops the mission with "hover here". The covered area is the rectangle
+between the calibrated stations, shrunk by 30 cm.
 
 ### Where the app keeps its files
 

@@ -68,6 +68,19 @@ body[data-mode=calib] #cal-hud { display: block; }
 #fc-params-card .row input { width: 90px; }
 #fc-params-card .pname { width: 128px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #ddd; }
 #fc-param-status { font-size: 12px; color: #9ab; min-height: 16px; white-space: pre-wrap; }
+#mis-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#mis-table th { color: #8aa; font-weight: normal; text-align: left; padding: 2px 3px; }
+#mis-table td { padding: 2px 3px; }
+#mis-table input { width: 64px; }
+#mis-table tr.bad input { border-color: #c44; color: #ff8a8a; }
+#mis-table tr.cur td:first-child { color: #ffcc44; font-weight: bold; }
+#mis-table button { padding: 2px 7px; }
+#mis-checks div { font-size: 12px; line-height: 1.6; }
+#mis-checks .ok { color: #6fdc8c; } #mis-checks .no { color: #ff8a8a; }
+#mis-start { background: #2c6b3a; border-color: #3f9a53; color: #fff; font-weight: 600; }
+#mis-start:disabled { background: #2a2a2a; border-color: #444; color: #777; }
+#mis-stop { background: #8a2c2c; border-color: #c44; color: #fff; font-weight: 600; }
+#mis-status { font-size: 13px; color: #ddd; }
 .bs-card.selected { border-color: #4f8fca; box-shadow: 0 0 0 1px #4f8fca inset; }
 #conn-dot { width: 9px; height: 9px; border-radius: 50%; background: #666; flex: none; }
 #conn-dot.live { background: #5adf7a; box-shadow: 0 0 6px #5adf7a; }
@@ -295,6 +308,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   <button class="tb-btn" data-sec="meas" title="Measure tool"><span class="ic">📏</span><span class="lb">Measure</span></button>
   <button class="tb-btn" data-sec="code" data-modes="sandbox" title="C code for bs_poses_cal.h"><span class="ic">&lt;/&gt;</span><span class="lb">Code</span></button>
   <button class="tb-btn" data-sec="calib" data-modes="calib" title="Auto-calibration capture"><span class="ic">🧭</span><span class="lb">Calib</span></button>
+  <button class="tb-btn" data-sec="mission" title="Automatic mission: fly a list of room points in GUIDED"><span class="ic">🛫</span><span class="lb">Mission</span></button>
   <button class="tb-btn" data-sec="help" title="Help"><span class="ic">❓</span></button>
   <div class="tb-spacer"></div>
   <div id="conn-dot" title="Connection status"></div>
@@ -559,6 +573,43 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       </details>
       <div id="cal-ootx-saved" class="hint"></div>
     </details>
+  </div>
+  <div class="sec" id="sec-mission">
+    <div class="sec-title">MISSION · GUIDED</div>
+    <div class="hint">Points in room coordinates (the X / Y / Z of the ODOMETRY panel). Take off by hand, hover,
+      switch to <b>GUIDED</b> on the radio, then Start. <b>Any other mode on the radio (Loiter, PosHold) stops the mission at once.</b></div>
+    <div class="bs-card">
+      <div class="grp-lbl">POINTS</div>
+      <table id="mis-table"><thead><tr><th>#</th><th>X m</th><th>Y m</th><th>Z m</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="row" style="flex-wrap:wrap;gap:6px;">
+        <button id="mis-add" type="button">+ Point</button>
+        <button id="mis-add-drone" type="button" title="Add where the drone is now">+ Drone position</button>
+        <select id="mis-preset" title="Replace the list with a figure around the drone (or the room centre)">
+          <option value="">Figure…</option>
+          <option value="square">Square 0.5 m</option>
+          <option value="cross">Cross 0.5 m</option>
+          <option value="line">Forward and back 1 m (+X)</option>
+        </select>
+        <button id="mis-clear" type="button">Clear</button>
+      </div>
+      <div class="hint" id="mis-area">—</div>
+    </div>
+    <div class="bs-card">
+      <div class="grp-lbl">SETTINGS</div>
+      <div class="row"><div class="lbl" style="width:120px;">Speed</div><input id="mis-speed" type="number" value="0.3" min="0.1" max="1" step="0.05"><div class="lbl">m/s</div></div>
+      <div class="row"><div class="lbl" style="width:120px;" title="A point counts as reached within this distance">Arrival radius</div><input id="mis-tol" type="number" value="10" min="3" max="50" step="1"><div class="lbl">cm</div></div>
+      <div class="row"><div class="lbl" style="width:120px;" title="Time inside the arrival radius before going to the next point">Hold at each point</div><input id="mis-settle" type="number" value="1" min="0" max="5" step="0.5"><div class="lbl">s</div></div>
+    </div>
+    <div class="bs-card">
+      <div class="grp-lbl">READY?</div>
+      <div id="mis-checks"><div class="no">Connect in the Drone tab (UDP via bridge).</div></div>
+    </div>
+    <div class="row">
+      <button id="mis-start" type="button" style="flex:1;" disabled>▶ Start</button>
+      <button id="mis-stop" type="button" style="flex:1;">■ Stop (hover here)</button>
+    </div>
+    <div id="mis-status">—</div>
+    <div id="mis-log" class="cal-log" style="max-height:160px;">—</div>
   </div>
   <div class="sec" id="sec-help">
     <div class="sec-title">HELP</div>
@@ -1198,6 +1249,143 @@ fcWriteBtn.addEventListener('click', async () => {
   fcRefresh();
 });
 
+// ─── Mission: room points flown in GUIDED by the bridge (/api/fc/mission/*) ───
+const misBody = document.querySelector('#mis-table tbody');
+let misPoints = [];
+let misStatus = null;
+const misEsc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));                                  // bridge mission snapshot (state.mission)
+try { misPoints = JSON.parse(localStorage.getItem('lh2.mission') || '[]'); } catch (_e) { misPoints = []; }
+const misSave = () => { try { localStorage.setItem('lh2.mission', JSON.stringify(misPoints)); } catch (_e) { /* storage blocked */ } };
+const misRunning = () => misStatus && misStatus.state === 'running';
+function misBad(p) {                                   // why a point would be refused, or ''
+  const area = misStatus && misStatus.area, zr = (misStatus && misStatus.z_range) || [0.4, 2.0];
+  if (p.some(v => !isFinite(v))) return 'not a number';
+  if (p[2] < zr[0] || p[2] > zr[1]) return `height outside ${zr[0]}..${zr[1]} m`;
+  if (area && (p[0] < area[0] || p[0] > area[1] || p[1] < area[2] || p[1] > area[3])) return 'outside the covered area';
+  return '';
+}
+function misRenderTable() {
+  const cur = misRunning() ? misStatus.leg : -1;
+  misBody.innerHTML = misPoints.map((p, i) => {
+    const bad = misBad(p);
+    return `<tr class="${bad ? 'bad' : ''} ${i === cur ? 'cur' : ''}" title="${misEsc(bad)}"><td>${i + 1}</td>` +
+      [0, 1, 2].map(k => `<td><input type="number" step="0.05" data-i="${i}" data-k="${k}" value="${p[k]}" ${misRunning() ? 'disabled' : ''}></td>`).join('') +
+      `<td><button data-del="${i}" ${misRunning() ? 'disabled' : ''}>✕</button></td></tr>`;
+  }).join('') || '<tr><td colspan="5" style="color:#888;">No points yet.</td></tr>';
+  misDraw();
+}
+misBody.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.i == null) return;
+  misPoints[+t.dataset.i][+t.dataset.k] = Math.round(parseFloat(t.value) * 100) / 100;
+  misSave(); misRenderTable(); misRefresh();
+});
+misBody.addEventListener('click', e => {
+  if (e.target.dataset.del == null) return;
+  misPoints.splice(+e.target.dataset.del, 1); misSave(); misRenderTable(); misRefresh();
+});
+const r2 = v => Math.round(v * 100) / 100;
+function misHere() {                                    // drone position, else the middle of the area
+  if (lastOdomPos && Date.now() - lastOdomAt < 2000) return [r2(lastOdomPos.x), r2(lastOdomPos.y), r2(Math.min(1.5, Math.max(0.8, lastOdomPos.z)))];
+  const a = misStatus && misStatus.area;
+  return a ? [r2((a[0] + a[1]) / 2), r2((a[2] + a[3]) / 2), 1.0] : [0, 0, 1.0];
+}
+document.getElementById('mis-add').addEventListener('click', () => {
+  const last = misPoints[misPoints.length - 1] || misHere();
+  misPoints.push([r2(last[0] + (misPoints.length ? 0.5 : 0)), last[1], last[2]]); misSave(); misRenderTable(); misRefresh();
+});
+document.getElementById('mis-add-drone').addEventListener('click', () => {
+  if (!lastOdomPos || Date.now() - lastOdomAt > 2000) { document.getElementById('mis-status').textContent = 'No live drone position.'; return; }
+  misPoints.push([r2(lastOdomPos.x), r2(lastOdomPos.y), r2(lastOdomPos.z)]); misSave(); misRenderTable(); misRefresh();
+});
+document.getElementById('mis-preset').addEventListener('change', e => {
+  const [x, y, z] = misHere(), d = 0.5;
+  const figures = {
+    square: [[x, y], [x + d, y], [x + d, y + d], [x, y + d], [x, y]],
+    cross: [[x, y], [x + d, y], [x, y], [x - d, y], [x, y], [x, y + d], [x, y], [x, y - d], [x, y]],
+    line: [[x, y], [x + 1, y], [x, y]],
+  };
+  if (figures[e.target.value]) { misPoints = figures[e.target.value].map(([px, py]) => [r2(px), r2(py), z]); misSave(); misRenderTable(); misRefresh(); }
+  e.target.value = '';
+});
+document.getElementById('mis-clear').addEventListener('click', () => { misPoints = []; misSave(); misRenderTable(); misRefresh(); });
+
+// 3D: path, numbered points, current target, covered area on the floor
+const misGroup = new THREE.Group(); scene.add(misGroup);
+function misDraw() {
+  while (misGroup.children.length) {
+    const o = misGroup.children.pop();
+    if (o.element) o.element.remove();
+    if (o.geometry) o.geometry.dispose();
+  }
+  const cur = misRunning() ? misStatus.leg : -1;
+  if (misPoints.length > 1) {
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(misPoints.map(p => tv(...p))),
+      new THREE.LineBasicMaterial({ color: 0x4fd1ff }));
+    misGroup.add(line);
+  }
+  misPoints.forEach((p, i) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(i === cur ? 0.07 : 0.045, 16, 12),
+      new THREE.MeshBasicMaterial({ color: misBad(p) ? 0xff5050 : i === cur ? 0xffcc44 : 0x4fd1ff }));
+    m.position.copy(tv(...p)); misGroup.add(m);
+    const drop = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(p[0], p[1], 0), tv(...p)]),
+      new THREE.LineDashedMaterial({ color: 0x4fd1ff, dashSize: 0.05, gapSize: 0.05, transparent: true, opacity: 0.5 }));
+    drop.computeLineDistances(); misGroup.add(drop);
+    const d = document.createElement('div'); d.className = 'label3d'; d.textContent = String(i + 1);
+    d.style.color = i === cur ? '#ffcc44' : '#4fd1ff';
+    const o = new CSS2DObject(d); o.position.copy(tv(p[0], p[1], p[2] + 0.12)); misGroup.add(o);
+  });
+  const a = misStatus && misStatus.area;
+  if (a && misPoints.length) {
+    const corners = [[a[0], a[2]], [a[1], a[2]], [a[1], a[3]], [a[0], a[3]], [a[0], a[2]]].map(([x, y]) => tv(x, y, 0.005));
+    const rect = new THREE.Line(new THREE.BufferGeometry().setFromPoints(corners),
+      new THREE.LineDashedMaterial({ color: 0x4fd1ff, dashSize: 0.1, gapSize: 0.07, transparent: true, opacity: 0.6 }));
+    rect.computeLineDistances(); misGroup.add(rect);
+  }
+}
+
+// live checks, buttons, progress
+const misStartBtn = document.getElementById('mis-start');
+function misRefresh() {
+  const s = misStatus, el = document.getElementById('mis-checks');
+  if (!s) { el.innerHTML = '<div class="no">Connect in the Drone tab (UDP via bridge).</div>'; misStartBtn.disabled = true; return; }
+  const items = Object.values(s.checks || {}).map(c => ({ ok: c.ok, text: c.detail }));
+  const badPts = misPoints.map((p, i) => [i, misBad(p)]).filter(([, b]) => b);
+  items.push(misPoints.length ? { ok: !badPts.length, text: badPts.length ? `point ${badPts[0][0] + 1}: ${badPts[0][1]}` : `${misPoints.length} points inside the covered area` }
+                              : { ok: false, text: 'no points' });
+  el.innerHTML = items.map(i => `<div class="${i.ok ? 'ok' : 'no'}">${i.ok ? '✔' : '✘'} ${misEsc(i.text)}</div>`).join('');
+  misStartBtn.disabled = misRunning() || !items.every(i => i.ok);
+  const a = s.area;
+  document.getElementById('mis-area').textContent = a ? `Covered area: X ${a[0].toFixed(2)} … ${a[1].toFixed(2)} m, Y ${a[2].toFixed(2)} … ${a[3].toFixed(2)} m, Z ${s.z_range[0]} … ${s.z_range[1]} m` : 'Covered area unknown (no pose header): only the height is checked.';
+  const st = document.getElementById('mis-status');
+  if (misRunning()) st.textContent = `Running · point ${s.leg + 1}/${s.points.length}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
+  else st.textContent = { idle: 'Ready when all checks are green.', done: '✔ Mission complete', aborted: '■ Mission stopped', error: '✘ Mission error' }[s.state] || s.state;
+  document.getElementById('mis-log').textContent = (s.log || []).slice().reverse().join('\n') || '—';
+}
+let misLastKey = '';
+function updateMission(s) {
+  misStatus = s || null;
+  const key = JSON.stringify([s && s.state, s && s.leg, s && s.area]);
+  if (key !== misLastKey) { misLastKey = key; misRenderTable(); }
+  misRefresh();
+}
+function misUrl(action) { return new URL('/api/fc/mission/' + action, new URL(document.getElementById('relay-url').value.trim())); }
+async function misCall(action, body) {
+  try {
+    const r = await fetch(misUrl(action), { method: 'POST', body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
+    const data = await r.json().catch(() => ({ error: r.statusText }));
+    if (data.error) document.getElementById('mis-status').textContent = '✘ ' + data.error;
+    if (data.state) updateMission(data);
+  } catch (err) { document.getElementById('mis-status').textContent = '✘ Bridge unreachable: ' + err.message; }
+}
+misStartBtn.addEventListener('click', () => misCall('start', {
+  points: misPoints, speed: parseFloat(document.getElementById('mis-speed').value),
+  tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
+  settle: parseFloat(document.getElementById('mis-settle').value),
+}));
+document.getElementById('mis-stop').addEventListener('click', () => misCall('stop'));
+misRenderTable();
+
 const panelEl = document.getElementById('panel');
 const tbBtns = [...document.querySelectorAll('.tb-btn[data-sec]')];
 function openSection(id) {
@@ -1244,6 +1432,7 @@ function disconnectTracking() {
   hudVisible();
   updateOdoFc();
   updateHold(null);
+  updateMission(null);
 }
 
 trackConnectButton.addEventListener('click', () => {
@@ -1283,6 +1472,7 @@ trackConnectButton.addEventListener('click', () => {
           if (!trackingPolling) return;
           relayConnected = true;
           updateHud(state.fc);
+          updateMission(state.mission);
           if (state.odometry && state.sequence !== lastSequence) {
             lastSequence = state.sequence;
             updateDronePosition(state.odometry);
