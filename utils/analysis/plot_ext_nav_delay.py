@@ -11,13 +11,16 @@ then download the .bin. The script compares two velocities of the same motion:
 
 Shifting one curve against the other until they match best gives the delay. Two numbers:
 
-  * total delay: motion -> position arrives at the flight controller;
-  * delay at the capture stamp: motion -> capture time the firmware puts in ODOMETRY. ArduPilot
-    handles the rest by itself from those stamps, so this is what VISO_DELAY_MS should cover.
+  * total delay T: motion -> position arrives at the flight controller (VISP.TimeUS);
+  * delay of ArduPilot's own sample time Lc: motion -> VISP.CTimeMS, the capture stamp the
+    firmware puts in ODOMETRY, translated by ArduPilot to its clock. ArduPilot sees T - Lc from
+    the stamps by itself; VISO_DELAY_MS must cover Lc. Residual Lc - VISO_DELAY_MS ~ 0 = right.
+
+The figure and the terminal also give the same as a step-by-step example with this log's numbers.
 
 Usage (Windows: double-click plot_delay.bat, or drop a .bin on it):
     python plot_ext_nav_delay.py                 # newest .bin in Documents\\Mission Planner\\logs
-    python plot_ext_nav_delay.py flight.bin --axis N --zoom 10 --out delay.png
+    python plot_ext_nav_delay.py flight.bin --axis N --zoom 10 --out delay.png --lang en
 Needs numpy, matplotlib and pymavlink.
 """
 
@@ -53,7 +56,7 @@ def read_log(path: str) -> dict:
             break
         kind, t = m.get_type(), m.TimeUS / 1e6
         if kind == "VISP":
-            visp.append((t, m.PX, m.PY, m.PZ, m.RTimeUS / 1e6))
+            visp.append((t, m.PX, m.PY, m.PZ, m.RTimeUS / 1e6, m.CTimeMS / 1e3))
         elif kind == "IMU" and getattr(m, "I", 0) == 0:
             imu.append((t, m.AccX, m.AccY, m.AccZ))
         elif kind == "ATT":
@@ -133,6 +136,73 @@ def motion_window(d: dict) -> tuple[float, float]:
 
 
 # --------------------------------------------------------------------------- #
+# Texts (Italian by default, --lang en)
+# --------------------------------------------------------------------------- #
+
+TEXT = {
+    "it": {
+        "title": "Ritardo della posizione lighthouse — {log}  ({dur:.0f} s di movimento, asse {axis})",
+        "p1": "1. Dati grezzi: posizione dalle lighthouse e accelerazione dall'IMU (in opposizione in un avanti-indietro)",
+        "pos": "posizione lighthouse {axis} (ricevuta)", "acc": "accelerometro {axis} (Nord/Est)",
+        "pos_y": "posizione [m]", "acc_y": "accelerazione [m/s²]", "time": "tempo [s]",
+        "p2": "2. Stesso movimento, due fonti: la curva delle lighthouse arriva dopo — di {lag:.0f} ms",
+        "vimu": "velocità dall'IMU (senza ritardo)", "vlh": "velocità dalle lighthouse (come arriva)",
+        "p3": "3. Spostando la curva delle lighthouse {lag:.0f} ms indietro le due coincidono: quello è il ritardo",
+        "vlh_back": "velocità lighthouse spostata di {lag:.0f} ms", "vel_y": "velocità [m/s]",
+        "p4": "4. Quanto coincidono le curve per ogni spostamento (tutta la registrazione, N ed E): il picco è il ritardo",
+        "c_arr": "come arriva al Pixhawk (ritardo totale T)", "c_ct": "all'istante che gli dà ArduPilot (Lc)",
+        "shift": "spostamento della velocità lighthouse [ms]", "corr": "correlazione",
+        "steps_title": "Esempio con un messaggio (valori medi di questo log)",
+        "s1": "t = 0 ms: il drone è nel punto P.",
+        "s2": "t = {lc:.0f} ms: il firmware ha calcolato P (sensori + filtro) e lo timbra \"catturato ora\".",
+        "s3": "t = {t:.0f} ms: il messaggio arriva al Pixhawk.",
+        "s4": "ArduPilot legge il timbro e capisce che il dato è stato catturato {a:.0f} ms fa, cioè a {t:.0f} − {a:.0f} = {lc:.0f} ms.",
+        "s5": "Toglie VISO_DELAY_MS: {lc:.0f} − {v:.0f} = {res:+.0f} ms.",
+        "ok": "≈ 0: l'EKF usa l'istante giusto. VISO_DELAY_MS = {v:.0f} va bene.",
+        "up": "L'EKF usa un istante troppo recente: aumenta VISO_DELAY_MS a circa {rec:.0f}.",
+        "down": "L'EKF guarda troppo indietro: diminuisci VISO_DELAY_MS a circa {rec:.0f}.",
+        "nov": "VISO_DELAY_MS non è nel log: impostalo a circa {rec:.0f}.",
+    },
+    "en": {
+        "title": "Lighthouse position delay — {log}  ({dur:.0f} s of motion, axis {axis})",
+        "p1": "1. Raw data: position from the lighthouses and acceleration from the IMU (opposite phase in a back-and-forth)",
+        "pos": "lighthouse position {axis} (received)", "acc": "accelerometer {axis} (North/East)",
+        "pos_y": "position [m]", "acc_y": "acceleration [m/s²]", "time": "time [s]",
+        "p2": "2. Same motion, two sources: the lighthouse curve comes later — by {lag:.0f} ms",
+        "vimu": "velocity from the IMU (no delay)", "vlh": "velocity from the lighthouses (as received)",
+        "p3": "3. Moving the lighthouse curve {lag:.0f} ms earlier makes the two overlap: that is the delay",
+        "vlh_back": "lighthouse velocity moved {lag:.0f} ms earlier", "vel_y": "velocity [m/s]",
+        "p4": "4. How well the curves match for every shift (whole recording, N and E): the peak is the delay",
+        "c_arr": "as it reaches the Pixhawk (total delay T)", "c_ct": "at the time ArduPilot gives it (Lc)",
+        "shift": "shift of the lighthouse velocity [ms]", "corr": "correlation",
+        "steps_title": "Example with one message (average values of this log)",
+        "s1": "t = 0 ms: the drone is at point P.",
+        "s2": "t = {lc:.0f} ms: the firmware has computed P (sensors + filter) and stamps it \"captured now\".",
+        "s3": "t = {t:.0f} ms: the message reaches the Pixhawk.",
+        "s4": "ArduPilot reads the stamp: the data was captured {a:.0f} ms ago, i.e. at {t:.0f} − {a:.0f} = {lc:.0f} ms.",
+        "s5": "It subtracts VISO_DELAY_MS: {lc:.0f} − {v:.0f} = {res:+.0f} ms.",
+        "ok": "≈ 0: the EKF uses the right moment. VISO_DELAY_MS = {v:.0f} is right.",
+        "up": "The EKF uses too recent a moment: raise VISO_DELAY_MS to about {rec:.0f}.",
+        "down": "The EKF looks too far back: lower VISO_DELAY_MS to about {rec:.0f}.",
+        "nov": "VISO_DELAY_MS is not in the log: set it to about {rec:.0f}.",
+    },
+}
+
+
+def steps(tx, total, lc, viso):
+    """The step-by-step example with this log's numbers, and the verdict."""
+    rec = 5 * round(lc / 5)
+    lines = [tx["s1"], tx["s2"].format(lc=lc), tx["s3"].format(t=total),
+             tx["s4"].format(a=total - lc, t=total, lc=lc)]
+    if viso is None:
+        return lines + [tx["nov"].format(rec=rec)]
+    res = lc - viso
+    lines.append(tx["s5"].format(lc=lc, v=viso, res=res) + " " +
+                 (tx["ok"].format(v=viso) if abs(res) <= 15 else (tx["up"] if res > 0 else tx["down"]).format(rec=rec)))
+    return lines
+
+
+# --------------------------------------------------------------------------- #
 # Main
 # --------------------------------------------------------------------------- #
 
@@ -145,6 +215,7 @@ def main() -> int:
     ap.add_argument("--zoom", type=float, default=8.0, help="seconds shown in the time plots (default 8)")
     ap.add_argument("--out", help="PNG to write (default: next to the log)")
     ap.add_argument("--no-show", action="store_true", help="only write the PNG")
+    ap.add_argument("--lang", choices=["it", "en"], default="it", help="language of the figure and the steps (default it)")
     args = ap.parse_args()
 
     path = args.log or newest_log()
@@ -158,24 +229,29 @@ def main() -> int:
         sys.exit(f"only {t1 - t0:.1f} s of motion: record at least 20 s of back-and-forth")
 
     lags = np.arange(-100, 600 + 1e-9, 5.0)
-    arrival = signals(d, t0, t1, d["visp"][:, 0])                       # as received
-    offset = np.min(d["visp"][:, 0] - d["visp"][:, 4])                  # Pico clock -> FC clock
-    stamped = signals(d, t0, t1, d["visp"][:, 4] + offset)              # at the capture stamps
+    arrival = signals(d, t0, t1, d["visp"][:, 0])                       # VISP.TimeUS: as received
+    ctime = signals(d, t0, t1, d["visp"][:, 5])                         # VISP.CTimeMS: ArduPilot's sample time
     res = {}
-    for name, s in (("arrival", arrival), ("stamp", stamped)):
+    for name, s in (("arrival", arrival), ("ctime", ctime)):
         cn = correlate(s["vimu_N"], s["vlh_N"], lags)
         ce = correlate(s["vimu_E"], s["vlh_E"], lags)
         res[name] = {"N": peak(lags, cn), "E": peak(lags, ce), "both": peak(lags, (cn + ce) / 2), "curve": (cn + ce) / 2}
     axis = args.axis if args.axis != "auto" else ("N" if np.std(arrival["pos_N"]) >= np.std(arrival["pos_E"]) else "E")
     lag, corr = res["arrival"]["both"]
-    lag_stamp, corr_stamp = res["stamp"]["both"]
+    lag_ct, corr_ct = res["ctime"]["both"]
     viso = d["params"].get("VISO_DELAY_MS")
+    tx = TEXT[args.lang]
+    lines = steps(tx, lag, lag_ct, viso)
 
     print(f"analysed {t1 - t0:.0f} s ({t0:.0f}-{t1:.0f} s)")
-    print(f"total delay (motion -> arrival at the FC): {lag:.0f} ms  (correlation {corr:.2f}; "
+    print(f"total delay T (motion -> arrival at the FC, VISP.TimeUS): {lag:.0f} ms  (correlation {corr:.2f}; "
           f"N {res['arrival']['N'][0]:.0f} ms, E {res['arrival']['E'][0]:.0f} ms)")
-    print(f"delay at the capture stamp (what VISO_DELAY_MS covers): {lag_stamp:.0f} ms  (correlation {corr_stamp:.2f})")
-    print(f"VISO_DELAY_MS in the log: {viso}")
+    print(f"ArduPilot's sample time (VISP.CTimeMS) lags the motion by Lc = {lag_ct:.0f} ms (correlation {corr_ct:.2f}): "
+          f"VISO_DELAY_MS must cover this")
+    print(f"VISO_DELAY_MS in the log: {viso}\n")
+    print(tx["steps_title"] + ":")
+    for i, line in enumerate(lines, 1):
+        print(f"  {i}. {line}")
 
     import matplotlib
     if args.no_show:
@@ -191,55 +267,54 @@ def main() -> int:
     tz = t[zs] - z0
     shift = int(round(lag / 1000 / DT))
 
-    fig = plt.figure(figsize=(13, 10))
-    gs = fig.add_gridspec(4, 1, height_ratios=[1, 1, 1, 0.9], hspace=0.55)
-    fig.suptitle(f"Lighthouse position delay — {os.path.basename(path)}  ({t1 - t0:.0f} s of motion, axis {axis})",
-                 fontsize=13, fontweight="bold")
+    fig = plt.figure(figsize=(13, 12.5))
+    gs = fig.add_gridspec(5, 1, height_ratios=[1, 1, 1, 0.9, 0.75], hspace=0.6)
+    fig.suptitle(tx["title"].format(log=os.path.basename(path), dur=t1 - t0, axis=axis), fontsize=13, fontweight="bold")
 
     a1 = fig.add_subplot(gs[0])
-    a1.plot(tz, arrival["pos_" + axis][zs], color="tab:blue", lw=2, label=f"lighthouse position {axis} (received)")
-    a1.set_ylabel("position [m]", color="tab:blue")
+    a1.plot(tz, arrival["pos_" + axis][zs], color="tab:blue", lw=2, label=tx["pos"].format(axis=axis))
+    a1.set_ylabel(tx["pos_y"], color="tab:blue")
     a1b = a1.twinx()
-    a1b.plot(tz, arrival["acc_" + axis][zs], color="tab:orange", lw=1, alpha=0.8, label=f"accelerometer {axis} (earth frame)")
-    a1b.set_ylabel("acceleration [m/s²]", color="tab:orange")
-    a1.set_title("1. Raw data: position from the lighthouses and acceleration from the IMU (opposite phase in a back-and-forth)")
+    a1b.plot(tz, arrival["acc_" + axis][zs], color="tab:orange", lw=1, alpha=0.8, label=tx["acc"].format(axis=axis))
+    a1b.set_ylabel(tx["acc_y"], color="tab:orange")
+    a1.set_title(tx["p1"])
     a1.legend(loc="upper left", fontsize=8); a1b.legend(loc="upper right", fontsize=8)
-    a1.set_xlabel("time [s]")
+    a1.set_xlabel(tx["time"])
 
     a2 = fig.add_subplot(gs[1], sharex=a1)
-    a2.plot(tz, arrival["vimu_" + axis][zs], color="black", lw=1.6, label="velocity from the IMU (no delay)")
-    a2.plot(tz, arrival["vlh_" + axis][zs], color="tab:blue", lw=1.6, label="velocity from the lighthouses (as received)")
-    a2.set_title(f"2. Same motion, two sources: the lighthouse curve comes later — by {lag:.0f} ms")
-    a2.set_ylabel("velocity [m/s]"); a2.legend(loc="upper right", fontsize=8); a2.set_xlabel("time [s]")
+    a2.plot(tz, arrival["vimu_" + axis][zs], color="black", lw=1.6, label=tx["vimu"])
+    a2.plot(tz, arrival["vlh_" + axis][zs], color="tab:blue", lw=1.6, label=tx["vlh"])
+    a2.set_title(tx["p2"].format(lag=lag))
+    a2.set_ylabel(tx["vel_y"]); a2.legend(loc="upper right", fontsize=8); a2.set_xlabel(tx["time"])
 
     a3 = fig.add_subplot(gs[2], sharex=a1)
     vl = arrival["vlh_" + axis]
     vl_back = np.r_[vl[shift:], np.full(shift, np.nan)] if shift > 0 else vl
-    a3.plot(tz, arrival["vimu_" + axis][zs], color="black", lw=1.6, label="velocity from the IMU")
-    a3.plot(tz, vl_back[zs], color="tab:green", lw=1.6, label=f"lighthouse velocity moved {lag:.0f} ms earlier")
-    a3.set_title(f"3. Moving the lighthouse curve {lag:.0f} ms earlier makes the two overlap: that is the delay")
-    a3.set_ylabel("velocity [m/s]"); a3.legend(loc="upper right", fontsize=8); a3.set_xlabel("time [s]")
+    a3.plot(tz, arrival["vimu_" + axis][zs], color="black", lw=1.6, label=tx["vimu"])
+    a3.plot(tz, vl_back[zs], color="tab:green", lw=1.6, label=tx["vlh_back"].format(lag=lag))
+    a3.set_title(tx["p3"].format(lag=lag))
+    a3.set_ylabel(tx["vel_y"]); a3.legend(loc="upper right", fontsize=8); a3.set_xlabel(tx["time"])
 
     a4 = fig.add_subplot(gs[3])
-    a4.plot(lags, res["arrival"]["curve"], color="tab:blue", lw=2, label="as received (total delay)")
-    a4.plot(lags, res["stamp"]["curve"], color="tab:purple", lw=2, ls="--", label="at the capture stamp")
-    a4.axvline(lag, color="tab:blue", lw=1); a4.axvline(lag_stamp, color="tab:purple", lw=1, ls="--")
+    a4.plot(lags, res["arrival"]["curve"], color="tab:blue", lw=2, label=tx["c_arr"])
+    a4.plot(lags, res["ctime"]["curve"], color="tab:purple", lw=2, ls="--", label=tx["c_ct"])
+    a4.axvline(lag, color="tab:blue", lw=1); a4.axvline(lag_ct, color="tab:purple", lw=1, ls="--")
     if viso is not None:
         a4.axvline(viso, color="tab:red", lw=1.5, ls=":", label=f"VISO_DELAY_MS = {viso:.0f}")
-    a4.annotate(f"total {lag:.0f} ms\n(corr {corr:.2f})", (lag, corr), xytext=(10, -30), textcoords="offset points", color="tab:blue")
-    a4.annotate(f"stamp {lag_stamp:.0f} ms\n(corr {corr_stamp:.2f})", (lag_stamp, corr_stamp), xytext=(-95, -30),
-                textcoords="offset points", color="tab:purple")
-    a4.set_title("4. How well the curves match for every shift (whole recording, N and E): the peak is the delay")
-    a4.text(0.5, -0.42,
-            f"total {lag:.0f} ms = {lag - lag_stamp:.0f} ms capture stamp -> arrival (wait for the 10 Hz send + serial;\n"
-            f"ArduPilot sees it from the ODOMETRY time stamps) + {lag_stamp:.0f} ms motion -> capture stamp\n"
-            f"(sensors + filter; invisible to ArduPilot) -> VISO_DELAY_MS should be about {lag_stamp:.0f}"
-            + (f"  (now {viso:.0f})" if viso is not None else ""),
-            transform=a4.transAxes, ha="center", va="top", fontsize=9,
-            bbox=dict(boxstyle="round", facecolor="white", edgecolor="0.7"))
-    a4.set_xlabel("shift of the lighthouse velocity [ms]"); a4.set_ylabel("correlation")
+    a4.annotate(f"T = {lag:.0f} ms", (lag, corr), xytext=(8, -18), textcoords="offset points", color="tab:blue", fontweight="bold")
+    a4.annotate(f"Lc = {lag_ct:.0f} ms", (lag_ct, corr_ct), xytext=(-80, -18), textcoords="offset points", color="tab:purple", fontweight="bold")
+    a4.set_title(tx["p4"])
+    a4.set_xlabel(tx["shift"]); a4.set_ylabel(tx["corr"])
     a4.set_xlim(lags[0], lags[-1]); a4.set_ylim(min(0, np.nanmin(res["arrival"]["curve"])), 1.0); a4.grid(alpha=0.3)
     a4.legend(loc="lower left", fontsize=8)
+
+    a5 = fig.add_subplot(gs[4]); a5.axis("off")
+    a5.text(0.0, 1.0, tx["steps_title"], fontsize=11, fontweight="bold", va="top", transform=a5.transAxes)
+    for i, line in enumerate(lines, 1):
+        a5.text(0.0, 1.0 - 0.19 * i, f"{i}.  {line}", fontsize=10, va="top", transform=a5.transAxes,
+                fontweight="bold" if i == len(lines) else "normal",
+                color="black" if i < len(lines) else
+                ("tab:green" if viso is not None and abs(lag_ct - viso) <= 15 else "tab:red"))
 
     out = args.out or os.path.splitext(path)[0] + "_delay.png"
     fig.savefig(out, dpi=130, bbox_inches="tight")
