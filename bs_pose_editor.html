@@ -52,6 +52,16 @@ body[data-mode=calib] #cal-hud { display: block; }
 #fit-view { position: absolute; right: 14px; bottom: 14px; z-index: 5; background: rgba(24,24,24,0.9); color: #ccc;
   border: 1px solid #555; border-radius: 6px; padding: 6px 10px; font-size: 13px; cursor: pointer; }
 #fit-view:hover { background: #2a2a2a; color: #fff; }
+#hud-wrap { position: absolute; right: 14px; bottom: 52px; z-index: 5; width: min(400px, 44vw); aspect-ratio: 4 / 3;
+  border: 1px solid #2c5968; border-radius: 8px; overflow: hidden; background: #111; display: none; }
+#hud-wrap.show { display: block; }
+#hud { width: 100%; height: 100%; display: block; }
+#hud-close { position: absolute; top: 2px; right: 4px; background: none; border: none; color: #fff; font-size: 15px;
+  cursor: pointer; text-shadow: 0 0 3px #000; opacity: .6; padding: 0 3px; }
+#hud-close:hover { opacity: 1; }
+#fc-params-card .row input { width: 90px; }
+#fc-params-card .pname { width: 128px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #ddd; }
+#fc-param-status { font-size: 12px; color: #9ab; min-height: 16px; white-space: pre-wrap; }
 .bs-card.selected { border-color: #4f8fca; box-shadow: 0 0 0 1px #4f8fca inset; }
 #conn-dot { width: 9px; height: 9px; border-radius: 50%; background: #666; flex: none; }
 #conn-dot.live { background: #5adf7a; box-shadow: 0 0 6px #5adf7a; }
@@ -301,6 +311,21 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <button id="track-connect-btn" type="button" style="flex:1;">Connect</button>
     </div>
     <div class="hint">One connection for the whole editor: the Calib tab uses the same drone IP and bridge.</div>
+    <label class="row" style="gap:6px;cursor:pointer;" title="Mission Planner-style HUD of the flight controller (UDP bridge link only)">
+      <input id="hud-show" type="checkbox" checked> Show HUD</label>
+  </div>
+  <div id="fc-params-card" class="bs-card">
+    <div class="grp-lbl">EXTNAV PARAMETERS · ARDUPILOT</div>
+    <div class="row" title="Delay of the external-navigation data relative to the IMU [ms]: how old our position is when it reaches the flight controller (0..250).">
+      <div class="pname">VISO_DELAY_MS</div><input id="fc-p-VISO_DELAY_MS" type="number" step="1" min="0" max="250"><div class="lbl">ms</div></div>
+    <div class="row" title="Position noise of the external navigation [m] (0.1..10): lower = the EKF follows our position more closely.">
+      <div class="pname">VISO_POS_M_NSE</div><input id="fc-p-VISO_POS_M_NSE" type="number" step="0.01" min="0.1" max="10"><div class="lbl">m</div></div>
+    <div class="row">
+      <button id="fc-param-read" type="button" style="flex:1;">Read</button>
+      <button id="fc-param-write" type="button" style="flex:1;" disabled>Write changes</button>
+    </div>
+    <div id="fc-param-status">Connect over the UDP bridge, then Read.</div>
+    <div class="hint">Written straight to the flight controller (stored in its flash), no reboot needed.</div>
   </div>
   </div>
   <div class="sec" id="sec-bs">
@@ -542,6 +567,10 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 <div id="scene-container"></div>
 <div id="cal-hud"></div>
 <button id="fit-view" title="Frame the base stations and the floor marks">⤢ Fit view</button>
+<div id="hud-wrap" title="Flight-controller telemetry (needs the UDP bridge link)">
+  <canvas id="hud"></canvas>
+  <button id="hud-close" title="Hide the HUD (Drone tab → Show HUD)">×</button>
+</div>
 <div id="gizmo-bar" hidden>
   <b id="gizmo-name"></b>
   <button data-gm="translate" title="Move (T)">✥ Move</button>
@@ -867,6 +896,220 @@ function updateDronePosition(position) {
   document.getElementById('tracking-status').textContent = `ODOMETRY live · ${odometryCount}`;
 }
 
+// ─── HUD: flight-controller telemetry, Mission Planner style (bridge state.fc) ───
+const hudWrap = document.getElementById('hud-wrap');
+const hudCanvas = document.getElementById('hud');
+const hudShow = document.getElementById('hud-show');
+let hudData = null, hudAt = 0;
+try { hudShow.checked = localStorage.getItem('lh2.hud') !== '0'; } catch (_e) { /* storage blocked */ }
+function hudVisible() { hudWrap.classList.toggle('show', hudShow.checked && !!hudData); }
+hudShow.addEventListener('change', () => {
+  try { localStorage.setItem('lh2.hud', hudShow.checked ? '1' : '0'); } catch (_e) { /* storage blocked */ }
+  hudVisible(); drawHud();
+});
+document.getElementById('hud-close').addEventListener('click', () => { hudShow.checked = false; hudShow.dispatchEvent(new Event('change')); });
+function updateHud(fc) {
+  if (fc) { hudData = fc; hudAt = Date.now(); }
+  hudVisible();
+  drawHud();
+}
+setInterval(() => { if (hudData) drawHud(); }, 500);  // turns grey when telemetry stops
+
+function drawHud() {
+  if (!hudWrap.classList.contains('show')) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = hudCanvas.clientWidth, H = hudCanvas.clientHeight;
+  if (!W || !H) return;
+  if (hudCanvas.width !== Math.round(W * dpr)) { hudCanvas.width = Math.round(W * dpr); hudCanvas.height = Math.round(H * dpr); }
+  const c = hudCanvas.getContext('2d');
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const d = hudData || {};
+  const num = v => (v == null || !isFinite(v)) ? 0 : v;
+  const roll = num(d.roll), pitch = num(d.pitch);
+  const heading = ((d.heading != null ? d.heading : num(d.yaw)) % 360 + 360) % 360;
+  const cx = W / 2, cy = H / 2, ppd = H / 50;            // pixels per degree of pitch
+  const fs = Math.max(10, Math.round(H / 22));
+  const text = (s, x, y, align = 'left', color = '#fff', size = fs, base = 'middle') => {
+    c.font = `bold ${size}px system-ui, sans-serif`; c.textAlign = align; c.textBaseline = base;
+    c.lineWidth = 3; c.strokeStyle = 'rgba(0,0,0,.85)'; c.strokeText(s, x, y); c.fillStyle = color; c.fillText(s, x, y);
+  };
+  // ① horizon (11) — sky / ground turned by roll, moved by pitch
+  c.save();
+  c.translate(cx, cy); c.rotate(-roll * Math.PI / 180); c.translate(0, pitch * ppd);
+  const R = Math.hypot(W, H) * 2;
+  let g = c.createLinearGradient(0, -H, 0, 0); g.addColorStop(0, '#3b6fd1'); g.addColorStop(1, '#8fb6f2');
+  c.fillStyle = g; c.fillRect(-R, -R, 2 * R, R);
+  g = c.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#7fb04a'); g.addColorStop(1, '#4d7a26');
+  c.fillStyle = g; c.fillRect(-R, 0, 2 * R, R);
+  c.strokeStyle = '#fff'; c.lineWidth = 1.5; c.beginPath(); c.moveTo(-R, 0); c.lineTo(R, 0); c.stroke();
+  c.restore();
+  // pitch ladder, kept between the tapes and above the bottom texts
+  c.save();
+  c.beginPath(); c.rect(W * 0.13, fs * 3.6, W * 0.74, H * 0.8 - fs * 4.2); c.clip();
+  c.translate(cx, cy); c.rotate(-roll * Math.PI / 180); c.translate(0, pitch * ppd);
+  for (let p = -30; p <= 30; p += 5) {
+    if (!p) continue;
+    const y = -p * ppd, half = p % 10 ? W * 0.06 : W * 0.12;
+    c.beginPath(); c.moveTo(-half, y); c.lineTo(half, y); c.lineWidth = 1.2; c.strokeStyle = '#fff'; c.stroke();
+    if (!(p % 10)) { text(String(p), -half - 4, y, 'right', '#fff', fs * 0.85); text(String(p), half + 4, y, 'left', '#fff', fs * 0.85); }
+  }
+  c.restore();
+  // ④ bank-angle arc with roll pointer
+  const ar = H * 0.32;
+  c.strokeStyle = '#fff'; c.lineWidth = 1.5;
+  c.beginPath(); c.arc(cx, cy, ar, (-90 - 60) * Math.PI / 180, (-90 + 60) * Math.PI / 180); c.stroke();
+  for (const a of [-60, -45, -30, -20, -10, 0, 10, 20, 30, 45, 60]) {
+    const t = (a - 90) * Math.PI / 180, l = a % 30 ? 6 : 11;
+    c.beginPath(); c.moveTo(cx + Math.cos(t) * ar, cy + Math.sin(t) * ar);
+    c.lineTo(cx + Math.cos(t) * (ar + l), cy + Math.sin(t) * (ar + l)); c.stroke();
+    if (a && [10, 30, 60].includes(Math.abs(a))) text(String(Math.abs(a)), cx + Math.cos(t) * (ar - 12), cy + Math.sin(t) * (ar - 12), 'center', '#fff', fs * 0.75);
+  }
+  c.save(); c.translate(cx, cy); c.rotate(-roll * Math.PI / 180);
+  c.fillStyle = '#e33'; c.beginPath(); c.moveTo(0, -ar + 2); c.lineTo(-7, -ar + 13); c.lineTo(7, -ar + 13); c.closePath(); c.fill();
+  c.restore();
+  // ⑫ aircraft symbol
+  c.strokeStyle = '#e22'; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(cx - W * 0.09, cy + H * 0.035); c.lineTo(cx, cy - H * 0.005); c.lineTo(cx + W * 0.09, cy + H * 0.035); c.stroke();
+  c.beginPath(); c.moveTo(cx - W * 0.3, cy); c.lineTo(cx - W * 0.2, cy); c.moveTo(cx + W * 0.2, cy); c.lineTo(cx + W * 0.3, cy); c.stroke();
+  // ③ heading tape (top)
+  const th = fs * 1.7, dpx = W / 90;                    // ±45° visible
+  c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(0, 0, W, th);
+  const names = { 0: 'N', 45: 'NE', 90: 'E', 135: 'SE', 180: 'S', 225: 'SW', 270: 'W', 315: 'NW' };
+  c.strokeStyle = '#fff'; c.lineWidth = 1;
+  for (let a = Math.floor((heading - 50) / 5) * 5; a <= heading + 50; a += 5) {
+    const x = cx + (a - heading) * dpx, n = ((a % 360) + 360) % 360;
+    c.beginPath(); c.moveTo(x, th); c.lineTo(x, th - (n % 15 ? 4 : 8)); c.stroke();
+    if (names[n] != null) text(names[n], x, th * 0.4, 'center', n % 90 ? '#fff' : '#ffe04a');
+    else if (!(n % 15)) text(String(n), x, th * 0.4, 'center', '#fff', fs * 0.85);
+  }
+  c.fillStyle = '#000'; c.fillRect(cx - fs * 1.4, th, fs * 2.8, fs * 1.25);
+  text(String(Math.round(heading)).padStart(3, '0'), cx, th + fs * 0.65, 'center');
+  // ② turn rate (top-left)
+  const tr = Math.max(-1, Math.min(1, num(d.yawspeed) / 30));
+  c.strokeStyle = '#fff'; c.lineWidth = 1;
+  c.beginPath(); c.moveTo(W * 0.06, th + fs * 1.6); c.lineTo(W * 0.24, th + fs * 1.6); c.stroke();
+  c.fillStyle = '#4ce04c'; c.fillRect(W * 0.15 + tr * W * 0.09 - 2, th + fs * 0.9, 4, fs * 1.4);
+  text('T', W * 0.04, th + fs * 1.6, 'center', '#fff', fs * 0.8);
+  // ①/⑦ speed (left) and altitude (right) tapes
+  const tape = (x, w, value, ppu, side, climb) => {
+    const top = H * 0.2, bot = H * 0.78, mid = (top + bot) / 2;
+    c.save(); c.beginPath(); c.rect(x, top, w, bot - top); c.clip();
+    c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x, top, w, bot - top);
+    c.strokeStyle = '#fff'; c.lineWidth = 1;
+    for (let v = Math.floor(value - (mid - top) / ppu) - 1; v <= value + (mid - top) / ppu + 1; v++) {
+      const y = mid - (v - value) * ppu, edge = side < 0 ? x + w : x;
+      c.beginPath(); c.moveTo(edge, y); c.lineTo(edge + side * -8, y); c.stroke();
+      text(String(v), side < 0 ? x + w - 11 : x + 11, y, side < 0 ? 'right' : 'left', '#fff', fs * 0.85);
+      c.beginPath(); c.moveTo(edge, y + ppu / 2); c.lineTo(edge + side * -4, y + ppu / 2); c.stroke();
+    }
+    c.restore();
+    if (climb != null) {                                 // blue climb-rate bar beside the altitude tape
+      const len = Math.max(-1, Math.min(1, climb / 3)) * (mid - top);
+      c.fillStyle = '#2f7bff'; c.fillRect(x - 6, Math.min(mid, mid - len), 4, Math.abs(len));
+    }
+    const bx = x + (side < 0 ? 0 : 4), bw = w - 4, bh = fs * 1.4;
+    c.fillStyle = '#000'; c.beginPath();
+    if (side < 0) { c.moveTo(bx, mid - bh / 2); c.lineTo(bx + bw, mid - bh / 2); c.lineTo(bx + bw + 6, mid); c.lineTo(bx + bw, mid + bh / 2); c.lineTo(bx, mid + bh / 2); }
+    else { c.moveTo(bx + bw, mid - bh / 2); c.lineTo(bx, mid - bh / 2); c.lineTo(bx - 6, mid); c.lineTo(bx, mid + bh / 2); c.lineTo(bx + bw, mid + bh / 2); }
+    c.closePath(); c.fill();
+    text(value.toFixed(1), bx + bw / 2, mid, 'center');
+  };
+  const tw = W * 0.12;
+  const speed = d.airspeed != null ? num(d.airspeed) : num(d.groundspeed);
+  tape(0, tw, speed, H / 12, -1, null);
+  tape(W - tw, tw, num(d.alt), H / 12, 1, d.climb);
+  // ⑤ link quality, ⑥ time (top-right)
+  const link = d.link;
+  const bars = link == null ? 0 : Math.round(link / 25);
+  for (let i = 0; i < 4; i++) {
+    c.fillStyle = i < bars ? '#4ce04c' : 'rgba(255,255,255,.3)';
+    const bh2 = 4 + i * 3; c.fillRect(W - tw - fs * 4.2 + i * 5, th + fs * 1.4 - bh2, 3, bh2);
+  }
+  text(link == null ? '—' : `${link}%`, W - tw - fs * 2.1, th + fs * 0.9, 'left', '#fff', fs * 0.85);
+  let clock = '';
+  if (d.time_unix > 1e9) clock = new Date(d.time_unix * 1000).toISOString().slice(11, 19);
+  else if (d.time_boot != null) { const s = Math.floor(d.time_boot); clock = `${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
+  text(clock, W - tw - fs * 4.2, th + fs * 2.3, 'left', '#fff', fs * 0.85);
+  // ⑧–⑩ bottom-left: airspeed, groundspeed, battery
+  const bl = H * 0.8;
+  text(`AS ${num(d.airspeed).toFixed(1)}`, 6, bl + fs * 0.1);
+  text(`GS ${num(d.groundspeed).toFixed(1)}`, 6, bl + fs * 1.15);
+  const bat = d.voltage != null ? `Bat ${d.voltage.toFixed(2)}v ${d.battery != null ? d.battery + '%' : ''}` : 'Bat —';
+  text(bat, 6, bl + fs * 2.3, 'left', d.battery != null && d.battery < 20 ? '#ff5050' : '#fff');
+  // ⑬ GPS / EKF (bottom centre)
+  const f = d.ekf_flags || 0, ekfOk = (f & 0x9) === 0x9 && !(f & 0x80);
+  text(`GPS: ${d.gps || '—'}`, W * 0.64, bl + fs * 2.3, 'center', '#fff');
+  text('EKF', W * 0.64, bl + fs * 1.15, 'center', d.ekf_flags == null ? '#aaa' : ekfOk ? '#4ce04c' : '#ff5050');
+  // ⑭ ⑮ bottom-right: mode, distance to waypoint > waypoint
+  const mode = (d.mode || '—').toLowerCase().replace(/(^|_)\w/g, s => s.toUpperCase()).replace(/_/g, ' ');
+  text(mode, W - tw - 4, bl + fs * 1.15, 'right');
+  text(`${Math.round(num(d.wp_dist))}>${num(d.wp)}`, W - tw - 4, bl + fs * 2.3, 'right');
+  // ⑪ armed state, latest status text
+  if (d.armed === false) text('DISARMED', cx, cy - H * 0.13, 'center', '#ff2a2a', fs * 1.6);
+  if (d.text && d.text_age < 10) text(d.text, cx, H * 0.7, 'center', '#ffe04a', fs * 0.85);
+  // stale
+  const stale = !hudData || Date.now() - hudAt > 3000 || d.age > 3;
+  if (stale) {
+    c.fillStyle = 'rgba(30,30,30,.65)'; c.fillRect(0, 0, W, H);
+    text('NO TELEMETRY', cx, cy, 'center', '#ffb24a', fs * 1.4);
+  }
+}
+
+// ─── ExtNav parameters on the flight controller (bridge /api/fc/param) ───
+const FC_PARAMS = ['VISO_DELAY_MS', 'VISO_POS_M_NSE'];
+const fcRead = {};                                     // values last read back from the FC
+const fcStatus = document.getElementById('fc-param-status');
+const fcWriteBtn = document.getElementById('fc-param-write');
+function fcParamUrl(name, value) {
+  const url = new URL('/api/fc/param', new URL(document.getElementById('relay-url').value.trim()));
+  url.searchParams.set('name', name);
+  if (value != null) url.searchParams.set('value', value);
+  return url;
+}
+async function fcParam(name, value) {
+  const r = await fetch(fcParamUrl(name, value), { method: value != null ? 'POST' : 'GET', cache: 'no-store' });
+  const data = await r.json().catch(() => ({ error: r.statusText }));
+  if (!r.ok || data.error) throw new Error(data.error || r.statusText);
+  return data.value;
+}
+const fcFmt = (name, v) => name === 'VISO_DELAY_MS' ? String(Math.round(v)) : String(+v.toFixed(3));
+function fcChanged() {
+  return FC_PARAMS.filter(n => {
+    const el = document.getElementById('fc-p-' + n);
+    return fcRead[n] != null && el.value !== '' && Math.abs(parseFloat(el.value) - fcRead[n]) > 1e-6;
+  });
+}
+function fcRefresh() { fcWriteBtn.disabled = !fcChanged().length; }
+FC_PARAMS.forEach(n => document.getElementById('fc-p-' + n).addEventListener('input', fcRefresh));
+document.getElementById('fc-param-read').addEventListener('click', async () => {
+  fcStatus.textContent = 'Reading…';
+  const lines = [];
+  for (const n of FC_PARAMS) {
+    try {
+      fcRead[n] = await fcParam(n);
+      document.getElementById('fc-p-' + n).value = fcFmt(n, fcRead[n]);
+      lines.push(`${n} = ${fcFmt(n, fcRead[n])}`);
+    } catch (err) { lines.push(`✘ ${n}: ${err.message}`); }
+  }
+  fcStatus.textContent = lines.join('\n');
+  fcRefresh();
+});
+fcWriteBtn.addEventListener('click', async () => {
+  const names = fcChanged();
+  fcStatus.textContent = 'Writing…';
+  const lines = [];
+  for (const n of names) {
+    const want = document.getElementById('fc-p-' + n).value;
+    try {
+      fcRead[n] = await fcParam(n, want);
+      document.getElementById('fc-p-' + n).value = fcFmt(n, fcRead[n]);
+      lines.push(`✔ ${n} = ${fcFmt(n, fcRead[n])} (confirmed by the flight controller)`);
+    } catch (err) { lines.push(`✘ ${n}: ${err.message}`); }
+  }
+  fcStatus.textContent = lines.join('\n');
+  fcRefresh();
+});
+
 const panelEl = document.getElementById('panel');
 const tbBtns = [...document.querySelectorAll('.tb-btn[data-sec]')];
 function openSection(id) {
@@ -909,6 +1152,8 @@ function disconnectTracking() {
   trackConnectButton.textContent = 'Connect';
   trackConnectButton.classList.remove('active');
   trackingStatus.textContent = 'Disconnected';
+  hudData = null;
+  hudVisible();
 }
 
 trackConnectButton.addEventListener('click', () => {
@@ -947,6 +1192,7 @@ trackConnectButton.addEventListener('click', () => {
           const state = await response.json();
           if (!trackingPolling) return;
           relayConnected = true;
+          updateHud(state.fc);
           if (state.odometry && state.sequence !== lastSequence) {
             lastSequence = state.sequence;
             updateDronePosition(state.odometry);

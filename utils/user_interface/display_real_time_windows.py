@@ -16,7 +16,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
-from pymavlink.dialects.v20 import common as mavlink2
+from pymavlink.dialects.v20 import ardupilotmega as mavlink2  # common + ArduPilot messages (EKF_STATUS_REPORT)
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 for _candidate in (os.path.join(_HERE, "..", "calibration"), os.path.join(_HERE, "..", "..")):
@@ -350,6 +350,143 @@ class BridgeState:
     def snapshot(self):
         with self.lock:
             return {"sequence": self.sequence, "odometry": self.odometry}
+
+
+class FlightController:
+    """The flight controller seen over the same UDP link: telemetry for the editor's HUD and
+    parameter read / write (only the ones in WRITABLE, with ArduPilot's ranges)."""
+
+    WRITABLE = {  # name -> (min, max, integer)
+        "VISO_DELAY_MS": (0.0, 250.0, True),
+        "VISO_POS_M_NSE": (0.1, 10.0, False),
+    }
+    GPS_FIX = {0: "No GPS", 1: "No Fix", 2: "2D Fix", 3: "3D Fix", 4: "DGPS", 5: "RTK Float", 6: "RTK Fixed"}
+
+    def __init__(self):
+        self.cond = threading.Condition()
+        self.hud = {}
+        self.params = {}            # name -> {"value", "type", "at"}
+        self.sysid = self.compid = None
+        self.address = None         # where the FC's packets come from (the radio)
+        self.udp = self.encoder = None
+        self.last_at = 0.0
+        self.last_seq = None
+        self.link = []              # (time, received, lost) per FC message, last 5 s
+
+    def attach(self, udp, encoder):
+        self.udp, self.encoder = udp, encoder
+
+    def feed(self, message, address, kind):
+        """Every message from the flight controller (component 1)."""
+        if message.get_srcComponent() != 1:
+            return
+        now = time.monotonic()
+        with self.cond:
+            if self.sysid is None or message.get_srcSystem() == self.sysid:
+                seq = message.get_seq()
+                lost = 0 if self.last_seq is None else (seq - self.last_seq - 1) % 256
+                self.last_seq = seq
+                self.link.append((now, lost))
+                while self.link and now - self.link[0][0] > 5.0:
+                    self.link.pop(0)
+            h = self.hud
+            if kind == "HEARTBEAT":
+                if message.autopilot != mavlink2.MAV_AUTOPILOT_ARDUPILOTMEGA:
+                    return
+                self.sysid, self.compid, self.address = message.get_srcSystem(), message.get_srcComponent(), address
+                h["armed"] = bool(message.base_mode & mavlink2.MAV_MODE_FLAG_SAFETY_ARMED)
+                try:
+                    from pymavlink import mavutil
+                    h["mode"] = mavutil.mode_string_v10(message)
+                except Exception:  # unknown vehicle type: the number
+                    h["mode"] = f"Mode {message.custom_mode}"
+            elif kind == "ATTITUDE":
+                h.update(roll=math.degrees(message.roll), pitch=math.degrees(message.pitch),
+                         yaw=math.degrees(message.yaw), yawspeed=math.degrees(message.yawspeed))
+            elif kind == "VFR_HUD":
+                h.update(airspeed=message.airspeed, groundspeed=message.groundspeed, heading=message.heading,
+                         throttle=message.throttle, climb=message.climb)
+                h.setdefault("alt", message.alt)
+            elif kind == "GLOBAL_POSITION_INT":
+                h["alt"] = message.relative_alt / 1000.0      # above home, like Mission Planner
+            elif kind == "SYS_STATUS":
+                h.update(voltage=message.voltage_battery / 1000.0,
+                         current=message.current_battery / 100.0 if message.current_battery >= 0 else None,
+                         battery=message.battery_remaining if message.battery_remaining >= 0 else None)
+            elif kind == "GPS_RAW_INT":
+                h.update(gps=self.GPS_FIX.get(message.fix_type, str(message.fix_type)), sats=message.satellites_visible)
+            elif kind == "NAV_CONTROLLER_OUTPUT":
+                h.update(wp_dist=message.wp_dist, xtrack=message.xtrack_error)
+            elif kind == "MISSION_CURRENT":
+                h["wp"] = message.seq
+            elif kind == "SYSTEM_TIME":
+                h.update(time_unix=message.time_unix_usec / 1e6, time_boot=message.time_boot_ms / 1000.0)
+            elif kind == "EKF_STATUS_REPORT":
+                h["ekf_flags"] = message.flags
+            elif kind == "STATUSTEXT":
+                h["text"] = message.text.rstrip("\x00")
+                h["text_at"] = now
+            elif kind == "PARAM_VALUE":
+                name = message.param_id.rstrip("\x00") if isinstance(message.param_id, str) else message.param_id
+                self.params[name] = {"value": float(message.param_value), "type": message.param_type, "at": now}
+                self.cond.notify_all()
+            self.last_at = now
+
+    def snapshot(self):
+        now = time.monotonic()
+        with self.cond:
+            if not self.last_at:
+                return None
+            received = len(self.link)
+            lost = sum(lost for _, lost in self.link)
+            hud = dict(self.hud, age=round(now - self.last_at, 2),
+                       link=round(100.0 * received / (received + lost)) if received else None)
+            if "text_at" in hud:
+                hud["text_age"] = round(now - hud.pop("text_at"), 1)
+            return hud
+
+    def _send(self, frame):
+        if self.udp is None or self.address is None:
+            raise ValueError("no flight controller yet: connect in the Drone tab and wait for its heartbeat")
+        self.udp.sendto(frame, self.address)
+
+    def param(self, name, value=None, timeout=3.0):
+        """Read (value None) or write one parameter; returns the value the FC reports back."""
+        if not name or len(name) > 16 or not all(c.isupper() or c.isdigit() or c == "_" for c in name):
+            raise ValueError(f"bad parameter name {name!r}")
+        if value is not None:
+            if name not in self.WRITABLE:
+                raise ValueError(f"{name} cannot be changed from here")
+            low, high, integer = self.WRITABLE[name]
+            value = float(value)
+            if not low <= value <= high:
+                raise ValueError(f"{name} must be between {low:g} and {high:g}")
+            if integer:
+                value = float(round(value))
+            if name not in self.params:
+                self.param(name)                           # learn its type first
+        for attempt in range(2):
+            asked = time.monotonic()
+            with self.cond:
+                sysid, compid = self.sysid, self.compid
+            if sysid is None:
+                raise ValueError("no flight controller yet: connect in the Drone tab and wait for its heartbeat")
+            encoded = name.encode("ascii")
+            if value is None:
+                frame = self.encoder.mav.param_request_read_encode(sysid, compid, encoded, -1).pack(self.encoder.mav)
+            else:
+                frame = self.encoder.mav.param_set_encode(sysid, compid, encoded, value,
+                                                          self.params[name]["type"]).pack(self.encoder.mav)
+            self._send(frame)
+            with self.cond:
+                answered = self.cond.wait_for(lambda: self.params.get(name, {}).get("at", 0) > asked,
+                                              timeout / 2)
+                if answered:
+                    got = self.params[name]["value"]
+                    if value is not None and abs(got - value) > 1e-4 * max(1.0, abs(value)):
+                        raise ValueError(f"{name}: the flight controller kept {got:g}")
+                    return {"name": name, "value": got}
+        raise ValueError(f"{name}: no answer from the flight controller")
 
 
 class CaptureManager:
@@ -1312,16 +1449,20 @@ class GcsEncoder:
 
     def request_streams(self, sysid, compid):
         frames = []
-        for stream_id in (mavlink2.MAV_DATA_STREAM_POSITION, mavlink2.MAV_DATA_STREAM_EXTRA3):
+        # POSITION + EXTRA3 (EKF status) for tracking; EXTENDED_STATUS (battery, GPS, waypoint),
+        # EXTRA1 (attitude) and EXTRA2 (VFR_HUD) for the editor's HUD.
+        for stream_id, rate in ((mavlink2.MAV_DATA_STREAM_POSITION, 4), (mavlink2.MAV_DATA_STREAM_EXTRA3, 4),
+                                (mavlink2.MAV_DATA_STREAM_EXTENDED_STATUS, 2),
+                                (mavlink2.MAV_DATA_STREAM_EXTRA1, 10), (mavlink2.MAV_DATA_STREAM_EXTRA2, 4)):
             frames.append(
                 mavlink2.MAVLink_request_data_stream_message(
-                    sysid, compid, stream_id, 4, 1
+                    sysid, compid, stream_id, rate, 1
                 ).pack(self.mav)
             )
         return frames
 
 
-def udp_receiver(state, capture, ootx, listen_host, listen_port):
+def udp_receiver(state, capture, ootx, fc, listen_host, listen_port):
     parser = mavlink2.MAVLink(None)
     parser.robust_parsing = True
     encoder = GcsEncoder()
@@ -1343,6 +1484,7 @@ def udp_receiver(state, capture, ootx, listen_host, listen_port):
             print(capture.udp_error, flush=True)
             return
         udp.settimeout(0.1)
+        fc.attach(udp, encoder)
         print(f"MAVLink UDP in ascolto su {listen_host}:{listen_port}")
 
         while True:
@@ -1380,6 +1522,7 @@ def udp_receiver(state, capture, ootx, listen_host, listen_port):
                 if message is None:
                     continue
                 kind = message.get_type()
+                fc.feed(message, address, kind)
 
                 if kind == "HEARTBEAT" and message.type != mavlink2.MAV_TYPE_GCS:
                     sysid = message.get_srcSystem()
@@ -1431,7 +1574,7 @@ def udp_receiver(state, capture, ootx, listen_host, listen_port):
                     )
 
 
-def make_handler(state, capture, ootx):
+def make_handler(state, capture, ootx, fc):
     class Handler(BaseHTTPRequestHandler):
         def _cors_headers(self):
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -1554,6 +1697,14 @@ def make_handler(state, capture, ootx):
             if request.path.startswith("/api/lh2/"):
                 self._lh2(request)
                 return
+            if request.path == "/api/fc/param":
+                query = parse_qs(request.query)
+                value = query.get("value", [""])[0].strip()
+                try:
+                    self._json(fc.param(query.get("name", [""])[0].strip(), value if value else None))
+                except (ValueError, OSError) as error:
+                    self._json({"error": str(error)}, 400)
+                return
             if request.path != "/api/odometry":
                 self.send_error(404)
                 return
@@ -1569,7 +1720,7 @@ def make_handler(state, capture, ootx):
                 return
 
             state.set_target(host, port)
-            self._json(state.snapshot())
+            self._json(dict(state.snapshot(), fc=fc.snapshot()))
 
         def log_message(self, _format, *_args):
             pass
@@ -1616,14 +1767,15 @@ def main():
     # request does not stall the HTTP replies for seconds while holding the capture lock.
     threading.Thread(target=lambda: __import__("locate_samples"), daemon=True).start()
     ootx = OotxReader()
+    fc = FlightController()
     receiver = threading.Thread(
         target=udp_receiver,
-        args=(state, capture, ootx, args.udp_host, args.udp_port),
+        args=(state, capture, ootx, fc, args.udp_host, args.udp_port),
         daemon=True,
     )
     receiver.start()
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture, ootx))
+    server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture, ootx, fc))
     print(f"HTTP API: http://127.0.0.1:{args.http_port}/api/odometry")
     print(f"Calibration sessions: {RUNS_DIR}")
     print(f"READY http://127.0.0.1:{args.http_port}", flush=True)  # the desktop app waits for this line

@@ -106,7 +106,7 @@ The window has two modes, switched at the top left:
 
 | Tab | Mode | What it does |
 |---|---|---|
-| **Drone** | both | **The only connection** to the drone, shared by every other tab: the radio's IP, Connect/Disconnect, link status and live `ODOMETRY` position. |
+| **Drone** | both | **The only connection** to the drone, shared by every other tab: the radio's IP, Connect/Disconnect, link status and live `ODOMETRY` position. Also a Mission Planner-style **HUD** of the flight controller (attitude, heading, speed and altitude tapes, climb rate, battery, link quality, mode, armed state, GPS/EKF, waypoint, status text), and read/write of the ExtNav parameters `VISO_DELAY_MS` and `VISO_POS_M_NSE`. |
 | **Base stations** | Sandbox | Position (m, Z-up) and orientation of each station. *Inc* is the tilt from vertical: 0° = pointing straight down. |
 | **Room** | both | Room size and colours. |
 | **FOV** | Sandbox | Field-of-view cones and range. |
@@ -294,8 +294,10 @@ inside:
 
 - It listens for the drone's MAVLink on UDP 14550 and sends GCS heartbeats to the radio on port 14555,
   which is how the radio learns where to send.
-- It serves the UI on `http://127.0.0.1:8051`, with `/api/odometry` and `/api/lh2/*` for capture, solve,
-  simulation, evaluation, export and OOTX.
+- It serves the UI on `http://127.0.0.1:8051`, with `/api/odometry` (position + the flight controller's HUD
+  telemetry), `/api/fc/param` (read / write the whitelisted ArduPilot parameters) and `/api/lh2/*` for
+  capture, solve, simulation, evaluation, export and OOTX. It asks the flight controller for the
+  POSITION, EXTRA3, EXTENDED_STATUS, EXTRA1 and EXTRA2 streams.
 - Data folders can be moved with `LH2_RUNS_DIR` (sessions) and `LH2_DATA_DIR` (factory calibration).
 
 Without the desktop app (development, Linux):
