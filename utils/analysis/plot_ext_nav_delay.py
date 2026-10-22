@@ -230,9 +230,16 @@ def main() -> int:
     a4.annotate(f"stamp {lag_stamp:.0f} ms\n(corr {corr_stamp:.2f})", (lag_stamp, corr_stamp), xytext=(-95, -30),
                 textcoords="offset points", color="tab:purple")
     a4.set_title("4. How well the curves match for every shift (whole recording, N and E): the peak is the delay")
+    a4.text(0.5, -0.42,
+            f"total {lag:.0f} ms = {lag - lag_stamp:.0f} ms capture stamp -> arrival (wait for the 10 Hz send + serial;\n"
+            f"ArduPilot sees it from the ODOMETRY time stamps) + {lag_stamp:.0f} ms motion -> capture stamp\n"
+            f"(sensors + filter; invisible to ArduPilot) -> VISO_DELAY_MS should be about {lag_stamp:.0f}"
+            + (f"  (now {viso:.0f})" if viso is not None else ""),
+            transform=a4.transAxes, ha="center", va="top", fontsize=9,
+            bbox=dict(boxstyle="round", facecolor="white", edgecolor="0.7"))
     a4.set_xlabel("shift of the lighthouse velocity [ms]"); a4.set_ylabel("correlation")
     a4.set_xlim(lags[0], lags[-1]); a4.set_ylim(min(0, np.nanmin(res["arrival"]["curve"])), 1.0); a4.grid(alpha=0.3)
-    a4.legend(loc="lower right", fontsize=8)
+    a4.legend(loc="lower left", fontsize=8)
 
     out = args.out or os.path.splitext(path)[0] + "_delay.png"
     fig.savefig(out, dpi=130, bbox_inches="tight")
