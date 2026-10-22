@@ -16,7 +16,10 @@ Shifting one curve against the other until they match best gives the delay. Two 
     firmware puts in ODOMETRY, translated by ArduPilot to its clock. ArduPilot sees T - Lc from
     the stamps by itself; VISO_DELAY_MS must cover Lc. Residual Lc - VISO_DELAY_MS ~ 0 = right.
 
-The figure and the terminal also give the same as a step-by-step example with this log's numbers.
+The figure and the terminal also list the real readings of the log, one row per position received
+(VISP): arrival, capture time per ArduPilot, age seen from the stamps, the moment the EKF uses
+(capture - VISO_DELAY_MS), age assumed by the EKF, real age (age seen + Lc) and their difference;
+every reading goes to <figure>_readings.csv.
 
 The figure is written as a PNG next to the log and opened with the image viewer (--window for an
 interactive matplotlib window instead, --no-show to only write it).
@@ -158,16 +161,19 @@ TEXT = {
         "corr_help": "correlazione = quanto si somigliano le due curve dopo lo spostamento: 1 = identiche, 0 = nessuna somiglianza. "
                      "Si provano tutti gli spostamenti; quello con la somiglianza massima (il picco) è il ritardo.",
         "c_peak": "picco", 
-        "steps_title": "Esempio con un messaggio (valori medi di questo log)",
-        "s1": "t = 0 ms: il drone è nel punto P.",
-        "s2": "t = {lc:.0f} ms: il firmware ha calcolato P (sensori + filtro) e lo timbra \"catturato ora\".",
-        "s3": "t = {t:.0f} ms: il messaggio arriva al Pixhawk.",
-        "s4": "ArduPilot legge il timbro e capisce che il dato è stato catturato {a:.0f} ms fa, cioè a {t:.0f} − {a:.0f} = {lc:.0f} ms.",
-        "s5": "Toglie VISO_DELAY_MS: {lc:.0f} − {v:.0f} = {res:+.0f} ms.",
-        "ok": "≈ 0: l'EKF usa l'istante giusto. VISO_DELAY_MS = {v:.0f} va bene.",
+        "tab_title": "Letture reali dal log (posizioni ricevute dal Pixhawk, messaggio VISP)",
+        "cols": ["#", "arrivo al\nPixhawk [s]", "cattura secondo\nArduPilot [s]", "età vista dai\ntimbri [ms]",
+                 "istante usato\ndall'EKF [s]", "età assunta\ndall'EKF [ms]", "età reale\n[ms]", "differenza\n[ms]"],
+        "col_help": "arrivo = VISP.TimeUS · cattura = VISP.CTimeMS (il timbro del firmware sull'orologio del Pixhawk) · "
+                    "età vista = arrivo − cattura · istante EKF = cattura − VISO_DELAY_MS ({v}) · età assunta = arrivo − istante EKF · "
+                    "età reale = età vista + Lc ({lc:.0f} ms, misurato su tutta la registrazione) · differenza = assunta − reale",
+        "summary": "Tutte le {n} letture: età vista dai timbri mediana {am:.0f} ms (min {amin:.0f}, max {amax:.0f}) · età assunta dall'EKF "
+                   "mediana {sm:.0f} ms · età reale mediana {rm:.0f} ms · differenza {d:+.0f} ms",
+        "ok": "Differenza ≈ 0: l'EKF usa l'istante giusto. VISO_DELAY_MS = {v:.0f} va bene.",
         "up": "L'EKF usa un istante troppo recente: aumenta VISO_DELAY_MS a circa {rec:.0f}.",
         "down": "L'EKF guarda troppo indietro: diminuisci VISO_DELAY_MS a circa {rec:.0f}.",
         "nov": "VISO_DELAY_MS non è nel log: impostalo a circa {rec:.0f}.",
+        "csv": "tutte le letture: {path}",
     },
     "en": {
         "title": "Lighthouse position delay — {log}  ({dur:.0f} s of motion, axis {axis})",
@@ -184,31 +190,43 @@ TEXT = {
         "corr_help": "correlation = how alike the two curves are after the shift: 1 = identical, 0 = not alike at all. "
                      "Every shift is tried; the one with the highest similarity (the peak) is the delay.",
         "c_peak": "peak", 
-        "steps_title": "Example with one message (average values of this log)",
-        "s1": "t = 0 ms: the drone is at point P.",
-        "s2": "t = {lc:.0f} ms: the firmware has computed P (sensors + filter) and stamps it \"captured now\".",
-        "s3": "t = {t:.0f} ms: the message reaches the Pixhawk.",
-        "s4": "ArduPilot reads the stamp: the data was captured {a:.0f} ms ago, i.e. at {t:.0f} − {a:.0f} = {lc:.0f} ms.",
-        "s5": "It subtracts VISO_DELAY_MS: {lc:.0f} − {v:.0f} = {res:+.0f} ms.",
-        "ok": "≈ 0: the EKF uses the right moment. VISO_DELAY_MS = {v:.0f} is right.",
+        "tab_title": "Real readings from the log (positions received by the Pixhawk, VISP message)",
+        "cols": ["#", "arrival at\nPixhawk [s]", "capture per\nArduPilot [s]", "age seen from\nstamps [ms]",
+                 "time used\nby the EKF [s]", "age assumed\nby the EKF [ms]", "real age\n[ms]", "difference\n[ms]"],
+        "col_help": "arrival = VISP.TimeUS · capture = VISP.CTimeMS (the firmware stamp on the Pixhawk clock) · "
+                    "age seen = arrival − capture · EKF time = capture − VISO_DELAY_MS ({v}) · age assumed = arrival − EKF time · "
+                    "real age = age seen + Lc ({lc:.0f} ms, measured on the whole recording) · difference = assumed − real",
+        "summary": "All {n} readings: age seen from the stamps median {am:.0f} ms (min {amin:.0f}, max {amax:.0f}) · age assumed by the EKF "
+                   "median {sm:.0f} ms · real age median {rm:.0f} ms · difference {d:+.0f} ms",
+        "ok": "Difference ≈ 0: the EKF uses the right moment. VISO_DELAY_MS = {v:.0f} is right.",
         "up": "The EKF uses too recent a moment: raise VISO_DELAY_MS to about {rec:.0f}.",
         "down": "The EKF looks too far back: lower VISO_DELAY_MS to about {rec:.0f}.",
         "nov": "VISO_DELAY_MS is not in the log: set it to about {rec:.0f}.",
+        "csv": "all readings: {path}",
     },
 }
 
 
-def steps(tx, total, lc, viso):
-    """The step-by-step example with this log's numbers, and the verdict."""
+def readings(visp, t0, t1, lc, viso):
+    """Per received position: arrival, capture time per ArduPilot, ages and the residual [s / ms]."""
+    v = visp[(visp[:, 0] >= t0) & (visp[:, 0] <= t1)]
+    arrival, capture = v[:, 0], v[:, 5]
+    seen = 1000 * (arrival - capture)                   # age ArduPilot gets from the stamps
+    vd = viso if viso is not None else 0.0
+    ekf_time = capture - vd / 1000                      # the moment the EKF compares it with
+    assumed = 1000 * (arrival - ekf_time)               # = seen + VISO_DELAY_MS
+    real = seen + lc                                    # stamp -> arrival, plus motion -> stamp (Lc)
+    return {"arrival": arrival, "capture": capture, "seen": seen, "ekf_time": ekf_time,
+            "assumed": assumed, "real": real, "diff": assumed - real, "pos": v[:, 1:4]}
+
+
+def verdict(tx, lc, viso):
     rec = 5 * round(lc / 5)
-    lines = [tx["s1"], tx["s2"].format(lc=lc), tx["s3"].format(t=total),
-             tx["s4"].format(a=total - lc, t=total, lc=lc)]
     if viso is None:
-        return lines + [tx["nov"].format(rec=rec)]
-    res = lc - viso
-    lines.append(tx["s5"].format(lc=lc, v=viso, res=res) + " " +
-                 (tx["ok"].format(v=viso) if abs(res) <= 15 else (tx["up"] if res > 0 else tx["down"]).format(rec=rec)))
-    return lines
+        return tx["nov"].format(rec=rec), False
+    if abs(lc - viso) <= 15:
+        return tx["ok"].format(v=viso), True
+    return (tx["up"] if lc > viso else tx["down"]).format(rec=rec), False
 
 
 # --------------------------------------------------------------------------- #
@@ -255,7 +273,20 @@ def main() -> int:
     lag_ct, corr_ct = res["ctime"]["both"]
     viso = d["params"].get("VISO_DELAY_MS")
     tx = TEXT[args.lang]
-    lines = steps(tx, lag, lag_ct, viso)
+    rd = readings(d["visp"], t0, t1, lag_ct, viso)
+    verdict_text, good = verdict(tx, lag_ct, viso)
+    out = args.out or os.path.splitext(path)[0] + "_delay.png"
+    csv_path = os.path.splitext(out)[0] + "_readings.csv"
+    with open(csv_path, "w", encoding="utf-8") as f:
+        f.write("arrival_s,capture_arducopter_s,age_seen_ms,visodelay_ms,ekf_time_s,age_assumed_ms,lc_ms,age_real_ms,"
+                "difference_ms,pos_n_m,pos_e_m,pos_d_m\n")
+        for k in range(len(rd["arrival"])):
+            f.write(f"{rd['arrival'][k]:.4f},{rd['capture'][k]:.4f},{rd['seen'][k]:.1f},{viso if viso is not None else ''},"
+                    f"{rd['ekf_time'][k]:.4f},{rd['assumed'][k]:.1f},{lag_ct:.1f},{rd['real'][k]:.1f},{rd['diff'][k]:.1f},"
+                    f"{rd['pos'][k, 0]:.4f},{rd['pos'][k, 1]:.4f},{rd['pos'][k, 2]:.4f}\n")
+    summary = tx["summary"].format(n=len(rd["seen"]), am=np.median(rd["seen"]), amin=rd["seen"].min(), amax=rd["seen"].max(),
+                                   sm=np.median(rd["assumed"]), rm=np.median(rd["real"]),
+                                   d=(viso - lag_ct) if viso is not None else float("nan"))
 
     print(f"analysed {t1 - t0:.0f} s ({t0:.0f}-{t1:.0f} s)")
     print(f"total delay T (motion -> arrival at the FC, VISP.TimeUS): {lag:.0f} ms  (correlation {corr:.2f}; "
@@ -263,10 +294,16 @@ def main() -> int:
     print(f"ArduPilot's sample time (VISP.CTimeMS) lags the motion by Lc = {lag_ct:.0f} ms (correlation {corr_ct:.2f}): "
           f"VISO_DELAY_MS must cover this")
     print(f"VISO_DELAY_MS in the log: {viso}\n")
-    plain = lambda text: text.replace("−", "-").replace("≈", "~")   # Windows consoles (cp1252)
-    print(plain(tx["steps_title"]) + ":")
-    for i, line in enumerate(lines, 1):
-        print(f"  {i}. {plain(line)}")
+    plain = lambda text: text.replace("−", "-").replace("≈", "~").replace("\n", " ")   # Windows consoles (cp1252)
+    print(plain(tx["tab_title"]) + " (first 10 in the zoomed stretch):")
+    hdr = [plain(c) for c in tx["cols"]]
+    print("  " + " | ".join(hdr))
+    for k in range(min(10, len(rd["arrival"]))):
+        print(f"  {k + 1:4d} | {rd['arrival'][k]:9.3f} | {rd['capture'][k]:9.3f} | {rd['seen'][k]:6.0f} | {rd['ekf_time'][k]:9.3f} | "
+              f"{rd['assumed'][k]:6.0f} | {rd['real'][k]:6.0f} | {rd['diff'][k]:+5.0f}")
+    print("  " + plain(summary))
+    print("  " + plain(verdict_text))
+    print(plain(tx["csv"].format(path=csv_path)))
 
     import matplotlib
     if not args.window:
@@ -282,8 +319,8 @@ def main() -> int:
     tz = t[zs] - z0
     shift = int(round(lag / 1000 / DT))
 
-    fig = plt.figure(figsize=(13, 15))
-    gs = fig.add_gridspec(5, 1, height_ratios=[1, 1, 1, 1.5, 0.8], hspace=0.65)
+    fig = plt.figure(figsize=(13, 17))
+    gs = fig.add_gridspec(5, 1, height_ratios=[1, 1, 1, 1.5, 1.6], hspace=0.6)
     fig.suptitle(tx["title"].format(log=os.path.basename(path), dur=t1 - t0, axis=axis), fontsize=13, fontweight="bold", y=0.995)
     fig.subplots_adjust(top=0.95)
 
@@ -332,15 +369,27 @@ def main() -> int:
     a4.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=9, borderaxespad=0)
 
     a5 = fig.add_subplot(gs[4]); a5.axis("off")
-    a5.set_position([a5.get_position().x0, a5.get_position().y0 - 0.02, a5.get_position().width, a5.get_position().height])
-    a5.text(0.0, 1.0, tx["steps_title"], fontsize=11, fontweight="bold", va="top", transform=a5.transAxes)
-    for i, line in enumerate(lines, 1):
-        a5.text(0.0, 1.0 - 0.19 * i, f"{i}.  {line}", fontsize=10, va="top", transform=a5.transAxes,
-                fontweight="bold" if i == len(lines) else "normal",
-                color="black" if i < len(lines) else
-                ("tab:green" if viso is not None and abs(lag_ct - viso) <= 15 else "tab:red"))
+    a5.set_title(tx["tab_title"], fontsize=11, fontweight="bold", loc="left")
+    sel = np.where((rd["arrival"] >= z0) & (rd["arrival"] <= z1))[0][:10]   # readings of the zoomed stretch
+    rows = [[f"{k + 1}", f"{rd['arrival'][k]:.3f}", f"{rd['capture'][k]:.3f}", f"{rd['seen'][k]:.0f}",
+             f"{rd['ekf_time'][k]:.3f}", f"{rd['assumed'][k]:.0f}", f"{rd['real'][k]:.0f}", f"{rd['diff'][k]:+.0f}"] for k in sel]
+    table = a5.table(cellText=rows, colLabels=tx["cols"], loc="upper center", cellLoc="center", bbox=[0.0, 0.24, 1.0, 0.70])
+    table.auto_set_font_size(False); table.set_fontsize(8.5)
+    for (r, c), cell in table.get_celld().items():
+        cell.set_edgecolor("0.8")
+        if r == 0:                                   # two-line headings: taller row, drawn above the body
+            cell.set_height(cell.get_height() * 2.0); cell.set_y(cell.get_y())
+            cell.set_facecolor("#e8eef7"); cell.set_text_props(fontweight="bold")
+        elif c == 7:
+            cell.set_text_props(color="tab:green" if good else "tab:red", fontweight="bold")
+    help_text = tx["col_help"].format(v=f"{viso:.0f} ms" if viso is not None else "?", lc=lag_ct)
+    cut = help_text.find("·", len(help_text) // 2)    # two lines
+    a5.text(0.0, 0.20, help_text[:cut].strip() + "\n" + help_text[cut + 1:].strip(),
+            transform=a5.transAxes, fontsize=7.8, color="0.3", va="top")
+    colour = "tab:green" if good else "tab:red"
+    a5.text(0.0, 0.06, summary, transform=a5.transAxes, fontsize=9.5, va="top", fontweight="bold", color="0.15")
+    a5.text(0.0, -0.04, verdict_text, transform=a5.transAxes, fontsize=10.5, va="top", fontweight="bold", color=colour)
 
-    out = args.out or os.path.splitext(path)[0] + "_delay.png"
     fig.savefig(out, dpi=130, bbox_inches="tight")
     print(f"figure: {out}")
     if args.window:
