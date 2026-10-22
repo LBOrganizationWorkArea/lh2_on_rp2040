@@ -328,6 +328,9 @@ LightHouse Studio replaces it.
   solver is `utils/calibration/wand_sensors.json` (S0 upper-left, S1 upper-right, S2 lower-right,
   S3 lower-left, component side up).
 - Pixhawk running ArduPilot: Pico UART to **TELEM2**.
+  ExtNav parameters measured on this system: `VISO_TYPE = 1`, `EK3_SRC1_POSXY = 6`, `EK3_SRC1_POSZ = 6`,
+  `EK3_SRC1_YAW = 6` (yaw from the four sensors, no compass), `VISO_DELAY_MS = 60`, `VISO_POS_M_NSE = 0.1`,
+  `VISO_YAW_M_NSE = 0.35`.
 - Wi-Fi telemetry radio (MavESP8266 or DroneBridge ESP32) for the ground station.
 
 Sensor wiring, from the original DotBots design:
