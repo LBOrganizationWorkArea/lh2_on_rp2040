@@ -28,11 +28,19 @@
 #define MIN_BS_FOR_POINT 2   ///< stations that must see a sensor to triangulate it
 
 #define EMA_ALPHA   0.2f         ///< EMA smoothing factor (α in paper)
-/* A pair farther than this from its EMA is a mis-decoded sweep (flight log 2026-10-21: one
- * wrong ray in ~13 % of snapshots) and is left out of the EMA; ANGLE_GATE_N in a row are real
- * motion and restart it. After EMA_RESET_US without data the EMA restarts too, instead of
- * blending in an old angle. */
-#define ANGLE_GATE_RAD  0.052f   ///< 3 deg
+/* The solver's angles (ema_horiz / ema_vert) come from an alpha-beta filter: angle + angular
+ * rate, so a moving drone is followed without the lag of a plain EMA (which made the position
+ * ~80-160 ms late and, with the gate below, froze it during fast moves: log 2026-10-22).
+ * A pair farther than ANGLE_GATE_RAD from the *predicted* angle is a mis-decoded sweep (flight
+ * log 2026-10-21: one wrong ray in ~13 % of snapshots) and is left out; ANGLE_GATE_N in a row
+ * are real motion and restart the filter. After EMA_RESET_US without data it restarts too. */
+/* Gains and gate from a simulation of hover / 0.5 m/s passes / the 4 g shake test with 30 % lost
+ * and late pairs and 4 % bad sweeps: vs the old EMA 0.2 + 3 deg gate, lag 120-140 -> ~30 ms and
+ * angle error 2-3x lower. Real angle noise is far below the gate (still drone: p99 0.01 deg). */
+#define AB_ALPHA        0.30f    ///< angle correction gain
+#define AB_BETA         0.05f    ///< rate correction gain (~ alpha^2 / (2 - alpha))
+#define AB_MAX_RATE     10.0f    ///< [rad/s] clamp
+#define ANGLE_GATE_RAD  0.026f   ///< 1.5 deg from the prediction (the motion is predicted, so it can be tight)
 #define ANGLE_GATE_N    3
 #define EMA_RESET_US    100000ULL
 #define TAN_30      0.57735027f  ///< tan(30°) — used in elevation reconstruction
@@ -70,8 +78,12 @@ typedef struct {
     bool     has_sweep[2];       ///< true once the corresponding raw_sweep is valid
     float    ema_az;             ///< EMA-smoothed azimuth   [degrees] (legacy solve3d path)
     float    ema_el;             ///< EMA-smoothed elevation [degrees] (legacy solve3d path)
-    float    ema_horiz;          ///< EMA-smoothed Bitcraze horizontal angle [radians] (solver)
-    float    ema_vert;           ///< EMA-smoothed Bitcraze vertical   angle [radians] (solver)
+    float    ema_horiz;          ///< filtered Bitcraze horizontal angle [radians] (solver; alpha-beta)
+    float    ema_vert;           ///< filtered Bitcraze vertical   angle [radians] (solver; alpha-beta)
+    float    rate_horiz;         ///< its angular rate [rad/s]
+    float    rate_vert;          ///< [rad/s]
+    uint64_t sweep_us[2];        ///< capture time of each pending sweep [us since boot]
+    uint64_t meas_us;            ///< capture time of the last pair taken into the filter
     float    raw_horiz;          ///< Instantaneous horizontal angle [radians]
     float    raw_vert;           ///< Instantaneous vertical angle [radians]
     bool     valid;              ///< true once at least one complete pair has been decoded

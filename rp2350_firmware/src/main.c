@@ -352,10 +352,12 @@ static void syn_write_bs(int s, uint8_t slot, uint8_t poly,
 
     g_lh2[s].locations[0][slot].selected_polynomial = poly;
     g_lh2[s].locations[0][slot].lfsr_location        = lfsr0;
+    g_lh2[s].timestamps[0][slot]                     = get_absolute_time();   /* the filter runs on capture times */
     g_lh2[s].data_ready[0][slot]                     = DB_LH2_PROCESSED_DATA_AVAILABLE;
 
     g_lh2[s].locations[1][slot].selected_polynomial = poly;
     g_lh2[s].locations[1][slot].lfsr_location        = lfsr1;
+    g_lh2[s].timestamps[1][slot]                     = get_absolute_time();
     g_lh2[s].data_ready[1][slot]                     = DB_LH2_PROCESSED_DATA_AVAILABLE;
 }
 
@@ -537,6 +539,7 @@ int main(void)
     float    last_yaw = 0.0f, last_yaw_var = 0.0f;   /* world, CCW from +X [rad] */
     uint64_t last_yaw_us = 0;
     uint64_t jump_since_us = 0;      /* first solve of a centre jump > JUMP_GATE_M, 0 = none */
+    uint64_t last_meas_us = 0;       /* capture time the accepted centre refers to (ODOMETRY stamp) */
     float    last_sensor_xyz[NUM_SENSORS][3] = {{0.0f}};
     bool     last_sensor_valid[NUM_SENSORS] = {false};
     uint64_t last_sensor_update_us[NUM_SENSORS] = {0};
@@ -634,6 +637,18 @@ int main(void)
                 }
                 if (accept) {
                     jump_since_us = 0;
+                    /* The filtered angles describe the moments their sweeps were captured: stamp the
+                     * position with their mean, so the flight controller knows how old it is. */
+                    uint64_t meas_sum = 0; uint32_t meas_n = 0;
+                    for (int s = 0; s < NUM_SENSORS; s++) {
+                        for (int b = 0; b < NUM_BS; b++) {
+                            const lh2_angles_t *a = &g_angles[s][b];
+                            if (a->valid && a->meas_us && now_us - a->last_update_us <= FRESHNESS_US) {
+                                meas_sum += a->meas_us; meas_n++;
+                            }
+                        }
+                    }
+                    last_meas_us = meas_n ? meas_sum / meas_n : now_us;
                     for (int s = 0; s < NUM_SENSORS; s++) {
                         if (!ok[s]) continue;
                         for (int k = 0; k < 3; k++) last_sensor_xyz[s][k] = xyz[s][k];
@@ -718,7 +733,7 @@ int main(void)
             const float yaw_ned = -last_yaw + BS_WORLD_HEADING_DEG * (float)M_PI / 180.0f;
             const bool  yaw_fresh = last_yaw_us != 0 && now_us - last_yaw_us < YAW_STALE_US;
             if (last_yaw_us != 0) {
-                mavlink_send_odometry(mavlink_timesync_corrected_us(now_us),
+                mavlink_send_odometry(mavlink_timesync_corrected_us(last_meas_us ? last_meas_us : now_us),
                                       fwd * s_heading_cos - right * s_heading_sin,
                                       fwd * s_heading_sin + right * s_heading_cos, -last_cz,
                                       yaw_ned, yaw_fresh ? last_yaw_var : YAW_VAR_UNKNOWN);

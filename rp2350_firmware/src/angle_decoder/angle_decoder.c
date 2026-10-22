@@ -141,31 +141,45 @@ static void _finalize_angles(lh2_angles_t *slot,
     slot->raw_horiz = horiz_rad;
     slot->raw_vert  = vert_rad;
 
-    /* EMA update: restart after a gap, leave out a lone outlier (ANGLE_GATE_RAD) */
-    const bool stale = !slot->valid || now_us - slot->last_update_us > EMA_RESET_US;
-    if (!stale && (fabsf(horiz_rad - slot->ema_horiz) > ANGLE_GATE_RAD ||
-                   fabsf(vert_rad  - slot->ema_vert)  > ANGLE_GATE_RAD)) {
+    /* Alpha-beta update on the capture times: predict, gate a lone outlier, correct. */
+    const uint64_t meas_us = slot->sweep_us[0] > slot->sweep_us[1] ? slot->sweep_us[0] : slot->sweep_us[1];
+    bool restart = !slot->valid || now_us - slot->last_update_us > EMA_RESET_US;
+    if (!restart && meas_us <= slot->meas_us) {   /* a late pair (sweeps arrive out of order): older news */
+        slot->has_sweep[0] = false;
+        slot->has_sweep[1] = false;
+        return;
+    }
+    const float dt = restart ? 0.0f : (float)(meas_us - slot->meas_us) * 1e-6f;
+    const float pred_h = slot->ema_horiz + slot->rate_horiz * dt;
+    const float pred_v = slot->ema_vert  + slot->rate_vert  * dt;
+    const float res_h = horiz_rad - pred_h, res_v = vert_rad - pred_v;
+    if (!restart && (fabsf(res_h) > ANGLE_GATE_RAD || fabsf(res_v) > ANGLE_GATE_RAD)) {
         if (++slot->gated < ANGLE_GATE_N) {
             slot->has_sweep[0] = false;
             slot->has_sweep[1] = false;
-            return;                       /* EMA and last_update_us untouched */
+            return;                       /* filter and last_update_us untouched */
         }
-        slot->valid = false;              /* it keeps disagreeing: real motion, restart */
+        restart = true;                   /* it keeps disagreeing: real motion */
     }
     slot->gated = 0;
-    if (stale || !slot->valid) {
-        slot->ema_az    = az_raw;
-        slot->ema_el    = el_raw;
-        slot->ema_horiz = horiz_rad;
-        slot->ema_vert  = vert_rad;
+    if (restart) {
+        slot->ema_az     = az_raw;
+        slot->ema_el     = el_raw;
+        slot->ema_horiz  = horiz_rad;
+        slot->ema_vert   = vert_rad;
+        slot->rate_horiz = 0.0f;
+        slot->rate_vert  = 0.0f;
     } else {
-        slot->ema_az    = EMA_ALPHA * az_raw    + (1.0f - EMA_ALPHA) * slot->ema_az;
-        slot->ema_el    = EMA_ALPHA * el_raw    + (1.0f - EMA_ALPHA) * slot->ema_el;
-        slot->ema_horiz = EMA_ALPHA * horiz_rad + (1.0f - EMA_ALPHA) * slot->ema_horiz;
-        slot->ema_vert  = EMA_ALPHA * vert_rad  + (1.0f - EMA_ALPHA) * slot->ema_vert;
+        slot->ema_az    = EMA_ALPHA * az_raw + (1.0f - EMA_ALPHA) * slot->ema_az;   /* legacy prints */
+        slot->ema_el    = EMA_ALPHA * el_raw + (1.0f - EMA_ALPHA) * slot->ema_el;
+        slot->ema_horiz = pred_h + AB_ALPHA * res_h;
+        slot->ema_vert  = pred_v + AB_ALPHA * res_v;
+        slot->rate_horiz = fmaxf(-AB_MAX_RATE, fminf(AB_MAX_RATE, slot->rate_horiz + AB_BETA * res_h / dt));
+        slot->rate_vert  = fmaxf(-AB_MAX_RATE, fminf(AB_MAX_RATE, slot->rate_vert  + AB_BETA * res_v / dt));
     }
 
     slot->valid          = true;
+    slot->meas_us        = meas_us;
     slot->last_update_us = now_us;
     slot->has_sweep[0]   = false;
     slot->has_sweep[1]   = false;
@@ -253,6 +267,7 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
 
                 ang->raw_sweep[sweep] = raw_angle;
                 ang->raw_lfsr[sweep]  = lfsr;
+                ang->sweep_us[sweep]  = capture_us;
                 ang->has_sweep[sweep] = true;
 
                 /* If both sweeps are now in, compute az/el */
