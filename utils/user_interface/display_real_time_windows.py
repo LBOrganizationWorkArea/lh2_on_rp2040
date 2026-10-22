@@ -423,6 +423,8 @@ class FlightController:
                 h.update(time_unix=message.time_unix_usec / 1e6, time_boot=message.time_boot_ms / 1000.0)
             elif kind == "EKF_STATUS_REPORT":
                 h["ekf_flags"] = message.flags
+            elif kind == "RC_CHANNELS":       # sticks: roll, pitch, throttle, yaw (default RCMAP)
+                h["rc"] = [message.chan1_raw, message.chan2_raw, message.chan3_raw, message.chan4_raw]
             elif kind == "STATUSTEXT":
                 h["text"] = message.text.rstrip("\x00")
                 h["text_at"] = now
@@ -1450,10 +1452,12 @@ class GcsEncoder:
     def request_streams(self, sysid, compid):
         frames = []
         # POSITION + EXTRA3 (EKF status) for tracking; EXTENDED_STATUS (battery, GPS, waypoint),
-        # EXTRA1 (attitude) and EXTRA2 (VFR_HUD) for the editor's HUD.
+        # EXTRA1 (attitude) and EXTRA2 (VFR_HUD) for the editor's HUD; RC_CHANNELS (sticks) for
+        # the position-hold accuracy.
         for stream_id, rate in ((mavlink2.MAV_DATA_STREAM_POSITION, 4), (mavlink2.MAV_DATA_STREAM_EXTRA3, 4),
                                 (mavlink2.MAV_DATA_STREAM_EXTENDED_STATUS, 2),
-                                (mavlink2.MAV_DATA_STREAM_EXTRA1, 10), (mavlink2.MAV_DATA_STREAM_EXTRA2, 4)):
+                                (mavlink2.MAV_DATA_STREAM_EXTRA1, 10), (mavlink2.MAV_DATA_STREAM_EXTRA2, 4),
+                                (mavlink2.MAV_DATA_STREAM_RC_CHANNELS, 5)):
             frames.append(
                 mavlink2.MAVLink_request_data_stream_message(
                     sysid, compid, stream_id, rate, 1

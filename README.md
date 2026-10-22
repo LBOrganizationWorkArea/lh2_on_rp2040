@@ -106,7 +106,7 @@ The window has two modes, switched at the top left:
 
 | Tab | Mode | What it does |
 |---|---|---|
-| **Drone** | both | **The only connection** to the drone, shared by every other tab: the radio's IP, Connect/Disconnect, link status and live `ODOMETRY` position. Also a Mission Planner-style **HUD** of the flight controller (attitude, heading, speed and altitude tapes, climb rate, battery, link quality, mode, armed state, GPS/EKF, waypoint, status text), and read/write of the ExtNav parameters `VISO_DELAY_MS` and `VISO_POS_M_NSE`. |
+| **Drone** | both | **The only connection** to the drone, shared by every other tab: the radio's IP, Connect/Disconnect, link status and live `ODOMETRY` position. Also a Mission Planner-style **HUD** of the flight controller (attitude, heading, speed and altitude tapes, climb rate, battery, link quality, mode, armed state, GPS/EKF, waypoint, status text), and read/write of the ExtNav parameters `VISO_DELAY_MS` and `VISO_POS_M_NSE`. Under X / Y / Z: battery, flight mode, armed state and, in PosHold / Loiter, the **hold accuracy** — horizontal distance from the point where the drone settled (1.5 s after the mode is engaged or the sticks are centred again), with rms, max, Z rms and time. |
 | **Base stations** | Sandbox | Position (m, Z-up) and orientation of each station. *Inc* is the tilt from vertical: 0° = pointing straight down. |
 | **Room** | both | Room size and colours. |
 | **FOV** | Sandbox | Field-of-view cones and range. |

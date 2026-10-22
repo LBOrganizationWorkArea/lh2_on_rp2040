@@ -88,6 +88,16 @@ body[data-mode=calib] #cal-hud { display: block; }
 .odo-row .un { font-size: 16px; color: #888; }
 #ox .ax { color: #ff5555; } #oy .ax { color: #55ff55; } #oz .ax { color: #5588ff; }
 #odo #tracking-status { font-size: 11px; color: #8adcf0; margin-top: 4px; }
+#odo-fc { border-top: 1px solid #2c5968; margin-top: 6px; padding-top: 4px; display: none; }
+#odo-fc.show { display: block; }
+#odo-fc .ax { width: auto; font-size: 15px; color: #8aa; letter-spacing: 1px; }
+#odo-fc .odo-row .val { font-size: 30px; min-width: 0; }
+#odo-fc .good { color: #5adf7a !important; } #odo-fc .warn { color: #ffcc44 !important; } #odo-fc .bad { color: #ff5a5a !important; }
+#odo-armed { font-size: 12px; font-weight: bold; letter-spacing: 1px; margin-left: 8px; }
+#odo-hold { display: none; margin-top: 4px; }
+#odo-hold.show { display: block; }
+#odo-hold .odo-row .val { font-size: 44px; }
+#odo-hold-sub { font-size: 12px; color: #aab; font-variant-numeric: tabular-nums; }
 h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 .hint { font-size: 12px; color: #9a9a9a; line-height: 1.5; }
 .bs-card {
@@ -561,6 +571,14 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   <div class="odo-row" id="oy"><span class="ax">Y</span><span class="val" id="odo-y">—</span><span class="un">m</span></div>
   <div class="odo-row" id="oz"><span class="ax">Z</span><span class="val" id="odo-z">—</span><span class="un">m</span></div>
   <div class="odo-row" id="oyaw" title="Drone yaw from the four sensors, counter-clockwise from +X (0 = nose toward the 1 m mark)"><span class="ax" style="width:auto">Yaw</span><span class="val" id="odo-yaw">—</span><span class="un">°</span></div>
+  <div id="odo-fc">
+    <div class="odo-row"><span class="ax">BAT</span><span class="val" id="odo-bat">—</span><span class="un" id="odo-bat-v"></span></div>
+    <div class="odo-row"><span class="ax">MODE</span><span class="val" id="odo-mode">—</span><span id="odo-armed"></span></div>
+    <div id="odo-hold" title="Position hold accuracy: horizontal distance of the drone (lighthouse position) from the point where it settled after PosHold / Loiter was engaged or the sticks were released">
+      <div class="odo-row"><span class="ax">HOLD</span><span class="val" id="odo-hold-val">—</span><span class="un">cm</span></div>
+      <div id="odo-hold-sub">—</div>
+    </div>
+  </div>
   <div id="tracking-status">Disconnected</div>
 </div>
 
@@ -893,6 +911,7 @@ function updateDronePosition(position) {
   document.getElementById('odo-y').textContent = position.y.toFixed(3);
   document.getElementById('odo-z').textContent = position.z.toFixed(3);
   document.getElementById('odo-yaw').textContent = position.yaw != null ? position.yaw.toFixed(1) : '—';
+  updateHold(position);
   document.getElementById('tracking-status').textContent = `ODOMETRY live · ${odometryCount}`;
 }
 
@@ -912,6 +931,52 @@ function updateHud(fc) {
   if (fc) { hudData = fc; hudAt = Date.now(); }
   hudVisible();
   drawHud();
+  updateOdoFc();
+}
+
+// ─── Battery, flight mode and position-hold accuracy, under X / Y / Z ───
+const HOLD_MODES = ['POSHOLD', 'LOITER'];
+const HOLD_SETTLE_MS = 1500;     // the drone brakes first: the reference is where it settled
+const STICK_DZ = 60;             // |PWM - 1500| above this = the pilot is moving the drone
+const FC_MODE_NAMES = { POSHOLD: 'PosHold', ALT_HOLD: 'AltHold', GUIDED_NOGPS: 'Guided NoGPS', SMART_RTL: 'SmartRTL',
+  FLOWHOLD: 'FlowHold', ZIGZAG: 'ZigZag', AUTOTUNE: 'AutoTune', SYSID: 'SysID' };
+const fcModeName = m => FC_MODE_NAMES[m] || (m || '—').toLowerCase().replace(/(^|_)\w/g, s => s.toUpperCase()).replace(/_/g, ' ');
+const odoEl = id => document.getElementById(id);
+function updateOdoFc() {
+  const d = hudData;
+  odoEl('odo-fc').classList.toggle('show', !!d);
+  if (!d) return;
+  const stale = Date.now() - hudAt > 3000 || d.age > 3;
+  const bat = odoEl('odo-bat');
+  bat.textContent = d.battery != null ? `${d.battery}%` : (d.voltage != null ? d.voltage.toFixed(2) : '—');
+  odoEl('odo-bat-v').textContent = d.voltage != null && d.battery != null ? `${d.voltage.toFixed(2)} V` : (d.voltage != null ? 'V' : '');
+  bat.className = 'val ' + (stale || d.battery == null ? '' : d.battery < 20 ? 'bad' : d.battery < 40 ? 'warn' : 'good');
+  odoEl('odo-mode').textContent = stale ? 'no telemetry' : fcModeName(d.mode);
+  const armed = odoEl('odo-armed');
+  armed.textContent = stale ? '' : d.armed ? 'ARMED' : 'DISARMED';
+  armed.style.color = d.armed ? '#ff5a5a' : '#8aa';
+}
+let hold = null;   // { mode, settleUntil, ax, ay, az, n, sum2, max, sum2z, maxz, t0 }
+function updateHold(p) {
+  const d = hudData, now = Date.now();
+  const active = d && Date.now() - hudAt < 3000 && d.armed && HOLD_MODES.includes(d.mode);
+  odoEl('odo-hold').classList.toggle('show', !!active);
+  if (!active) { hold = null; return; }
+  const rc = d.rc || [], moving = [0, 1, 2, 3].some(i => rc[i] > 800 && Math.abs(rc[i] - 1500) > (i === 2 ? 100 : STICK_DZ));
+  if (!hold || hold.mode !== d.mode || moving) hold = { mode: d.mode, settleUntil: now + HOLD_SETTLE_MS, moving };
+  const val = odoEl('odo-hold-val'), sub = odoEl('odo-hold-sub');
+  if (now < hold.settleUntil) {
+    val.textContent = '…'; val.className = 'val';
+    sub.textContent = hold.moving ? 'pilot input — reference set when the sticks are centred' : 'settling…';
+    return;
+  }
+  if (hold.ax == null) Object.assign(hold, { ax: p.x, ay: p.y, az: p.z, n: 0, sum2: 0, max: 0, sum2z: 0, maxz: 0, t0: now });
+  const dh = Math.hypot(p.x - hold.ax, p.y - hold.ay), dz = Math.abs(p.z - hold.az);
+  hold.n++; hold.sum2 += dh * dh; hold.max = Math.max(hold.max, dh); hold.sum2z += dz * dz; hold.maxz = Math.max(hold.maxz, dz);
+  val.textContent = (100 * dh).toFixed(1);
+  val.className = 'val ' + (dh < 0.05 ? 'good' : dh < 0.15 ? 'warn' : 'bad');
+  const rms = 100 * Math.sqrt(hold.sum2 / hold.n), rmsz = 100 * Math.sqrt(hold.sum2z / hold.n);
+  sub.textContent = `rms ${rms.toFixed(1)} · max ${(100 * hold.max).toFixed(1)} cm · Z rms ${rmsz.toFixed(1)} cm · ${Math.round((now - hold.t0) / 1000)} s`;
 }
 setInterval(() => { if (hudData) drawHud(); }, 500);  // turns grey when telemetry stops
 
@@ -1041,8 +1106,7 @@ function drawHud() {
   text(`GPS: ${d.gps || '—'}`, W * 0.64, bl + fs * 2.3, 'center', '#fff');
   text('EKF', W * 0.64, bl + fs * 1.15, 'center', d.ekf_flags == null ? '#aaa' : ekfOk ? '#4ce04c' : '#ff5050');
   // ⑭ ⑮ bottom-right: mode, distance to waypoint > waypoint
-  const mode = (d.mode || '—').toLowerCase().replace(/(^|_)\w/g, s => s.toUpperCase()).replace(/_/g, ' ');
-  text(mode, W - tw - 4, bl + fs * 1.15, 'right');
+  text(fcModeName(d.mode), W - tw - 4, bl + fs * 1.15, 'right');
   text(`${Math.round(num(d.wp_dist))}>${num(d.wp)}`, W - tw - 4, bl + fs * 2.3, 'right');
   // ⑪ armed state, latest status text
   if (d.armed === false) text('DISARMED', cx, cy - H * 0.13, 'center', '#ff2a2a', fs * 1.6);
@@ -1154,6 +1218,8 @@ function disconnectTracking() {
   trackingStatus.textContent = 'Disconnected';
   hudData = null;
   hudVisible();
+  updateOdoFc();
+  updateHold(null);
 }
 
 trackConnectButton.addEventListener('click', () => {
