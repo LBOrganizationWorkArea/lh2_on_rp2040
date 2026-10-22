@@ -612,6 +612,45 @@ class MissionRunner:
         self.thread = None
         self.status_ = {"state": "idle", "points": [], "leg": None, "message": "", "log": [], "distance": None,
                         "area": None}
+        # Auto-start: the editor arms a figure; it runs when the radio switches INTO GUIDED
+        # (a transition seen here, never because the app connected while already in GUIDED).
+        self.auto = None            # {"frame", "points", "speed", "tolerance", "settle"}
+        threading.Thread(target=self._watch_mode, daemon=True).start()
+
+    def set_auto(self, config):
+        """Arm (config dict) or disarm (None) the auto-start on GUIDED."""
+        if config is not None:
+            points = [[float(v) for v in p] for p in config.get("points", [])]
+            if not points or any(len(p) != 3 or not all(math.isfinite(v) for v in p) for p in points):
+                raise ValueError("give at least one point as [x, y, z]")
+            config = {"frame": "relative" if config.get("frame") == "relative" else "absolute", "points": points,
+                      "speed": float(config.get("speed", 0.3)), "tolerance": float(config.get("tolerance", 0.10)),
+                      "settle": float(config.get("settle", 1.0))}
+        with self.lock:
+            changed = (self.auto is None) != (config is None)
+            self.auto = config
+        if changed:
+            self._log("auto-start armed: switch to GUIDED on the radio to fly the figure" if config
+                      else "auto-start disarmed")
+
+    def _watch_mode(self):
+        previous = None
+        while True:
+            time.sleep(0.1)
+            st = self.fc.status()
+            mode = st["mode"] if st["age"] is not None and st["age"] < 3 else None
+            entered = mode == "GUIDED" and previous not in (None, "GUIDED")
+            previous = mode
+            with self.lock:
+                auto, running = self.auto, self.status_["state"] == "running"
+            if not (entered and auto and st["armed"]) or running:
+                continue
+            time.sleep(0.5)                           # let GUIDED take over, then start from here
+            try:
+                self.start(auto["points"], auto["speed"], auto["tolerance"], auto["settle"], auto["frame"])
+                self._log("auto-start: GUIDED engaged")
+            except ValueError as error:
+                self._log(f"auto-start refused (the drone just hovers in GUIDED): {error}")
 
     def _log(self, text):
         with self.lock:
@@ -653,13 +692,20 @@ class MissionRunner:
                            f"X {area[0]:.2f}..{area[1]:.2f}, Y {area[2]:.2f}..{area[3]:.2f}")
         return bad
 
-    def start(self, points, speed, tolerance, settle):
+    def start(self, points, speed, tolerance, settle, frame="absolute"):
+        """Fly `points`: room coordinates, or (frame "relative") offsets from where the drone is now."""
         with self.lock:
             if self.status_["state"] == "running":
                 raise ValueError("a mission is already running")
         points = [[float(v) for v in p] for p in points]
         if not points or any(len(p) != 3 or not all(math.isfinite(v) for v in p) for p in points):
             raise ValueError("give at least one point as [x, y, z]")
+        if frame == "relative":
+            pos, age = self.state.latest()
+            if pos is None or age > self.ODOMETRY_MAX_AGE:
+                raise ValueError("no fresh lighthouse position to start the figure from")
+            base = (pos["x"], pos["y"], pos["z"])
+            points = [[round(b + d, 3) for b, d in zip(base, p)] for p in points]
         if len(points) > 50:
             raise ValueError("at most 50 points")
         bad = self.validate(points)
@@ -765,6 +811,8 @@ class MissionRunner:
         if out["area"] is None:
             out["area"] = station_area()
         out["z_range"] = list(self.Z_RANGE)
+        with self.lock:
+            out["auto"] = self.auto
         return out
 
 
@@ -1981,11 +2029,13 @@ def make_handler(state, capture, ootx, fc, mission):
             if request.path.startswith("/api/fc/mission/"):
                 action = request.path[len("/api/fc/mission/"):]
                 try:
+                    length = int(self.headers.get("Content-Length") or 0)
+                    body = json.loads(self.rfile.read(length) or b"{}") if 0 < length < 65536 else {}
                     if action == "start":
-                        length = int(self.headers.get("Content-Length") or 0)
-                        body = json.loads(self.rfile.read(length) or b"{}") if 0 < length < 65536 else {}
                         mission.start(body.get("points", []), body.get("speed", 0.3),
-                                      body.get("tolerance", 0.10), body.get("settle", 1.0))
+                                      body.get("tolerance", 0.10), body.get("settle", 1.0), body.get("frame", "absolute"))
+                    elif action == "auto":
+                        mission.set_auto(body if body.get("enabled") else None)
                     elif action == "stop":
                         mission.stop()
                     elif action != "status":

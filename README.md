@@ -181,9 +181,16 @@ and Import / Export of a whole session as one JSON file.
 
 ### Automatic mission (GUIDED)
 
-The **Mission** tab flies a list of room points: type them, add the drone's position, or start
-from a figure around the drone (square or cross of 0.5 m, 1 m forward and back). The path is drawn
-in 3D with the covered area on the floor.
+The **Mission** tab flies a list of points, either **relative to where the drone is** (dX, dY, dZ:
+the figure runs from wherever the drone is when it starts) or in **room coordinates**. Type them,
+add the drone's position, or start from a figure (square or cross of 0.5 m, 1 m forward and back).
+The path is drawn in 3D (a relative figure around the drone's current position) with the covered
+area on the floor.
+
+**Start automatically when the radio switches to GUIDED**: tick it and the bridge holds the figure.
+Every time the radio switches *into* GUIDED (armed) it flies it from that point. No need to touch
+the PC: fly anywhere, flip to GUIDED, flip back to Loiter / PosHold to stop. It never fires because
+the app connected while the drone was already in GUIDED, only on a switch.
 
 1. Take off by hand and hover; switch to **GUIDED** on the radio.
 2. When every check is green, press **Start**. The checks are: telemetry, armed, GUIDED, a fresh
