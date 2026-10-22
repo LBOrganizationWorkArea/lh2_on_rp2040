@@ -18,6 +18,9 @@ Shifting one curve against the other until they match best gives the delay. Two 
 
 The figure and the terminal also give the same as a step-by-step example with this log's numbers.
 
+The figure is written as a PNG next to the log and opened with the image viewer (--window for an
+interactive matplotlib window instead, --no-show to only write it).
+
 Usage (Windows: double-click plot_delay.bat, or drop a .bin on it):
     python plot_ext_nav_delay.py                 # newest .bin in Documents\\Mission Planner\\logs
     python plot_ext_nav_delay.py flight.bin --axis N --zoom 10 --out delay.png --lang en
@@ -152,6 +155,9 @@ TEXT = {
         "p4": "4. Quanto coincidono le curve per ogni spostamento (tutta la registrazione, N ed E): il picco è il ritardo",
         "c_arr": "come arriva al Pixhawk (ritardo totale T)", "c_ct": "all'istante che gli dà ArduPilot (Lc)",
         "shift": "spostamento della velocità lighthouse [ms]", "corr": "correlazione",
+        "corr_help": "correlazione = quanto si somigliano le due curve dopo lo spostamento: 1 = identiche, 0 = nessuna somiglianza. "
+                     "Si provano tutti gli spostamenti; quello con la somiglianza massima (il picco) è il ritardo.",
+        "c_peak": "picco", 
         "steps_title": "Esempio con un messaggio (valori medi di questo log)",
         "s1": "t = 0 ms: il drone è nel punto P.",
         "s2": "t = {lc:.0f} ms: il firmware ha calcolato P (sensori + filtro) e lo timbra \"catturato ora\".",
@@ -175,6 +181,9 @@ TEXT = {
         "p4": "4. How well the curves match for every shift (whole recording, N and E): the peak is the delay",
         "c_arr": "as it reaches the Pixhawk (total delay T)", "c_ct": "at the time ArduPilot gives it (Lc)",
         "shift": "shift of the lighthouse velocity [ms]", "corr": "correlation",
+        "corr_help": "correlation = how alike the two curves are after the shift: 1 = identical, 0 = not alike at all. "
+                     "Every shift is tried; the one with the highest similarity (the peak) is the delay.",
+        "c_peak": "peak", 
         "steps_title": "Example with one message (average values of this log)",
         "s1": "t = 0 ms: the drone is at point P.",
         "s2": "t = {lc:.0f} ms: the firmware has computed P (sensors + filter) and stamps it \"captured now\".",
@@ -214,7 +223,8 @@ def main() -> int:
     ap.add_argument("--end", type=float, help="analysis end [s of log time]")
     ap.add_argument("--zoom", type=float, default=8.0, help="seconds shown in the time plots (default 8)")
     ap.add_argument("--out", help="PNG to write (default: next to the log)")
-    ap.add_argument("--no-show", action="store_true", help="only write the PNG")
+    ap.add_argument("--no-show", action="store_true", help="only write the PNG, do not open it")
+    ap.add_argument("--window", action="store_true", help="show an interactive matplotlib window instead of opening the PNG")
     ap.add_argument("--lang", choices=["it", "en"], default="it", help="language of the figure and the steps (default it)")
     args = ap.parse_args()
     try:
@@ -259,8 +269,8 @@ def main() -> int:
         print(f"  {i}. {plain(line)}")
 
     import matplotlib
-    if args.no_show:
-        matplotlib.use("Agg")
+    if not args.window:
+        matplotlib.use("Agg")      # draw to the PNG at its full size, then open the PNG
     import matplotlib.pyplot as plt
 
     # zoom on the stretch with the most motion
@@ -272,9 +282,10 @@ def main() -> int:
     tz = t[zs] - z0
     shift = int(round(lag / 1000 / DT))
 
-    fig = plt.figure(figsize=(13, 12.5))
-    gs = fig.add_gridspec(5, 1, height_ratios=[1, 1, 1, 0.9, 0.75], hspace=0.6)
-    fig.suptitle(tx["title"].format(log=os.path.basename(path), dur=t1 - t0, axis=axis), fontsize=13, fontweight="bold")
+    fig = plt.figure(figsize=(13, 15))
+    gs = fig.add_gridspec(5, 1, height_ratios=[1, 1, 1, 1.5, 0.8], hspace=0.65)
+    fig.suptitle(tx["title"].format(log=os.path.basename(path), dur=t1 - t0, axis=axis), fontsize=13, fontweight="bold", y=0.995)
+    fig.subplots_adjust(top=0.95)
 
     a1 = fig.add_subplot(gs[0])
     a1.plot(tz, arrival["pos_" + axis][zs], color="tab:blue", lw=2, label=tx["pos"].format(axis=axis))
@@ -301,19 +312,27 @@ def main() -> int:
     a3.set_ylabel(tx["vel_y"]); a3.legend(loc="upper right", fontsize=8); a3.set_xlabel(tx["time"])
 
     a4 = fig.add_subplot(gs[3])
-    a4.plot(lags, res["arrival"]["curve"], color="tab:blue", lw=2, label=tx["c_arr"])
-    a4.plot(lags, res["ctime"]["curve"], color="tab:purple", lw=2, ls="--", label=tx["c_ct"])
-    a4.axvline(lag, color="tab:blue", lw=1); a4.axvline(lag_ct, color="tab:purple", lw=1, ls="--")
+    show = (lags >= -50) & (lags <= 350)                 # the peaks live here
+    c_arr, c_ct = res["arrival"]["curve"], res["ctime"]["curve"]
+    a4.plot(lags[show], c_arr[show], color="tab:blue", lw=2.5, label=tx["c_arr"])
+    a4.plot(lags[show], c_ct[show], color="tab:purple", lw=2.5, ls="--", label=tx["c_ct"])
     if viso is not None:
-        a4.axvline(viso, color="tab:red", lw=1.5, ls=":", label=f"VISO_DELAY_MS = {viso:.0f}")
-    a4.annotate(f"T = {lag:.0f} ms", (lag, corr), xytext=(8, -18), textcoords="offset points", color="tab:blue", fontweight="bold")
-    a4.annotate(f"Lc = {lag_ct:.0f} ms", (lag_ct, corr_ct), xytext=(-80, -18), textcoords="offset points", color="tab:purple", fontweight="bold")
+        a4.axvline(viso, color="tab:red", lw=2, ls=":", label=f"VISO_DELAY_MS = {viso:.0f}")
+    bottom = max(0.0, min(np.nanmin(c_arr[show]), np.nanmin(c_ct[show])) - 0.05)
+    for x, y, col, name, dx, ha in ((lag, corr, "tab:blue", "T", 12, "left"), (lag_ct, corr_ct, "tab:purple", "Lc", -12, "right")):
+        a4.plot([x], [y], "o", color=col, ms=9, zorder=5)
+        a4.vlines(x, bottom, y, color=col, lw=1.2, ls="--")
+        a4.annotate(f"{tx['c_peak']} {name} = {x:.0f} ms\n(corr {y:.2f})", (x, y), xytext=(dx, 12), textcoords="offset points",
+                    ha=ha, color=col, fontweight="bold", fontsize=10,
+                    bbox=dict(boxstyle="round,pad=0.2", facecolor="white", edgecolor="none", alpha=0.85))
     a4.set_title(tx["p4"])
+    a4.text(0.5, -0.30, tx["corr_help"], transform=a4.transAxes, ha="center", va="top", fontsize=9, color="0.25", wrap=True)
     a4.set_xlabel(tx["shift"]); a4.set_ylabel(tx["corr"])
-    a4.set_xlim(lags[0], lags[-1]); a4.set_ylim(min(0, np.nanmin(res["arrival"]["curve"])), 1.0); a4.grid(alpha=0.3)
-    a4.legend(loc="lower left", fontsize=8)
+    a4.set_xlim(-50, 350); a4.set_ylim(bottom, 1.08); a4.grid(alpha=0.3)
+    a4.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), fontsize=9, borderaxespad=0)
 
     a5 = fig.add_subplot(gs[4]); a5.axis("off")
+    a5.set_position([a5.get_position().x0, a5.get_position().y0 - 0.02, a5.get_position().width, a5.get_position().height])
     a5.text(0.0, 1.0, tx["steps_title"], fontsize=11, fontweight="bold", va="top", transform=a5.transAxes)
     for i, line in enumerate(lines, 1):
         a5.text(0.0, 1.0 - 0.19 * i, f"{i}.  {line}", fontsize=10, va="top", transform=a5.transAxes,
@@ -324,8 +343,17 @@ def main() -> int:
     out = args.out or os.path.splitext(path)[0] + "_delay.png"
     fig.savefig(out, dpi=130, bbox_inches="tight")
     print(f"figure: {out}")
-    if not args.no_show:
+    if args.window:
         plt.show()
+    elif not args.no_show:                                # open the PNG with the system viewer
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(out)                         # noqa: S606 (Windows only)
+            else:
+                import subprocess
+                subprocess.Popen(["xdg-open" if sys.platform.startswith("linux") else "open", out])
+        except OSError as error:
+            print(f"open the figure by hand: {error}")
     return 0
 
 
