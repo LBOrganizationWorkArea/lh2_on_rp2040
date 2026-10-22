@@ -217,6 +217,10 @@ def main() -> int:
     ap.add_argument("--no-show", action="store_true", help="only write the PNG")
     ap.add_argument("--lang", choices=["it", "en"], default="it", help="language of the figure and the steps (default it)")
     args = ap.parse_args()
+    try:
+        sys.stdout.reconfigure(errors="replace")   # never fail on a character the console cannot show
+    except (AttributeError, ValueError):
+        pass
 
     path = args.log or newest_log()
     if not path or not os.path.exists(path):
@@ -249,9 +253,10 @@ def main() -> int:
     print(f"ArduPilot's sample time (VISP.CTimeMS) lags the motion by Lc = {lag_ct:.0f} ms (correlation {corr_ct:.2f}): "
           f"VISO_DELAY_MS must cover this")
     print(f"VISO_DELAY_MS in the log: {viso}\n")
-    print(tx["steps_title"] + ":")
+    plain = lambda text: text.replace("−", "-").replace("≈", "~")   # Windows consoles (cp1252)
+    print(plain(tx["steps_title"]) + ":")
     for i, line in enumerate(lines, 1):
-        print(f"  {i}. {line}")
+        print(f"  {i}. {plain(line)}")
 
     import matplotlib
     if args.no_show:
