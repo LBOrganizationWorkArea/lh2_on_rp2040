@@ -375,7 +375,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     <div class="row" title="Delay of the external-navigation data relative to the IMU [ms]: how old our position is when it reaches the flight controller (0..250).">
       <div class="pname">VISO_DELAY_MS</div><input id="fc-p-VISO_DELAY_MS" type="number" step="1" min="0" max="250"><div class="lbl">ms</div></div>
     <div class="row" title="Position noise of the external navigation [m] (0.1..10): lower = the EKF follows our position more closely.">
-      <div class="pname">VISO_POS_M_NSE</div><input id="fc-p-VISO_POS_M_NSE" type="number" step="0.01" min="0.1" max="10"><div class="lbl">m</div></div>
+      <div class="pname">VISO_POS_M_NSE</div><input id="fc-p-VISO_POS_M_NSE" type="number" step="0.01" min="0.01" max="10" title="ArduPilot documents 0.1–10 m but accepts lower values (e.g. 0.05)"><div class="lbl">m</div></div>
     <div class="row">
       <button id="fc-param-read" type="button" style="flex:1;">Read</button>
       <button id="fc-param-write" type="button" style="flex:1;" disabled>Write changes</button>
