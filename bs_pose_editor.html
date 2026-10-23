@@ -589,13 +589,37 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <div class="row" style="flex-wrap:wrap;gap:6px;">
         <button id="mis-add" type="button">+ Point</button>
         <button id="mis-add-drone" type="button" title="Add where the drone is now">+ Drone position</button>
-        <select id="mis-preset" title="Replace the list with a figure around the drone (or the room centre)">
-          <option value="">Figure…</option>
-          <option value="square">Square 0.5 m</option>
-          <option value="cross">Cross 0.5 m</option>
-          <option value="line">Forward and back 1 m (+X)</option>
-        </select>
         <button id="mis-clear" type="button">Clear</button>
+      </div>
+      <div class="grp-lbl" style="display:block;margin-top:6px;">FIGURE · REPLACES THE LIST, STARTS AND ENDS WHERE THE DRONE IS</div>
+      <div class="row" style="flex-wrap:wrap;gap:6px;">
+        <select id="mis-preset" style="flex:1;min-width:150px;">
+          <optgroup label="Straight lines (stop at each corner)">
+            <option value="line">Forward and back (+X)</option>
+            <option value="square">Square</option>
+            <option value="triangle">Triangle</option>
+            <option value="cross">Cross</option>
+            <option value="star">Star (5 points)</option>
+            <option value="zigzag">Zig-zag (scan a square)</option>
+            <option value="vsquare">Vertical square (up / down)</option>
+            <option value="cube">Cube (square, up, square, down)</option>
+          </optgroup>
+          <optgroup label="Curves (flown without stopping)">
+            <option value="circle">Circle</option>
+            <option value="eight">Figure of eight</option>
+            <option value="spiral">Spiral (flat, outwards)</option>
+            <option value="helix">Helix (rising circle)</option>
+          </optgroup>
+        </select>
+        <button id="mis-make" type="button">Create</button>
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:6px;">
+        <div class="lbl" title="Side of the square / triangle / zig-zag, diameter of the circle, spiral, helix, star and eight, length of the line">Size</div>
+        <input id="mis-size" type="number" value="0.6" min="0.1" max="3" step="0.1" style="width:64px;"><div class="lbl">m</div>
+        <div class="lbl mis-turns" title="Spiral / helix: number of turns">Turns</div>
+        <input id="mis-turns" class="mis-turns" type="number" value="2" min="1" max="3" step="0.5" style="width:54px;">
+        <div class="lbl mis-rise" title="Helix: height gained per turn; vertical square / cube: height">Rise</div>
+        <input id="mis-rise" class="mis-rise" type="number" value="0.3" min="0.05" max="1" step="0.05" style="width:60px;"><div class="lbl mis-rise">m</div>
       </div>
       <div class="hint" id="mis-area">—</div>
     </div>
@@ -615,6 +639,8 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <div class="row"><div class="lbl" style="width:120px;">Speed</div><input id="mis-speed" type="number" value="0.3" min="0.1" max="1" step="0.05"><div class="lbl">m/s</div></div>
       <div class="row"><div class="lbl" style="width:120px;" title="A point counts as reached within this distance">Arrival radius</div><input id="mis-tol" type="number" value="10" min="3" max="50" step="1"><div class="lbl">cm</div></div>
       <div class="row"><div class="lbl" style="width:120px;" title="Time inside the arrival radius before going to the next point">Hold at each point</div><input id="mis-settle" type="number" value="1" min="0" max="5" step="0.5"><div class="lbl">s</div></div>
+      <label class="row" style="gap:6px;cursor:pointer;" title="Every point but the last only has to be passed within 15 cm, without holding: curves made of many points are flown smoothly. Ticked automatically for circle, eight, spiral and helix.">
+        <input id="mis-pass" type="checkbox"> Fly through the points without stopping (curves)</label>
     </div>
     <label class="row" style="gap:8px;cursor:pointer;align-items:flex-start;" title="The bridge starts the figure by itself when the radio switches INTO GUIDED (armed): no need to press Start. Leaving GUIDED stops it as always.">
       <input id="mis-auto" type="checkbox" style="margin-top:3px;">
@@ -1349,15 +1375,71 @@ document.getElementById('mis-add-drone').addEventListener('click', () => {
   misPoints.push(misFrame === 'relative' ? [0, 0, 0] : [r2(lastOdomPos.x), r2(lastOdomPos.y), r2(lastOdomPos.z)]);
   misSave(); misRenderTable(); misRefresh();
 });
-document.getElementById('mis-preset').addEventListener('change', e => {
-  const [x, y, z] = misFrame === 'relative' ? [0, 0, 0] : misHere(), d = 0.5;
-  const figures = {
-    square: [[x, y], [x + d, y], [x + d, y + d], [x, y + d], [x, y]],
-    cross: [[x, y], [x + d, y], [x, y], [x - d, y], [x, y], [x, y + d], [x, y], [x, y - d], [x, y]],
-    line: [[x, y], [x + 1, y], [x, y]],
-  };
-  if (figures[e.target.value]) { misPoints = figures[e.target.value].map(([px, py]) => [r2(px), r2(py), z]); misSave(); misRenderTable(); misRefresh(); }
-  e.target.value = '';
+/** A figure as offsets [dx, dy, dz] from the start, starting and ending there. */
+function misFigure(name, size, turns, rise) {
+  const d = size, r = size / 2, TAU = 2 * Math.PI;
+  const ring = (n, f) => Array.from({ length: n + 1 }, (_, i) => f(i / n));          // n segments, closed
+  switch (name) {
+    case 'line': return [[0, 0, 0], [d, 0, 0], [0, 0, 0]];
+    case 'square': return [[0, 0, 0], [d, 0, 0], [d, d, 0], [0, d, 0], [0, 0, 0]];
+    case 'triangle': return [[0, 0, 0], [d, 0, 0], [d / 2, d * Math.sqrt(3) / 2, 0], [0, 0, 0]];
+    case 'cross': return [[0, 0, 0], [r, 0, 0], [0, 0, 0], [-r, 0, 0], [0, 0, 0], [0, r, 0], [0, 0, 0], [0, -r, 0], [0, 0, 0]];
+    case 'star': {                                    // 5 points on a circle, every second one, first at the start
+      const v = k => { const a = Math.PI + (k * 2 % 5) * TAU / 5; return [r + r * Math.cos(a), r * Math.sin(a), 0]; };
+      return [0, 1, 2, 3, 4, 5].map(v);
+    }
+    case 'zigzag': {                                  // lawn-mower over a d × d square, rows d/4 apart
+      const pts = [[0, 0, 0]]; const rows = 4;
+      for (let i = 0; i <= rows; i++) {
+        const yy = d * i / rows, far = i % 2 === 0;
+        if (i) pts.push([far ? 0 : d, yy, 0]);
+        pts.push([far ? d : 0, yy, 0]);
+      }
+      pts.push([0, 0, 0]);
+      return pts;
+    }
+    case 'vsquare': return [[0, 0, 0], [d, 0, 0], [d, 0, rise], [0, 0, rise], [0, 0, 0]];
+    case 'cube': {
+      const sq = h => [[0, 0, h], [d, 0, h], [d, d, h], [0, d, h], [0, 0, h]];
+      return [...sq(0), ...sq(rise), [0, 0, 0]];
+    }
+    case 'circle':                                    // through the start, centre r ahead, counter-clockwise
+      return ring(16, u => [r + r * Math.cos(Math.PI + TAU * u), r * Math.sin(Math.PI + TAU * u), 0]);
+    case 'eight':                                     // lemniscate through the start (twice)
+      return ring(24, u => [r * Math.sin(TAU * u), (r / 2) * Math.sin(2 * TAU * u), 0]);
+    case 'spiral': {                                  // from the start outwards to radius r, then straight back
+      const per = turns > 2 ? 12 : 16, n = Math.round(per * turns);
+      const pts = Array.from({ length: n + 1 }, (_, i) => { const u = i / n, a = TAU * turns * u; return [r * u * Math.cos(a), r * u * Math.sin(a), 0]; });
+      pts.push([0, 0, 0]);
+      return pts;
+    }
+    case 'helix': {                                   // circle through the start, rising, then straight down
+      const per = turns > 2 ? 12 : 16, n = Math.round(per * turns);
+      const pts = Array.from({ length: n + 1 }, (_, i) => { const u = i / n, a = Math.PI + TAU * turns * u;
+        return [r + r * Math.cos(a), r * Math.sin(a), rise * turns * u]; });
+      pts.push([0, 0, 0]);
+      return pts;
+    }
+  }
+  return [];
+}
+const MIS_CURVES = ['circle', 'eight', 'spiral', 'helix'];
+function misFigureInputs() {
+  const f = document.getElementById('mis-preset').value;
+  document.querySelectorAll('.mis-turns').forEach(e => { e.style.display = ['spiral', 'helix'].includes(f) ? '' : 'none'; });
+  document.querySelectorAll('.mis-rise').forEach(e => { e.style.display = ['helix', 'vsquare', 'cube'].includes(f) ? '' : 'none'; });
+}
+document.getElementById('mis-preset').addEventListener('change', misFigureInputs);
+misFigureInputs();
+document.getElementById('mis-make').addEventListener('click', () => {
+  const name = document.getElementById('mis-preset').value;
+  const num = (id, lo, hi, dflt) => { const v = parseFloat(document.getElementById(id).value); return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt; };
+  const fig = misFigure(name, num('mis-size', 0.1, 3, 0.6), num('mis-turns', 1, 3, 2), num('mis-rise', 0.05, 1, 0.3));
+  if (!fig.length) return;
+  const base = misFrame === 'relative' ? [0, 0, 0] : misHere();
+  misPoints = fig.map(p => [r2(base[0] + p[0]), r2(base[1] + p[1]), r2(base[2] + p[2])]);
+  document.getElementById('mis-pass').checked = MIS_CURVES.includes(name);   // curves: fly through, corners: stop
+  misSave(); misRenderTable(); misRefresh();
 });
 document.getElementById('mis-clear').addEventListener('click', () => { misPoints = []; misSave(); misRenderTable(); misRefresh(); });
 
@@ -1379,6 +1461,7 @@ function misDraw() {
     const m = new THREE.Mesh(new THREE.SphereGeometry(i === cur ? 0.07 : 0.045, 16, 12),
       new THREE.MeshBasicMaterial({ color: misBad(p) ? 0xff5050 : i === cur ? 0xffcc44 : 0x4fd1ff }));
     m.position.copy(tv(...p)); misGroup.add(m);
+    if (pts.length > 12 && i % 4 && i !== pts.length - 1 && i !== cur) return;   // long curves: every 4th number
     const drop = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(p[0], p[1], 0), tv(...p)]),
       new THREE.LineDashedMaterial({ color: 0x4fd1ff, dashSize: 0.05, gapSize: 0.05, transparent: true, opacity: 0.5 }));
     drop.computeLineDistances(); misGroup.add(drop);
@@ -1438,7 +1521,8 @@ function updateMission(s) {
 // Auto-start: the bridge holds the figure and starts it when the radio switches into GUIDED
 let misAutoSentAt = 0, misAutoTimer = null;
 function misAutoBody(enabled) {
-  return { enabled, frame: misFrame, points: misPoints, limits: misLimits(), speed: parseFloat(document.getElementById('mis-speed').value),
+  return { enabled, frame: misFrame, points: misPoints, limits: misLimits(), pass_through: document.getElementById('mis-pass').checked,
+           speed: parseFloat(document.getElementById('mis-speed').value),
            tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
            settle: parseFloat(document.getElementById('mis-settle').value) };
 }
@@ -1452,7 +1536,7 @@ document.getElementById('mis-auto').addEventListener('change', e => {
   misAutoSentAt = Date.now();
   misCall('auto', misAutoBody(e.target.checked));
 });
-['mis-speed', 'mis-tol', 'mis-settle'].forEach(id => document.getElementById(id).addEventListener('change', misSendAuto));
+['mis-speed', 'mis-tol', 'mis-settle', 'mis-pass'].forEach(id => document.getElementById(id).addEventListener('change', misSendAuto));
 // Limits: kept in this browser, sent to the bridge (it checks every point against them)
 const MIS_LIMITS = [['mis-zmin', 'z_min'], ['mis-zmax', 'z_max'], ['mis-margin', 'margin']];
 try {
@@ -1481,7 +1565,8 @@ async function misCall(action, body) {
   } catch (err) { document.getElementById('mis-status').textContent = '✘ Bridge unreachable: ' + err.message; }
 }
 misStartBtn.addEventListener('click', () => misCall('start', {
-  points: misPoints, frame: misFrame, limits: misLimits(), speed: parseFloat(document.getElementById('mis-speed').value),
+  points: misPoints, frame: misFrame, limits: misLimits(), pass_through: document.getElementById('mis-pass').checked,
+  speed: parseFloat(document.getElementById('mis-speed').value),
   tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
   settle: parseFloat(document.getElementById('mis-settle').value),
 }));

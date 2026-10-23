@@ -628,6 +628,7 @@ class MissionRunner:
             if not points or any(len(p) != 3 or not all(math.isfinite(v) for v in p) for p in points):
                 raise ValueError("give at least one point as [x, y, z]")
             config = {"frame": "relative" if config.get("frame") == "relative" else "absolute", "points": points,
+                      "pass_through": bool(config.get("pass_through")),
                       "speed": float(config.get("speed", 0.3)), "tolerance": float(config.get("tolerance", 0.10)),
                       "settle": float(config.get("settle", 1.0))}
         with self.lock:
@@ -651,7 +652,8 @@ class MissionRunner:
                 continue
             time.sleep(0.5)                           # let GUIDED take over, then start from here
             try:
-                self.start(auto["points"], auto["speed"], auto["tolerance"], auto["settle"], auto["frame"])
+                self.start(auto["points"], auto["speed"], auto["tolerance"], auto["settle"], auto["frame"],
+                           auto.get("pass_through", False))
                 self._log("auto-start: GUIDED engaged")
             except ValueError as error:
                 self._log(f"auto-start refused (the drone just hovers in GUIDED): {error}")
@@ -710,7 +712,9 @@ class MissionRunner:
                            f"X {area[0]:.2f}..{area[1]:.2f}, Y {area[2]:.2f}..{area[3]:.2f}")
         return bad
 
-    def start(self, points, speed, tolerance, settle, frame="absolute"):
+    PASS_RADIUS = 0.15            # pass-through: go on to the next point once this close [m]
+
+    def start(self, points, speed, tolerance, settle, frame="absolute", pass_through=False):
         """Fly `points`: room coordinates, or (frame "relative") offsets from where the drone is now."""
         with self.lock:
             if self.status_["state"] == "running":
@@ -739,7 +743,8 @@ class MissionRunner:
             self.status_.update(state="running", points=points, leg=0, distance=None, log=[],
                                 area=station_area(self.limits["margin"]))
         self.stop_event.clear()
-        self.thread = threading.Thread(target=self._run, args=(points, speed, tolerance, settle), daemon=True)
+        self.thread = threading.Thread(target=self._run, args=(points, speed, tolerance, settle, bool(pass_through)),
+                                       daemon=True)
         self.thread.start()
 
     def stop(self, reason="stopped from the editor"):
@@ -767,12 +772,18 @@ class MissionRunner:
         with self.lock:
             self.status_.update(state=state, distance=None)
 
-    def _run(self, points, speed, tolerance, settle):
+    def _run(self, points, speed, tolerance, settle, pass_through=False):
+        """Fly the points. pass_through: every point but the last only has to be passed within
+        PASS_RADIUS (no hold), so curves made of many points are flown without stopping."""
         try:
             yaw = self.fc.status()["yaw"] or 0.0      # keep the heading the drone has now
             self.fc.set_speed(speed)
-            self._log(f"start: {len(points)} points at {speed:.2f} m/s, yaw held at {yaw:.0f} deg")
+            self._log(f"start: {len(points)} points at {speed:.2f} m/s, yaw held at {yaw:.0f} deg"
+                      + (", passing through the points" if pass_through else ""))
             for leg, (x, y, z) in enumerate(points):
+                last = leg == len(points) - 1
+                leg_tol = tolerance if last or not pass_through else max(tolerance, self.PASS_RADIUS)
+                leg_settle = settle if last or not pass_through else 0.0
                 with self.lock:
                     self.status_["leg"] = leg
                 pos, _ = self.state.latest()
@@ -804,9 +815,9 @@ class MissionRunner:
                     d = math.dist((pos["x"], pos["y"], pos["z"]), (x, y, z))
                     with self.lock:
                         self.status_["distance"] = d
-                    if d <= tolerance:
+                    if d <= leg_tol:
                         inside_since = inside_since or now
-                        if now - inside_since >= settle:
+                        if now - inside_since >= leg_settle:
                             break
                     else:
                         inside_since = None
@@ -2057,7 +2068,8 @@ def make_handler(state, capture, ootx, fc, mission):
                         pass
                     elif action == "start":
                         mission.start(body.get("points", []), body.get("speed", 0.3),
-                                      body.get("tolerance", 0.10), body.get("settle", 1.0), body.get("frame", "absolute"))
+                                      body.get("tolerance", 0.10), body.get("settle", 1.0), body.get("frame", "absolute"),
+                                      bool(body.get("pass_through")))
                     elif action == "auto":
                         mission.set_auto(body if body.get("enabled") else None)
                     elif action == "stop":

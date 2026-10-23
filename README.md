@@ -183,7 +183,12 @@ and Import / Export of a whole session as one JSON file.
 
 The **Mission** tab flies a list of points, either **relative to where the drone is** (dX, dY, dZ:
 the figure runs from wherever the drone is when it starts) or in **room coordinates**. Type them,
-add the drone's position, or start from a figure (square or cross of 0.5 m, 1 m forward and back).
+add the drone's position, or create a figure of a chosen size that starts and ends where the drone
+is. Straight-line figures stop at every corner: forward and back, square, triangle, cross, 5-point
+star, zig-zag over a square, vertical square, cube. Curves are flown without stopping: circle,
+figure of eight, flat spiral, rising helix (with turns and rise per turn).
+**Fly through the points without stopping** (ticked automatically for curves) makes every point but
+the last a pass-through point (go on once within 15 cm, no hold).
 The path is drawn in 3D (a relative figure around the drone's current position) with the covered
 area on the floor.
 
