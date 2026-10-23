@@ -358,7 +358,7 @@ class FlightController:
 
     WRITABLE = {  # name -> (min, max, integer)
         "VISO_DELAY_MS": (0.0, 250.0, True),
-        "VISO_POS_M_NSE": (0.1, 10.0, False),
+        "VISO_POS_M_NSE": (0.01, 10.0, False),  # ArduPilot documents 0.1..10 but accepts less
     }
     GPS_FIX = {0: "No GPS", 1: "No Fix", 2: "2D Fix", 3: "3D Fix", 4: "DGPS", 5: "RTK Float", 6: "RTK Fixed"}
 
