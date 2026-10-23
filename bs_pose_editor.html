@@ -624,20 +624,6 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <div class="hint" id="mis-area">—</div>
     </div>
     <div class="bs-card">
-      <div class="grp-lbl">TAKE-OFF &amp; LANDING</div>
-      <label class="row" style="gap:6px;cursor:pointer;" title="From the ground, armed in GUIDED: climb, hover, then fly the figure from the hover point">
-        <input id="mis-to" type="checkbox"> Take off first</label>
-      <div class="row" id="mis-to-row">
-        <div class="lbl" style="width:60px;">climb</div><input id="mis-to-climb" type="number" value="1.0" min="0.3" max="2" step="0.1"><div class="lbl">m</div>
-        <div class="lbl" style="width:50px;">hover</div><input id="mis-to-hover" type="number" value="3" min="0" max="10" step="1"><div class="lbl">s</div>
-      </div>
-      <label class="row" style="gap:6px;cursor:pointer;" title="After the last point switch to LAND: the drone lands where it is">
-        <input id="mis-land" type="checkbox"> Land at the end</label>
-      <div class="hint">Take-off: put the drone where at least 3 base stations see it (a chair or a stand — on the floor
-        the height is wrong), switch to <b>GUIDED</b>, then <b>arm on the radio</b>: with auto-start ticked it climbs by itself,
-        otherwise press Start within a few seconds (ArduPilot disarms an idle drone). Climb is relative: from where it stands.</div>
-    </div>
-    <div class="bs-card">
       <div class="grp-lbl">LIMITS · WHERE POINTS MAY GO</div>
       <div class="row" title="Lowest target height, in room coordinates (Z of the ODOMETRY panel; 0 = the calibration floor)">
         <div class="lbl" style="width:150px;">Min height</div><input id="mis-zmin" type="number" value="0.4" min="0.15" max="2.5" step="0.05"><div class="lbl">m</div></div>
@@ -1326,18 +1312,12 @@ const misSave = () => {
   misSendAuto();
 };
 const misLive = () => lastOdomPos && Date.now() - lastOdomAt < 2000;
-function misTakeoff() {
-  if (!document.getElementById('mis-to').checked) return null;
-  const v = id => parseFloat(document.getElementById(id).value);
-  return { climb: isFinite(v('mis-to-climb')) ? v('mis-to-climb') : 1.0, hover: isFinite(v('mis-to-hover')) ? v('mis-to-hover') : 3 };
-}
 /** Room points to check and draw: the running mission, else the list (relative: around the drone now). */
 function misAbsolute() {
   if (misRunning()) return misStatus.points;
   if (misFrame === 'absolute') return misPoints;
   if (!misLive()) return null;
-  const up = misTakeoff() ? misTakeoff().climb : 0;     // the figure starts from the hover point
-  return misPoints.map(p => [lastOdomPos.x + p[0], lastOdomPos.y + p[1], lastOdomPos.z + up + p[2]]);
+  return misPoints.map(p => [lastOdomPos.x + p[0], lastOdomPos.y + p[1], lastOdomPos.z + p[2]]);
 }
 const misRunning = () => misStatus && misStatus.state === 'running';
 function misBad(p) {                                   // why a room point would be refused, or ''
@@ -1489,16 +1469,6 @@ function misDraw() {
     d.style.color = i === cur ? '#ffcc44' : '#4fd1ff';
     const o = new CSS2DObject(d); o.position.copy(tv(p[0], p[1], p[2] + 0.12)); misGroup.add(o);
   });
-  const to = misTakeoff();
-  if (to && misLive() && !misRunning()) {
-    const climbLine = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(lastOdomPos.x, lastOdomPos.y, lastOdomPos.z),
-      tv(lastOdomPos.x, lastOdomPos.y, lastOdomPos.z + to.climb)]),
-      new THREE.LineDashedMaterial({ color: 0xffcc44, dashSize: 0.06, gapSize: 0.04 }));
-    climbLine.computeLineDistances(); misGroup.add(climbLine);
-    const d = document.createElement('div'); d.className = 'label3d'; d.textContent = `take-off +${to.climb.toFixed(1)} m`;
-    d.style.color = '#ffcc44';
-    const o = new CSS2DObject(d); o.position.copy(tv(lastOdomPos.x, lastOdomPos.y, lastOdomPos.z + to.climb / 2)); misGroup.add(o);
-  }
   const a = misStatus && misStatus.area;
   if (a && pts.length) {
     const corners = [[a[0], a[2]], [a[1], a[2]], [a[1], a[3]], [a[0], a[3]], [a[0], a[2]]].map(([x, y]) => tv(x, y, 0.005));
@@ -1514,11 +1484,6 @@ function misRefresh() {
   const s = misStatus, el = document.getElementById('mis-checks');
   if (!s) { el.innerHTML = '<div class="no">Connect in the Drone tab (UDP via bridge).</div>'; misStartBtn.disabled = true; return; }
   const items = Object.values(s.checks || {}).map(c => ({ ok: c.ok, text: c.detail }));
-  if (misTakeoff()) {
-    const n = s.stations_seeing;
-    items.push(n == null ? { ok: false, text: 'take-off: no lighthouse angle data (how many stations see the drone?)' }
-      : { ok: n >= 3, text: `take-off: ${n} station(s) see the drone well${n >= 3 ? '' : ' — need 3: move it where more stations see it'}` });
-  }
   const abs = misAbsolute();
   const badPts = (abs || []).map((p, i) => [i, misBad(p)]).filter(([, b]) => b);
   items.push(!misPoints.length ? { ok: false, text: 'no points' }
@@ -1534,11 +1499,9 @@ function misRefresh() {
       + (misLive() ? ` · drone now at Z ${lastOdomPos.z.toFixed(2)} m` : '')
     : `Station area unknown (no pose header): only the height ${s.z_range[0].toFixed(2)} … ${s.z_range[1].toFixed(2)} m is checked.`;
   const st = document.getElementById('mis-status');
-  if (misRunning() && s.phase === 'takeoff') st.textContent = 'Taking off' + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to climb` : '');
-  else if (misRunning()) st.textContent = `Running · point ${s.leg + 1}/${s.points.length}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
+  if (misRunning()) st.textContent = `Running · point ${s.leg + 1}/${s.points.length}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
   else st.textContent = ({ idle: 'Ready when all checks are green.', done: '✔ Mission complete', aborted: '■ Mission stopped', error: '✘ Mission error' }[s.state] || s.state)
-    + (s.auto ? (s.auto.takeoff ? ' · AUTO-START ARMED: switch to GUIDED and arm on the radio to take off'
-                                : ' · AUTO-START ARMED: switch to GUIDED on the radio') : '');
+    + (s.auto ? ' · AUTO-START ARMED: switch to GUIDED on the radio' : '');
   document.getElementById('mis-log').textContent = (s.log || []).slice().reverse().join('\n') || '—';
 }
 let misLastKey = '';
@@ -1559,7 +1522,6 @@ function updateMission(s) {
 let misAutoSentAt = 0, misAutoTimer = null;
 function misAutoBody(enabled) {
   return { enabled, frame: misFrame, points: misPoints, limits: misLimits(), pass_through: document.getElementById('mis-pass').checked,
-           takeoff: misTakeoff(), land: document.getElementById('mis-land').checked,
            speed: parseFloat(document.getElementById('mis-speed').value),
            tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
            settle: parseFloat(document.getElementById('mis-settle').value) };
@@ -1574,8 +1536,7 @@ document.getElementById('mis-auto').addEventListener('change', e => {
   misAutoSentAt = Date.now();
   misCall('auto', misAutoBody(e.target.checked));
 });
-['mis-speed', 'mis-tol', 'mis-settle', 'mis-pass', 'mis-to', 'mis-to-climb', 'mis-to-hover', 'mis-land'].forEach(id =>
-  document.getElementById(id).addEventListener('change', () => { misSendAuto(); misRenderTable(); misRefresh(); }));
+['mis-speed', 'mis-tol', 'mis-settle', 'mis-pass'].forEach(id => document.getElementById(id).addEventListener('change', misSendAuto));
 // Limits: kept in this browser, sent to the bridge (it checks every point against them)
 const MIS_LIMITS = [['mis-zmin', 'z_min'], ['mis-zmax', 'z_max'], ['mis-margin', 'margin']];
 try {
@@ -1605,7 +1566,6 @@ async function misCall(action, body) {
 }
 misStartBtn.addEventListener('click', () => misCall('start', {
   points: misPoints, frame: misFrame, limits: misLimits(), pass_through: document.getElementById('mis-pass').checked,
-  takeoff: misTakeoff(), land: document.getElementById('mis-land').checked,
   speed: parseFloat(document.getElementById('mis-speed').value),
   tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
   settle: parseFloat(document.getElementById('mis-settle').value),
