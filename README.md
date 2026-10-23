@@ -212,6 +212,14 @@ mode on the radio (Loiter, PosHold) ends the mission at once and the app sends n
 **Stop** sends "hover here". A point not reached in time, or a lighthouse / EKF problem lasting
 over a second, also stops the mission with "hover here".
 
+**Take-off and landing** (Mission tab): with *Take off first* the drone, standing where at least
+3 stations see it (on the floor only BS4/BS10 do and the height reads ~0.6 m too low), switched to
+GUIDED and armed on the radio, climbs by the chosen amount (relative: `MAV_CMD_NAV_TAKEOFF` to its
+current altitude above home + climb), hovers for the chosen time, then flies the figure from the
+hover point. With auto-start ticked, arming in GUIDED starts it. Before the take-off the bridge
+checks that the drone is on the ground and that 3 stations see at least 3 sensors. *Land at the
+end* switches to LAND after the last point. The drone is never armed from the PC.
+
 **Limits** (Mission tab): points must lie inside the rectangle between the calibrated stations,
 shrunk by a margin (default 30 cm), at a height between the minimum and maximum height (default
 0.4–2.0 m). The height is the Z of the ODOMETRY panel, where 0 is the calibration floor. With

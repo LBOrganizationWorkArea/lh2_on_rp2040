@@ -331,6 +331,7 @@ class BridgeState:
         self.odometry = None
         self.odometry_at = 0.0
         self.history = []           # (time, x, y, z) of the last 2 s, to compare with the late EKF
+        self.visibility = None      # (time, [sensors seen per station]) from the TUNNEL angle snapshots
         self.target_host = ""
         self.target_port = 14550
 
@@ -352,6 +353,18 @@ class BridgeState:
             while self.history and self.odometry_at - self.history[0][0] > 2.0:
                 self.history.pop(0)
             return self.sequence
+
+    def set_visibility(self, valid_mask, n_bs):
+        counts = [sum(1 for sensor in range(4) if valid_mask >> (sensor * n_bs + bs) & 1) for bs in range(n_bs)]
+        with self.lock:
+            self.visibility = (time.monotonic(), counts)
+
+    def stations_seeing(self, min_sensors=3, max_age=1.0):
+        """How many stations see at least `min_sensors` of the four sensors right now (None: no data)."""
+        with self.lock:
+            if self.visibility is None or time.monotonic() - self.visibility[0] > max_age:
+                return None
+            return sum(1 for c in self.visibility[1] if c >= min_sensors)
 
     def recent(self, since, until):
         """World positions received between two monotonic times."""
@@ -391,6 +404,7 @@ class FlightController:
         self.last_seq = None
         self.link = []              # (time, received, lost) per FC message, last 5 s
         self.local_ned = None       # (north, east, down, time) from LOCAL_POSITION_NED
+        self.acks = {}              # command id -> (result, time) from COMMAND_ACK
 
     def attach(self, udp, encoder):
         self.udp, self.encoder = udp, encoder
@@ -433,6 +447,11 @@ class FlightController:
                 h["alt"] = message.relative_alt / 1000.0      # above home, like Mission Planner
             elif kind == "LOCAL_POSITION_NED":
                 self.local_ned = (message.x, message.y, message.z, now)
+            elif kind == "EXTENDED_SYS_STATE":
+                h["landed"] = message.landed_state   # 1 on ground, 2 in air, 3 taking off, 4 landing
+            elif kind == "COMMAND_ACK":
+                self.acks[message.command] = (message.result, now)
+                self.cond.notify_all()
             elif kind == "SYS_STATUS":
                 h.update(voltage=message.voltage_battery / 1000.0,
                          current=message.current_battery / 100.0 if message.current_battery >= 0 else None,
@@ -505,8 +524,9 @@ class FlightController:
 
     def status(self):
         with self.cond:
-            return {"armed": self.hud.get("armed"), "mode": self.hud.get("mode"),
-                    "yaw": self.hud.get("yaw"), "age": time.monotonic() - self.last_at if self.last_at else None}
+            return {"armed": self.hud.get("armed"), "mode": self.hud.get("mode"), "yaw": self.hud.get("yaw"),
+                    "alt": self.hud.get("alt"), "landed": self.hud.get("landed"),
+                    "age": time.monotonic() - self.last_at if self.last_at else None}
 
     def goto_ned(self, north, east, down, yaw_deg):
         """GUIDED position target in the EKF frame (MAV_FRAME_LOCAL_NED), holding the given yaw."""
@@ -516,6 +536,25 @@ class FlightController:
         self._send(self.encoder.mav.set_position_target_local_ned_encode(
             0, sysid, compid, mavlink2.MAV_FRAME_LOCAL_NED, mask, north, east, down,
             0, 0, 0, 0, 0, 0, math.radians(yaw_deg), 0).pack(self.encoder.mav))
+
+    def command(self, command, params, timeout=2.5):
+        """COMMAND_LONG with params (7 values); returns the MAV_RESULT the FC answers (None: no answer)."""
+        with self.cond:
+            sysid, compid = self.sysid, self.compid
+        asked = time.monotonic()
+        self._send(self.encoder.mav.command_long_encode(sysid, compid, command, 0, *params).pack(self.encoder.mav))
+        with self.cond:
+            if self.cond.wait_for(lambda: self.acks.get(command, (None, 0))[1] > asked, timeout):
+                return self.acks[command][0]
+        return None
+
+    def takeoff(self, alt_above_home):
+        """GUIDED take-off to an altitude above home [m]."""
+        return self.command(mavlink2.MAV_CMD_NAV_TAKEOFF, (0, 0, 0, float("nan"), 0, 0, alt_above_home))
+
+    def land(self):
+        """Switch to LAND (ArduCopter custom mode 9): lands where it is."""
+        return self.command(mavlink2.MAV_CMD_DO_SET_MODE, (mavlink2.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, 9, 0, 0, 0, 0, 0))
 
     def set_speed(self, speed):
         """MAV_CMD_DO_CHANGE_SPEED: horizontal speed of GUIDED moves [m/s]."""
@@ -629,6 +668,7 @@ class MissionRunner:
                 raise ValueError("give at least one point as [x, y, z]")
             config = {"frame": "relative" if config.get("frame") == "relative" else "absolute", "points": points,
                       "pass_through": bool(config.get("pass_through")),
+                      "takeoff": config.get("takeoff") or None, "land": bool(config.get("land")),
                       "speed": float(config.get("speed", 0.3)), "tolerance": float(config.get("tolerance", 0.10)),
                       "settle": float(config.get("settle", 1.0))}
         with self.lock:
@@ -639,13 +679,14 @@ class MissionRunner:
                       else "auto-start disarmed")
 
     def _watch_mode(self):
-        previous = None
+        previous, was_armed = None, None
         while True:
             time.sleep(0.1)
             st = self.fc.status()
             mode = st["mode"] if st["age"] is not None and st["age"] < 3 else None
-            entered = mode == "GUIDED" and previous not in (None, "GUIDED")
-            previous = mode
+            # a switch INTO GUIDED, or (for a take-off) arming while in GUIDED
+            entered = mode == "GUIDED" and (previous not in (None, "GUIDED") or (was_armed is False and st["armed"]))
+            previous, was_armed = mode, (st["armed"] if mode is not None else None)
             with self.lock:
                 auto, running = self.auto, self.status_["state"] == "running"
             if not (entered and auto and st["armed"]) or running:
@@ -653,10 +694,11 @@ class MissionRunner:
             time.sleep(0.5)                           # let GUIDED take over, then start from here
             try:
                 self.start(auto["points"], auto["speed"], auto["tolerance"], auto["settle"], auto["frame"],
-                           auto.get("pass_through", False))
+                           auto.get("pass_through", False), auto.get("takeoff"), auto.get("land", False))
                 self._log("auto-start: GUIDED engaged")
             except ValueError as error:
-                self._log(f"auto-start refused (the drone just hovers in GUIDED): {error}")
+                where = "stays on the ground" if auto.get("takeoff") else "just hovers in GUIDED"
+                self._log(f"auto-start refused (the drone {where}): {error}")
 
     def _log(self, text):
         with self.lock:
@@ -713,24 +755,45 @@ class MissionRunner:
         return bad
 
     PASS_RADIUS = 0.15            # pass-through: go on to the next point once this close [m]
+    TAKEOFF_CLIMB = (0.3, 2.0)    # allowed climb of the automatic take-off [m]
+    TAKEOFF_STATIONS = 3          # stations that must see >= 3 sensors before taking off
 
-    def start(self, points, speed, tolerance, settle, frame="absolute", pass_through=False):
-        """Fly `points`: room coordinates, or (frame "relative") offsets from where the drone is now."""
+    def start(self, points, speed, tolerance, settle, frame="absolute", pass_through=False, takeoff=None, land=False):
+        """Fly `points`: room coordinates, or (frame "relative") offsets from where the drone is now.
+        takeoff {"climb": m, "hover": s}: from the ground, armed in GUIDED, climb first and hover; relative
+        points then start from the hover point. land: switch to LAND after the last point."""
         with self.lock:
             if self.status_["state"] == "running":
                 raise ValueError("a mission is already running")
         points = [[float(v) for v in p] for p in points]
         if not points or any(len(p) != 3 or not all(math.isfinite(v) for v in p) for p in points):
             raise ValueError("give at least one point as [x, y, z]")
-        if frame == "relative":
-            pos, age = self.state.latest()
-            if pos is None or age > self.ODOMETRY_MAX_AGE:
-                raise ValueError("no fresh lighthouse position to start the figure from")
-            base = (pos["x"], pos["y"], pos["z"])
-            points = [[round(b + d, 3) for b, d in zip(base, p)] for p in points]
         if len(points) > 50:
             raise ValueError("at most 50 points")
-        bad = self.validate(points)
+        pos, age = self.state.latest()
+        if pos is None or age > self.ODOMETRY_MAX_AGE:
+            raise ValueError("no fresh lighthouse position")
+        here = (pos["x"], pos["y"], pos["z"])
+        climb = hover = 0.0
+        if takeoff:
+            climb = float(takeoff.get("climb", 1.0))
+            hover = min(10.0, max(0.0, float(takeoff.get("hover", 3.0))))
+            if not self.TAKEOFF_CLIMB[0] <= climb <= self.TAKEOFF_CLIMB[1]:
+                raise ValueError(f"take-off climb must be {self.TAKEOFF_CLIMB[0]}..{self.TAKEOFF_CLIMB[1]} m")
+            if self.fc.status()["landed"] not in (None, 1):
+                raise ValueError("take-off only from the ground: the drone is already flying (untick Take off)")
+            seeing = self.state.stations_seeing()
+            if seeing is None:
+                raise ValueError("no lighthouse angle data: cannot tell how many stations see the drone")
+            if seeing < self.TAKEOFF_STATIONS:
+                raise ValueError(f"only {seeing} station(s) see the drone well: take off where at least "
+                                 f"{self.TAKEOFF_STATIONS} do (on the ground the height is wrong otherwise)")
+            top = here[2] + climb
+            if top > self.limits["z_max"]:
+                raise ValueError(f"take-off would reach Z {top:.2f} m, above the max height {self.limits['z_max']:.2f} m")
+        base = (here[0], here[1], here[2] + climb)          # where the figure starts
+        planned = [[round(b + d, 3) for b, d in zip(base, p)] for p in points] if frame == "relative" else points
+        bad = self.validate(planned)
         if bad:
             raise ValueError("; ".join(bad))
         failed = [c["detail"] for c in self.checks().values() if not c["ok"]]
@@ -740,10 +803,11 @@ class MissionRunner:
         tolerance = min(0.5, max(0.03, float(tolerance)))
         settle = min(5.0, max(0.0, float(settle)))
         with self.lock:
-            self.status_.update(state="running", points=points, leg=0, distance=None, log=[],
-                                area=station_area(self.limits["margin"]))
+            self.status_.update(state="running", points=planned, leg=None if takeoff else 0, distance=None, log=[],
+                                area=station_area(self.limits["margin"]), phase="takeoff" if takeoff else "points")
         self.stop_event.clear()
-        self.thread = threading.Thread(target=self._run, args=(points, speed, tolerance, settle, bool(pass_through)),
+        plan = {"points": points, "frame": frame, "climb": climb if takeoff else None, "hover": hover, "land": bool(land)}
+        self.thread = threading.Thread(target=self._run, args=(plan, speed, tolerance, settle, bool(pass_through)),
                                        daemon=True)
         self.thread.start()
 
@@ -772,10 +836,73 @@ class MissionRunner:
         with self.lock:
             self.status_.update(state=state, distance=None)
 
-    def _run(self, points, speed, tolerance, settle, pass_through=False):
-        """Fly the points. pass_through: every point but the last only has to be passed within
-        PASS_RADIUS (no hold), so curves made of many points are flown without stopping."""
+    def _guard(self, failing_since, now):
+        """The checks every loop of a running mission does. Returns (stop_reason or None, failing_since)."""
+        st = self.fc.status()
+        if st["mode"] != "GUIDED" or not st["armed"]:
+            return f"pilot took over (mode {st['mode']}, {'armed' if st['armed'] else 'disarmed'})", failing_since
+        checks = self.checks()
+        failing = [checks[n]["detail"] for n in ("lighthouse", "agree", "fc") if not checks[n]["ok"]]
+        if failing:
+            failing_since = failing_since or now
+            if now - failing_since >= self.PERSIST_S:
+                return "hold: " + "; ".join(failing), failing_since
+        else:
+            failing_since = None
+        return None, failing_since
+
+    def _takeoff(self, climb, hover):
+        """Climb `climb` m from where the drone is, then hover `hover` s. Returns False if the mission must end."""
+        pos, _ = self.state.latest()
+        z0 = pos["z"]
+        alt = self.fc.status()["alt"] or 0.0                 # altitude above home now (GLOBAL_POSITION_INT)
+        self._log(f"take-off: climbing {climb:.2f} m (from Z {z0:.2f} to {z0 + climb:.2f} m)")
+        result = self.fc.takeoff(alt + climb)
+        if result != mavlink2.MAV_RESULT_ACCEPTED:
+            self._finish("aborted", f"take-off refused by the flight controller (result {result}): armed in GUIDED, on the ground?")
+            return False
+        started, failing_since, reached = time.monotonic(), None, None
+        timeout = 8.0 + climb / 0.25
+        while True:
+            if self.stop_event.wait(0.1):
+                return False
+            now = time.monotonic()
+            reason, failing_since = self._guard(failing_since, now)
+            if reason:
+                if reason.startswith("hold"):
+                    self._hold_here()
+                self._finish("aborted", f"during take-off: {reason}")
+                return False
+            pos, _ = self.state.latest()
+            with self.lock:
+                self.status_["distance"] = max(0.0, z0 + climb - pos["z"])
+            if pos["z"] >= z0 + climb - 0.08:
+                reached = reached or now
+                if now - reached >= hover:
+                    self._log(f"take-off done: hovered {hover:.0f} s at Z {pos['z']:.2f} m")
+                    return True
+            elif now - started > timeout:
+                self._hold_here()
+                self._finish("aborted", f"take-off not completed in {timeout:.0f} s (Z {pos['z']:.2f} m): holding position")
+                return False
+
+    def _run(self, plan, speed, tolerance, settle, pass_through=False):
+        """Take off if asked, fly the points, land if asked. pass_through: every point but the last only
+        has to be passed within PASS_RADIUS (no hold), so curves of many points are flown without stopping."""
         try:
+            if plan["climb"] is not None and not self._takeoff(plan["climb"], plan["hover"]):
+                return
+            points = plan["points"]
+            if plan["frame"] == "relative":             # from where the drone is now (after any take-off)
+                pos, _ = self.state.latest()
+                points = [[round(b + d, 3) for b, d in zip((pos["x"], pos["y"], pos["z"]), p)] for p in points]
+                bad = self.validate(points)
+                if bad:
+                    self._hold_here()
+                    self._finish("aborted", "from the hover point the figure breaks the limits: " + "; ".join(bad))
+                    return
+            with self.lock:
+                self.status_.update(points=points, leg=0, phase="points")
             yaw = self.fc.status()["yaw"] or 0.0      # keep the heading the drone has now
             self.fc.set_speed(speed)
             self._log(f"start: {len(points)} points at {speed:.2f} m/s, yaw held at {yaw:.0f} deg"
@@ -797,20 +924,12 @@ class MissionRunner:
                     if self.stop_event.wait(0.1):
                         return
                     now = time.monotonic()
-                    st = self.fc.status()
-                    if st["mode"] != "GUIDED" or not st["armed"]:
-                        self._finish("aborted", f"pilot took over (mode {st['mode']}, {'armed' if st['armed'] else 'disarmed'})")
-                        return
-                    checks = self.checks()
-                    failing = [checks[n]["detail"] for n in ("lighthouse", "agree", "fc") if not checks[n]["ok"]]
-                    if failing:
-                        failing_since = failing_since or now
-                        if now - failing_since >= self.PERSIST_S:
+                    reason, failing_since = self._guard(failing_since, now)
+                    if reason:
+                        if reason.startswith("hold"):
                             self._hold_here()
-                            self._finish("aborted", f"stopped, holding position: {'; '.join(failing)}")
-                            return
-                    else:
-                        failing_since = None
+                        self._finish("aborted", f"stopped: {reason}")
+                        return
                     pos, _ = self.state.latest()
                     d = math.dist((pos["x"], pos["y"], pos["z"]), (x, y, z))
                     with self.lock:
@@ -829,7 +948,12 @@ class MissionRunner:
                         self.fc.goto_ned(*world_to_ned(x, y, z), yaw)
                         sent = now
                 self._log(f"point {leg + 1} reached")
-            self._finish("done", "mission complete: hovering at the last point (GUIDED) — take over on the radio")
+            if plan["land"]:
+                result = self.fc.land()
+                self._finish("done", "mission complete: landing (LAND mode)" if result == mavlink2.MAV_RESULT_ACCEPTED
+                             else f"mission complete, but LAND was refused (result {result}): hovering — land on the radio")
+            else:
+                self._finish("done", "mission complete: hovering at the last point (GUIDED) — take over on the radio")
         except Exception as error:  # link or socket trouble: stop where we are
             self._hold_here()
             self._finish("error", f"{type(error).__name__}: {error}")
@@ -842,6 +966,8 @@ class MissionRunner:
         out["z_range"] = [self.limits["z_min"], self.limits["z_max"]]
         out["limits"] = dict(self.limits)
         out["stations_area"] = station_area(0.0)
+        out["stations_seeing"] = self.state.stations_seeing()
+        out["landed"] = self.fc.status()["landed"]
         with self.lock:
             out["auto"] = self.auto
         return out
@@ -1904,6 +2030,9 @@ def udp_receiver(state, capture, ootx, fc, listen_host, listen_port):
                                 ootx.feed_wireless(decoded)
                         else:
                             capture.feed(payload)
+                            snap = lh2cap.parse_lh2_tunnel(payload) if lh2cap else None
+                            if snap:
+                                state.set_visibility(snap["valid_mask"], snap.get("n_bs", 2))
                     continue
 
                 if kind != "ODOMETRY":
@@ -2069,7 +2198,7 @@ def make_handler(state, capture, ootx, fc, mission):
                     elif action == "start":
                         mission.start(body.get("points", []), body.get("speed", 0.3),
                                       body.get("tolerance", 0.10), body.get("settle", 1.0), body.get("frame", "absolute"),
-                                      bool(body.get("pass_through")))
+                                      bool(body.get("pass_through")), body.get("takeoff") or None, bool(body.get("land")))
                     elif action == "auto":
                         mission.set_auto(body if body.get("enabled") else None)
                     elif action == "stop":
