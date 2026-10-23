@@ -575,6 +575,145 @@ def world_to_ned(x, y, z):
     return x * c + y * s, x * s - y * c, -z
 
 
+def ned_to_world(north, east, down):
+    """Inverse of world_to_ned."""
+    c, s = WORLD_HEADING
+    return north * c + east * s, north * s - east * c, -down
+
+
+TRACKS_DIR = os.path.join(DATA_DIR, "tracks")
+
+
+class TrackRecorder:
+    """Flight path log for hover / accuracy studies: one row per lighthouse ODOMETRY (10 Hz) with the
+    EKF position (when a new LOCAL_POSITION_NED arrived), attitude, battery, mode and the mission
+    target. Saved as JSON in TRACKS_DIR (rewritten every few seconds, so a crash loses little)."""
+
+    COLUMNS = ["t", "x", "y", "z", "yaw", "ex", "ey", "ez", "roll", "pitch", "volt",
+               "mode", "armed", "mission", "leg", "tx", "ty", "tz", "hold"]
+    MAX_ROWS = 100000             # ~2.7 h at 10 Hz
+    SAVE_EVERY_S = 5.0
+
+    def __init__(self, fc, mission):
+        self.fc, self.mission = fc, mission
+        self.lock = threading.Lock()
+        self.active = None        # {"name", "meta", "rows", "t0", "saved_at", "ekf_at"}
+
+    def start(self, name=""):
+        name = "".join(ch for ch in name if ch.isalnum() or ch in "-_")[:40]
+        name = time.strftime("track_%Y%m%d_%H%M%S") + (f"_{name}" if name else "")
+        os.makedirs(TRACKS_DIR, exist_ok=True)
+        with self.lock:
+            if self.active:
+                raise ValueError(f"already recording {self.active['name']}")
+            meta = {"name": name, "started": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "heading_deg": math.degrees(math.atan2(WORLD_HEADING[1], WORLD_HEADING[0])),
+                    "stations_area": station_area(0.0), "columns": self.COLUMNS}
+            self.active = {"name": name, "meta": meta, "rows": [], "t0": time.monotonic(),
+                           "saved_at": time.monotonic(), "ekf_at": None, "was_running": False}
+        return self.status()
+
+    def stop(self):
+        with self.lock:
+            active, self.active = self.active, None
+        if active:
+            self._save(active)
+        return self.status()
+
+    def add(self, position):
+        """Called for every lighthouse ODOMETRY (receiver thread)."""
+        with self.lock:
+            active = self.active
+            if not active:
+                return
+        now = time.monotonic()
+        local, at = self.fc.local_at()
+        ekf = [None, None, None]
+        if local and at != active["ekf_at"] and now - at < 1.0:
+            active["ekf_at"] = at
+            ekf = [round(v, 4) for v in ned_to_world(*local)]
+        with self.fc.cond:
+            hud = dict(self.fc.hud)
+        with self.mission.lock:
+            ms = dict(self.mission.status_)
+        running = ms["state"] == "running"
+        target = ms.get("target") if running or ms["state"] == "done" else None
+        if running and not active["was_running"]:          # a mission started: keep its points
+            active["meta"].setdefault("missions", []).append(
+                {"points": ms.get("points"), "started_t": round(now - active["t0"], 2)})
+        active["was_running"] = running
+        yaw = position.get("yaw")
+        row = [round(now - active["t0"], 3), round(position["x"], 4), round(position["y"], 4), round(position["z"], 4),
+               None if yaw is None else round(yaw, 1), *ekf,
+               None if hud.get("roll") is None else round(hud["roll"], 2),
+               None if hud.get("pitch") is None else round(hud["pitch"], 2),
+               hud.get("voltage"), hud.get("mode"), 1 if hud.get("armed") else 0, ms["state"],
+               ms.get("leg") if running else None,
+               *(target if target else [None, None, None]),
+               1 if running and ms.get("hold_left") is not None else 0]
+        with self.lock:
+            if self.active is not active:
+                return
+            active["rows"].append(row)
+            full = len(active["rows"]) >= self.MAX_ROWS
+            due = now - active["saved_at"] >= self.SAVE_EVERY_S
+            if due:
+                active["saved_at"] = now
+        if full:
+            self.stop()
+        elif due:
+            self._save(active)
+
+    def _save(self, active):
+        with self.lock:
+            data = {"meta": dict(active["meta"], rows=len(active["rows"]),
+                                 duration=active["rows"][-1][0] if active["rows"] else 0.0),
+                    "rows": list(active["rows"])}
+        path = os.path.join(TRACKS_DIR, active["name"] + ".json")
+        with open(path + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(data, f, separators=(",", ":"))
+        os.replace(path + ".tmp", path)
+
+    def status(self):
+        with self.lock:
+            a = self.active
+            if not a:
+                return {"recording": False, "dir": TRACKS_DIR}
+            return {"recording": True, "name": a["name"], "rows": len(a["rows"]),
+                    "elapsed": round(time.monotonic() - a["t0"], 1), "dir": TRACKS_DIR}
+
+    @staticmethod
+    def list():
+        if not os.path.isdir(TRACKS_DIR):
+            return []
+        out = []
+        for name in sorted(os.listdir(TRACKS_DIR), reverse=True):
+            if name.endswith(".json"):
+                path = os.path.join(TRACKS_DIR, name)
+                out.append({"name": name[:-5], "size": os.path.getsize(path),
+                            "modified": time.strftime("%Y-%m-%d %H:%M", time.localtime(os.path.getmtime(path)))})
+        return out
+
+    @staticmethod
+    def _path(name):
+        if not name or any(ch in name for ch in "/\\:") or name.startswith("."):
+            raise ValueError("bad track name")
+        path = os.path.join(TRACKS_DIR, name + ".json")
+        if not os.path.exists(path):
+            raise ValueError(f"no track {name}")
+        return path
+
+    def get(self, name):
+        with open(self._path(name), encoding="utf-8") as f:
+            return json.load(f)
+
+    def delete(self, name):
+        with self.lock:
+            if self.active and self.active["name"] == name:
+                raise ValueError("stop the recording first")
+        os.remove(self._path(name))
+
+
 def station_area(margin=0.3):
     """Rectangle of the room the stations cover [xmin, xmax, ymin, ymax]: between the calibrated
     stations (bs_poses_cal.h origins), shrunk by `margin`; None without a pose header."""
@@ -713,6 +852,7 @@ class MissionRunner:
         return bad
 
     PASS_RADIUS = 0.15            # pass-through: go on to the next point once this close [m]
+    MAX_HOLD_S = 600.0            # longest hold at a point (hover studies) [s]
 
     def start(self, points, speed, tolerance, settle, frame="absolute", pass_through=False):
         """Fly `points`: room coordinates, or (frame "relative") offsets from where the drone is now."""
@@ -738,7 +878,7 @@ class MissionRunner:
             raise ValueError("not ready: " + "; ".join(failed))
         speed = min(self.MAX_SPEED, max(0.1, float(speed)))
         tolerance = min(0.5, max(0.03, float(tolerance)))
-        settle = min(5.0, max(0.0, float(settle)))
+        settle = min(self.MAX_HOLD_S, max(0.0, float(settle)))
         with self.lock:
             self.status_.update(state="running", points=points, leg=0, distance=None, log=[],
                                 area=station_area(self.limits["margin"]))
@@ -770,7 +910,7 @@ class MissionRunner:
     def _finish(self, state, text):
         self._log(text)
         with self.lock:
-            self.status_.update(state=state, distance=None)
+            self.status_.update(state=state, distance=None, hold_left=None)
 
     def _run(self, points, speed, tolerance, settle, pass_through=False):
         """Fly the points. pass_through: every point but the last only has to be passed within
@@ -786,6 +926,8 @@ class MissionRunner:
                 leg_settle = settle if last or not pass_through else 0.0
                 with self.lock:
                     self.status_["leg"] = leg
+                    self.status_["hold_left"] = None
+                    self.status_["target"] = [x, y, z]
                 pos, _ = self.state.latest()
                 distance = math.dist((pos["x"], pos["y"], pos["z"]), (x, y, z))
                 timeout = 8.0 + 2.0 * distance / speed
@@ -815,13 +957,18 @@ class MissionRunner:
                     d = math.dist((pos["x"], pos["y"], pos["z"]), (x, y, z))
                     with self.lock:
                         self.status_["distance"] = d
-                    if d <= leg_tol:
-                        inside_since = inside_since or now
+                    # Arrived = first time within the radius; the hold then runs for leg_settle seconds
+                    # whatever small excursions the drone makes (a long hold is the hover being studied).
+                    if inside_since is None and d <= leg_tol:
+                        inside_since = now
+                        if leg_settle >= 5:
+                            self._log(f"point {leg + 1}: arrived, holding {leg_settle:.0f} s")
+                    if inside_since is not None:
+                        with self.lock:
+                            self.status_["hold_left"] = max(0.0, leg_settle - (now - inside_since))
                         if now - inside_since >= leg_settle:
                             break
-                    else:
-                        inside_since = None
-                    if now - started > timeout:
+                    elif now - started > timeout:
                         self._hold_here()
                         self._finish("aborted", f"point {leg + 1} not reached in {timeout:.0f} s ({100 * d:.0f} cm away): holding position")
                         return
@@ -1822,7 +1969,7 @@ class GcsEncoder:
         return frames
 
 
-def udp_receiver(state, capture, ootx, fc, listen_host, listen_port):
+def udp_receiver(state, capture, ootx, fc, listen_host, listen_port, track=None):
     parser = mavlink2.MAVLink(None)
     parser.robust_parsing = True
     encoder = GcsEncoder()
@@ -1926,6 +2073,8 @@ def udp_receiver(state, capture, ootx, fc, listen_host, listen_port):
                     world = math.degrees(heading - yaw_ned)
                     position["yaw"] = (world + 180.0) % 360.0 - 180.0
                 sequence = state.publish(position)
+                if track:
+                    track.add(position)
                 if sequence == 1 or sequence % 10 == 0:
                     print(
                         "ODOMETRY "
@@ -1934,7 +2083,7 @@ def udp_receiver(state, capture, ootx, fc, listen_host, listen_port):
                     )
 
 
-def make_handler(state, capture, ootx, fc, mission):
+def make_handler(state, capture, ootx, fc, mission, track):
     class Handler(BaseHTTPRequestHandler):
         def _cors_headers(self):
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -2081,6 +2230,29 @@ def make_handler(state, capture, ootx, fc, mission):
                 except (ValueError, OSError, TypeError) as error:
                     self._json(dict(mission.snapshot(), error=str(error)), 400)
                 return
+            if request.path.startswith("/api/track/"):
+                action = request.path[len("/api/track/"):]
+                query = parse_qs(request.query)
+                arg = lambda name: query.get(name, [""])[0].strip()
+                try:
+                    if action == "start":
+                        self._json(track.start(arg("name")))
+                    elif action == "stop":
+                        self._json(track.stop())
+                    elif action == "status":
+                        self._json(track.status())
+                    elif action == "list":
+                        self._json({"tracks": track.list(), "status": track.status()})
+                    elif action == "get":
+                        self._json(track.get(arg("name")))
+                    elif action == "delete":
+                        track.delete(arg("name"))
+                        self._json({"tracks": track.list(), "status": track.status()})
+                    else:
+                        self.send_error(404)
+                except (ValueError, OSError) as error:
+                    self._json({"error": str(error)}, 400)
+                return
             if request.path == "/api/fc/param":
                 query = parse_qs(request.query)
                 value = query.get("value", [""])[0].strip()
@@ -2104,7 +2276,7 @@ def make_handler(state, capture, ootx, fc, mission):
                 return
 
             state.set_target(host, port)
-            self._json(dict(state.snapshot(), fc=fc.snapshot(), mission=mission.snapshot()))
+            self._json(dict(state.snapshot(), fc=fc.snapshot(), mission=mission.snapshot(), track=track.status()))
 
         def log_message(self, _format, *_args):
             pass
@@ -2153,16 +2325,18 @@ def main():
     ootx = OotxReader()
     fc = FlightController()
     mission = MissionRunner(state, fc)
+    track = TrackRecorder(fc, mission)
     receiver = threading.Thread(
         target=udp_receiver,
-        args=(state, capture, ootx, fc, args.udp_host, args.udp_port),
+        args=(state, capture, ootx, fc, args.udp_host, args.udp_port, track),
         daemon=True,
     )
     receiver.start()
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture, ootx, fc, mission))
+    server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture, ootx, fc, mission, track))
     print(f"HTTP API: http://127.0.0.1:{args.http_port}/api/odometry")
     print(f"Calibration sessions: {RUNS_DIR}")
+    print(f"Flight tracks: {TRACKS_DIR}")
     print(f"READY http://127.0.0.1:{args.http_port}", flush=True)  # the desktop app waits for this line
     print("Lascia aperta questa finestra mentre usi il Pose Editor.", flush=True)
     try:

@@ -290,6 +290,31 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 #scene-container { position: absolute; inset: 0; background: #161616; }
 #scene-container canvas { display: block; }
 .label3d { font-size: 12px; font-family: system-ui, 'Segoe UI', sans-serif; font-weight: bold; pointer-events: none; user-select: none; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+/* Track: flight log + accuracy report */
+#trk-rec { background: #2c6b3a; border: 1px solid #3f9a53; color: #fff; font-weight: 600; border-radius: 4px; padding: 8px; cursor: pointer; }
+#trk-rec.on { background: #8a2c2c; border-color: #c44; }
+#trk-rec:disabled { background: #2a2a2a; border-color: #444; color: #777; cursor: default; }
+#trk-state { font-size: 12px; color: #9ab; word-break: break-all; }
+#trk-list { width: 100%; background: #141414; border: 1px solid #444; color: #ddd; border-radius: 3px; font-size: 12px; }
+#sec-track input[type=text], #sec-track select:not(#trk-list) { flex: 1; min-width: 0; background: #141414; border: 1px solid #444; border-radius: 3px; color: #fff; padding: 4px; }
+#sec-track .row input[type=number] { width: 70px; }
+#trk-info, #trk-quick, #trk-msg { font-size: 12px; color: #bbb; line-height: 1.5; }
+#trk-quick .good { color: #5adf7a; } #trk-quick .warn { color: #ffcc44; } #trk-quick .bad { color: #ff8a8a; }
+#trk-load, #trk-refresh, #trk-csv { background: #1d3742; border: 1px solid #2f6577; color: #a6e4f5; border-radius: 4px; padding: 6px 10px; cursor: pointer; }
+#trk-open { background: #18313a; border: 1px solid #2c5968; color: #8adcf0; border-radius: 4px; padding: 8px; cursor: pointer; font-weight: 600; flex: 1; }
+#trk-report { position: absolute; inset: 0; z-index: 30; background: rgba(14,14,14,0.98); display: flex; flex-direction: column; }
+.trk-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #333; }
+.trk-head b { color: #fff; font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trk-head button { background: #18313a; border: 1px solid #2c5968; color: #8adcf0; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+.trk-grid { flex: 1; overflow-y: auto; padding: 10px; display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 1.1fr) minmax(280px, 0.9fr); gap: 10px; align-content: start; }
+.trk-card { background: #1b1b1b; border: 1px solid #333; border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.trk-card.wide { grid-column: 1 / -1; }
+.trk-ct { font-size: 12px; color: #ccc; font-weight: 600; }
+.trk-card canvas { width: 100%; height: 240px; display: block; }
+.trk-card canvas.sq { height: auto; aspect-ratio: 1 / 1; max-height: 520px; }
+#trk-c-hist { height: 100%; min-height: 300px; }
+#trk-stats .cal-metrics td { padding: 3px 6px 3px 0; }
+@media (max-width: 1100px) { .trk-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -309,6 +334,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   <button class="tb-btn" data-sec="code" data-modes="sandbox" title="C code for bs_poses_cal.h"><span class="ic">&lt;/&gt;</span><span class="lb">Code</span></button>
   <button class="tb-btn" data-sec="calib" data-modes="calib" title="Auto-calibration capture"><span class="ic">🧭</span><span class="lb">Calib</span></button>
   <button class="tb-btn" data-sec="mission" title="Automatic mission: fly a list of room points in GUIDED"><span class="ic">🛫</span><span class="lb">Mission</span></button>
+  <button class="tb-btn" data-sec="track" title="Flight log: record the path and study how still the drone holds a point"><span class="ic">📈</span><span class="lb">Track</span></button>
   <button class="tb-btn" data-sec="help" title="Help"><span class="ic">❓</span></button>
   <div class="tb-spacer"></div>
   <div id="conn-dot" title="Connection status"></div>
@@ -638,7 +664,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <div class="grp-lbl">SETTINGS</div>
       <div class="row"><div class="lbl" style="width:120px;">Speed</div><input id="mis-speed" type="number" value="0.3" min="0.1" max="1" step="0.05"><div class="lbl">m/s</div></div>
       <div class="row"><div class="lbl" style="width:120px;" title="A point counts as reached within this distance">Arrival radius</div><input id="mis-tol" type="number" value="10" min="3" max="50" step="1"><div class="lbl">cm</div></div>
-      <div class="row"><div class="lbl" style="width:120px;" title="Time inside the arrival radius before going to the next point">Hold at each point</div><input id="mis-settle" type="number" value="1" min="0" max="5" step="0.5"><div class="lbl">s</div></div>
+      <div class="row"><div class="lbl" style="width:120px;" title="How long to stay once the point is reached (counted from the arrival). Up to 600 s for hover studies: record them in the Track tab.">Hold at each point</div><input id="mis-settle" type="number" value="1" min="0" max="600" step="1"><div class="lbl">s</div></div>
       <label class="row" style="gap:6px;cursor:pointer;" title="Every point but the last only has to be passed within 15 cm, without holding: curves made of many points are flown smoothly. Ticked automatically for circle, eight, spiral and helix.">
         <input id="mis-pass" type="checkbox"> Fly through the points without stopping (curves)</label>
     </div>
@@ -656,6 +682,42 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     </div>
     <div id="mis-status">—</div>
     <div id="mis-log" class="cal-log" style="max-height:160px;">—</div>
+  </div>
+  <div class="sec" id="sec-track">
+    <div class="sec-title">TRACK · FLIGHT LOG &amp; ACCURACY</div>
+    <div class="hint">Records every lighthouse position (10 Hz) with the EKF position, attitude, battery, mode and the
+      mission target. Typical study: <b>Record</b>, take off, switch to GUIDED with a one-point mission and a long hold
+      (Mission → Hold, e.g. 120 s), then <b>Stop</b> and look at how the samples spread around the point.</div>
+    <div class="bs-card">
+      <div class="grp-lbl">RECORD</div>
+      <div class="row"><div class="lbl" style="width:62px;">Name</div><input id="trk-name" type="text" placeholder="optional, e.g. hover_120s" spellcheck="false"></div>
+      <button id="trk-rec" type="button" disabled>● Record</button>
+      <div id="trk-state">Connect in the Drone tab (UDP via bridge).</div>
+    </div>
+    <div class="bs-card">
+      <div class="grp-lbl">RECORDED TRACKS</div>
+      <select id="trk-list" size="6"></select>
+      <div class="row" style="gap:6px;"><button id="trk-load" type="button" style="flex:1;">Load</button>
+        <button id="trk-refresh" type="button">↻</button><button id="trk-del" type="button" class="rm-btn">Delete</button></div>
+      <div id="trk-info">No track loaded.</div>
+    </div>
+    <div class="bs-card" id="trk-study" hidden>
+      <div class="grp-lbl">STUDY</div>
+      <div class="row"><div class="lbl" style="width:62px;">Samples</div><select id="trk-phase">
+        <option value="hold">during the mission hold</option>
+        <option value="after">mission hold + hovering after it</option>
+        <option value="all">whole recording (time window)</option></select></div>
+      <div class="row"><div class="lbl" style="width:62px;">Window</div><input id="trk-t0" type="number" min="0" step="1"><div class="lbl" style="width:auto;">to</div><input id="trk-t1" type="number" min="0" step="1"><div class="lbl">s</div></div>
+      <div class="row"><div class="lbl" style="width:62px;">Target</div><select id="trk-target">
+        <option value="mission">the mission point(s)</option>
+        <option value="fixed">a fixed point (below)</option>
+        <option value="median">the median position (spread only)</option></select></div>
+      <div class="row"><div class="lbl">X</div><input id="trk-fx" type="number" step="0.05"><div class="lbl">Y</div><input id="trk-fy" type="number" step="0.05"><div class="lbl">Z</div><input id="trk-fz" type="number" step="0.05"></div>
+      <label class="row" style="gap:6px;cursor:pointer;"><input id="trk-3d" type="checkbox" checked> Show in 3D (points coloured by distance: green ≤ 5 cm, yellow ≤ 10, orange ≤ 20, red more)</label>
+      <div id="trk-quick">—</div>
+      <div class="row" style="gap:6px;"><button id="trk-open" type="button">📊 Accuracy report</button><button id="trk-csv" type="button">CSV</button></div>
+    </div>
+    <div id="trk-msg"></div>
   </div>
   <div class="sec" id="sec-help">
     <div class="sec-title">HELP</div>
@@ -689,6 +751,21 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 </div>
 
 <div id="scene-container"></div>
+<div id="trk-report" hidden>
+  <div class="trk-head"><b id="trk-r-title"></b><button id="trk-r-png" type="button">Save PNG</button><button id="trk-r-csv" type="button">CSV</button><button id="trk-r-close" type="button">✕ Close</button></div>
+  <div class="trk-grid">
+    <div class="trk-card wide"><div class="trk-ct">Whole recording: position over time (shaded = the samples studied)</div><canvas id="trk-c-flight"></canvas></div>
+    <div class="trk-card"><div class="trk-ct">Seen from above: where each sample fell around the target</div><canvas id="trk-c-top" class="sq"></canvas></div>
+    <div class="trk-card"><div class="trk-ct">How far from the target (horizontal)</div><canvas id="trk-c-hist"></canvas></div>
+    <div class="trk-card"><div class="trk-ct">Numbers</div><div id="trk-stats"></div>
+      <div class="hint">CEP50 / R95: radius holding 50 % / 95 % of the samples. Bias = the average offset (where the drone
+        sat on average); spread = how much it moved around that average. Lighthouse positions measure the hold;
+        EKF − lighthouse shows how closely ArduPilot follows them.</div></div>
+    <div class="trk-card wide"><div class="trk-ct">Distance from the target over time</div><canvas id="trk-c-err"></canvas></div>
+    <div class="trk-card wide"><div class="trk-ct">Error per axis over time (+ EKF disagreement)</div><canvas id="trk-c-axes"></canvas></div>
+    <div class="trk-card wide"><div class="trk-ct">Attitude and battery (a steady tilt explains a slow drift)</div><canvas id="trk-c-att"></canvas></div>
+  </div>
+</div>
 <button id="fit-view" title="Frame the base stations and the floor marks">⤢ Fit view</button>
 <div id="hud-wrap" title="Flight-controller telemetry (needs the UDP bridge link)">
   <canvas id="hud"></canvas>
@@ -1499,7 +1576,8 @@ function misRefresh() {
       + (misLive() ? ` · drone now at Z ${lastOdomPos.z.toFixed(2)} m` : '')
     : `Station area unknown (no pose header): only the height ${s.z_range[0].toFixed(2)} … ${s.z_range[1].toFixed(2)} m is checked.`;
   const st = document.getElementById('mis-status');
-  if (misRunning()) st.textContent = `Running · point ${s.leg + 1}/${s.points.length}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
+  if (misRunning()) st.textContent = `Running · point ${s.leg + 1}/${s.points.length}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm ${s.hold_left != null ? 'away' : 'to go'}` : '')
+    + (s.hold_left != null ? ` · holding, ${s.hold_left.toFixed(0)} s left` : '');
   else st.textContent = ({ idle: 'Ready when all checks are green.', done: '✔ Mission complete', aborted: '■ Mission stopped', error: '✘ Mission error' }[s.state] || s.state)
     + (s.auto ? ' · AUTO-START ARMED: switch to GUIDED on the radio' : '');
   document.getElementById('mis-log').textContent = (s.log || []).slice().reverse().join('\n') || '—';
@@ -1595,6 +1673,424 @@ setInterval(() => {
   document.getElementById('conn-dot').classList.toggle('live', lastOdomAt && Date.now() - lastOdomAt < 2000);
 }, 300);
 
+// ─── Track: flight path log (bridge /api/track/*) and hover accuracy study ───
+const trkEl = id => document.getElementById(id);
+let trkStatus = null, trkWasRecording = false, trkData = null, trkSel = null;
+function trkUrl(action, params = {}) {
+  const u = new URL('/api/track/' + action, new URL(trkEl('relay-url').value.trim()));
+  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
+  return u;
+}
+async function trkApi(action, params) {
+  const r = await fetch(trkUrl(action, params), { cache: 'no-store' });
+  const data = await r.json().catch(() => ({ error: r.statusText }));
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+function trkMsg(text, bad) { const e = trkEl('trk-msg'); e.textContent = text || ''; e.style.color = bad ? '#ff8a8a' : '#9ab'; }
+function updateTrack(s) {
+  trkStatus = s || null;
+  const rec = !!(s && s.recording), btn = trkEl('trk-rec');
+  btn.textContent = rec ? '■ Stop recording' : '● Record';
+  btn.classList.toggle('on', rec);
+  btn.disabled = !s;
+  trkEl('trk-state').textContent = !s ? 'Connect in the Drone tab (UDP via bridge).'
+    : rec ? `Recording ${s.name} · ${s.elapsed.toFixed(0)} s · ${s.rows} points`
+    : `Not recording. Files: ${s.dir}`;
+  if (trkWasRecording && !rec) trkRefreshList(true);
+  trkWasRecording = rec;
+}
+trkEl('trk-rec').addEventListener('click', async () => {
+  try {
+    updateTrack(trkStatus && trkStatus.recording ? await trkApi('stop') : await trkApi('start', { name: trkEl('trk-name').value.trim() }));
+    trkMsg('');
+  } catch (err) { trkMsg('✘ ' + err.message, true); }
+});
+async function trkRefreshList(loadNewest) {
+  try {
+    const data = await trkApi('list');
+    const sel = trkEl('trk-list'), keep = sel.value;
+    sel.innerHTML = data.tracks.map(t => `<option value="${misEsc(t.name)}">${misEsc(t.name.replace(/^track_/, ''))} · ${(t.size / 1024).toFixed(0)} kB</option>`).join('');
+    if (!data.tracks.length) sel.innerHTML = '<option value="" disabled>no tracks yet</option>';
+    if (loadNewest && data.tracks.length) { sel.value = data.tracks[0].name; trkLoad(); }
+    else if (keep) sel.value = keep;
+    if (data.status) updateTrack(data.status);
+  } catch (err) { trkMsg('✘ Bridge unreachable: ' + err.message, true); }
+}
+trkEl('trk-refresh').addEventListener('click', () => trkRefreshList(false));
+trkEl('trk-load').addEventListener('click', () => trkLoad());
+trkEl('trk-list').addEventListener('dblclick', () => trkLoad());
+trkEl('trk-del').addEventListener('click', e => {
+  const name = trkEl('trk-list').value;
+  if (!name) return;
+  calConfirm(e.currentTarget, 'Delete? Click again', async () => {
+    try { await trkApi('delete', { name }); if (trkData && trkData.meta.name === name) trkClear(); trkRefreshList(false); }
+    catch (err) { trkMsg('✘ ' + err.message, true); }
+  });
+});
+tbBtns.forEach(b => b.dataset.sec === 'track' && b.addEventListener('click', () => trkRefreshList(false)));
+
+async function trkLoad() {
+  const name = trkEl('trk-list').value;
+  if (!name) return;
+  try {
+    const data = await trkApi('get', { name });
+    const col = {}; data.meta.columns.forEach((c, i) => { col[c] = i; });
+    trkData = { meta: data.meta, rows: data.rows, col };
+    const R = data.rows, C = col, dur = R.length ? R[R.length - 1][C.t] : 0;
+    const holds = R.filter(r => r[C.hold]).length, targets = R.filter(r => r[C.tx] != null);
+    trkEl('trk-t0').value = 0; trkEl('trk-t1').value = Math.ceil(dur);
+    trkEl('trk-phase').value = holds ? 'hold' : 'all';
+    trkEl('trk-target').value = holds || targets.length ? 'mission' : 'median';
+    const last = targets.length ? targets[targets.length - 1] : null;
+    if (last) { trkEl('trk-fx').value = last[C.tx]; trkEl('trk-fy').value = last[C.ty]; trkEl('trk-fz').value = last[C.tz]; }
+    trkEl('trk-info').innerHTML = `<b>${misEsc(data.meta.name)}</b><br>${data.meta.started} · ${dur.toFixed(0)} s · ${R.length} points`
+      + ` (${(R.length / Math.max(dur, 1e-3)).toFixed(1)} Hz) · ${holds} in a mission hold`
+      + ((data.meta.missions || []).length ? ` · ${data.meta.missions.length} mission(s)` : '');
+    trkEl('trk-study').hidden = false;
+    trkMsg('');
+    trkUpdate();
+  } catch (err) { trkMsg('✘ ' + err.message, true); }
+}
+function trkClear() { trkData = trkSel = null; trkEl('trk-study').hidden = true; trkEl('trk-info').textContent = 'No track loaded.'; trkDraw3d(); }
+['trk-phase', 'trk-target', 'trk-t0', 'trk-t1', 'trk-fx', 'trk-fy', 'trk-fz', 'trk-3d'].forEach(id =>
+  trkEl(id).addEventListener('change', trkUpdate));
+
+const trkPct = (sorted, p) => {                      // percentile (0..100) of a sorted array, interpolated
+  if (!sorted.length) return NaN;
+  const k = (sorted.length - 1) * p / 100, i = Math.floor(k);
+  return i + 1 < sorted.length ? sorted[i] + (sorted[i + 1] - sorted[i]) * (k - i) : sorted[i];
+};
+const trkMean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+const trkRms = a => Math.sqrt(a.reduce((s, v) => s + v * v, 0) / (a.length || 1));
+// The samples to study and their error from the target (metres).
+function trkSelect() {
+  const { rows: R, col: C } = trkData;
+  const phase = trkEl('trk-phase').value, tmode = trkEl('trk-target').value;
+  const t0 = parseFloat(trkEl('trk-t0').value) || 0, t1 = parseFloat(trkEl('trk-t1').value);
+  const inWin = r => r[C.t] >= t0 && (!isFinite(t1) || r[C.t] <= t1);
+  const keep = R.filter(r => inWin(r) && (phase === 'all' || r[C.hold] || (phase === 'after' && r[C.mission] === 'done' && r[C.tx] != null)));
+  let fixed = null, label;
+  if (tmode === 'fixed') {
+    fixed = ['trk-fx', 'trk-fy', 'trk-fz'].map(id => parseFloat(trkEl(id).value));
+    if (!fixed.every(isFinite)) return { error: 'enter the fixed point X, Y, Z' };
+    label = `fixed point (${fixed.map(v => v.toFixed(2)).join(', ')})`;
+  } else if (tmode === 'median') {
+    const med = k => trkPct(keep.map(r => r[C[k]]).sort((a, b) => a - b), 50);
+    fixed = [med('x'), med('y'), med('z')];
+    label = `median of the samples (${fixed.map(v => v.toFixed(2)).join(', ')}): spread only, no target`;
+  }
+  const pts = [];
+  for (const r of keep) {
+    const tg = fixed || (r[C.tx] != null ? [r[C.tx], r[C.ty], r[C.tz]] : null);
+    if (!tg) continue;
+    const dx = r[C.x] - tg[0], dy = r[C.y] - tg[1], dz = r[C.z] - tg[2];
+    pts.push({ t: r[C.t], x: r[C.x], y: r[C.y], z: r[C.z], tg, dx, dy, dz, dh: Math.hypot(dx, dy), d3: Math.hypot(dx, dy, dz),
+               ex: r[C.ex], ey: r[C.ey], ez: r[C.ez], roll: r[C.roll], pitch: r[C.pitch], volt: r[C.volt] });
+  }
+  if (!fixed) {
+    const keys = [...new Set(pts.map(p => p.tg.join(',')))];
+    label = keys.length === 1 ? `mission target (${pts[0].tg.map(v => v.toFixed(2)).join(', ')})` : `mission targets (${keys.length} points)`;
+  }
+  if (!pts.length) return { error: phase === 'all' ? 'no samples in this window with a mission target: choose a fixed point or the median'
+                                                    : 'no samples in a mission hold: choose "whole recording"' };
+  const phaseText = { hold: 'mission hold', after: 'mission hold + hover after', all: 'whole recording' }[phase];
+  return { pts, label, phase: phaseText, t0: pts[0].t, t1: pts[pts.length - 1].t, single: !!fixed || new Set(pts.map(p => p.tg.join(','))).size === 1 };
+}
+function trkStats(sel) {
+  const P = sel.pts, n = P.length, dur = sel.t1 - sel.t0;
+  const dh = P.map(p => p.dh).sort((a, b) => a - b), dz = P.map(p => Math.abs(p.dz)).sort((a, b) => a - b);
+  const mx = trkMean(P.map(p => p.dx)), my = trkMean(P.map(p => p.dy)), mz = trkMean(P.map(p => p.dz));
+  const spreadH = Math.sqrt(trkMean(P.map(p => (p.dx - mx) ** 2 + (p.dy - my) ** 2)));
+  const spreadZ = Math.sqrt(trkMean(P.map(p => (p.dz - mz) ** 2)));
+  const slope = key => {                           // least-squares drift [m/s]
+    const tm = trkMean(P.map(p => p.t)), vm = trkMean(P.map(p => p[key]));
+    let num = 0, den = 0; P.forEach(p => { num += (p.t - tm) * (p[key] - vm); den += (p.t - tm) ** 2; });
+    return den ? num / den : 0;
+  };
+  const within = r => 100 * dh.filter(v => v <= r).length / n;
+  const ekf = P.filter(p => p.ex != null);
+  const att = P.filter(p => p.roll != null), volts = P.filter(p => p.volt != null);
+  return {
+    n, dur, rate: n / Math.max(dur, 1e-3), mx, my, mz, biasH: Math.hypot(mx, my), spreadH, spreadZ,
+    meanH: trkMean(dh), rmsH: trkRms(dh), cep50: trkPct(dh, 50), r95: trkPct(dh, 95), maxH: dh[n - 1],
+    rmsZ: trkRms(P.map(p => p.dz)), p95Z: trkPct(dz, 95), maxZ: dz[n - 1], rms3: trkRms(P.map(p => p.d3)),
+    in5: within(0.05), in10: within(0.10), in20: within(0.20),
+    drift: Math.hypot(slope('dx'), slope('dy')) * 60,
+    ekfN: ekf.length, ekfH: trkRms(ekf.map(p => Math.hypot(p.ex - p.x, p.ey - p.y))), ekfZ: trkRms(ekf.map(p => p.ez - p.z)),
+    roll: att.length ? trkMean(att.map(p => p.roll)) : null, pitch: att.length ? trkMean(att.map(p => p.pitch)) : null,
+    v0: volts.length ? volts[0].volt : null, v1: volts.length ? volts[volts.length - 1].volt : null,
+  };
+}
+const trkCls = (v, good, warn) => v <= good ? 'good' : v <= warn ? 'warn' : 'bad';
+function trkStatsRows(st) {                          // [label, value, class, hint]
+  const cm = v => (100 * v).toFixed(1) + ' cm';
+  return [
+    ['Samples', `${st.n} in ${st.dur.toFixed(0)} s (${st.rate.toFixed(1)} Hz)`],
+    ['CEP50 (half the samples within)', cm(st.cep50), trkCls(st.cep50, 0.05, 0.10), 'horizontal'],
+    ['R95 (95 % within)', cm(st.r95), trkCls(st.r95, 0.10, 0.20), 'horizontal'],
+    ['Horizontal RMS / mean / max', `${cm(st.rmsH)} / ${cm(st.meanH)} / ${cm(st.maxH)}`],
+    ['Within 5 / 10 / 20 cm', `${st.in5.toFixed(0)} % / ${st.in10.toFixed(0)} % / ${st.in20.toFixed(0)} %`],
+    ['Bias: mean offset X / Y / Z', `${(100 * st.mx).toFixed(1)} / ${(100 * st.my).toFixed(1)} / ${(100 * st.mz).toFixed(1)} cm`, trkCls(st.biasH, 0.03, 0.08)],
+    ['Spread about the mean (σ) horiz. / vert.', `${cm(st.spreadH)} / ${cm(st.spreadZ)}`, trkCls(st.spreadH, 0.04, 0.08)],
+    ['Vertical RMS / p95 / max', `${cm(st.rmsZ)} / ${cm(st.p95Z)} / ${cm(st.maxZ)}`, trkCls(st.rmsZ, 0.03, 0.08)],
+    ['3D RMS', cm(st.rms3)],
+    ['Drift (trend of the offset)', `${(100 * st.drift).toFixed(1)} cm/min`, trkCls(st.drift, 0.02, 0.05)],
+    ['EKF − lighthouse RMS horiz. / vert.', st.ekfN ? `${cm(st.ekfH)} / ${cm(st.ekfZ)} (${st.ekfN} EKF samples)` : 'no EKF samples', st.ekfN ? trkCls(st.ekfH, 0.05, 0.10) : ''],
+    ['Mean roll / pitch', st.roll != null ? `${st.roll.toFixed(1)}° / ${st.pitch.toFixed(1)}°` : '—'],
+    ['Battery', st.v0 != null ? `${st.v0.toFixed(2)} → ${st.v1.toFixed(2)} V` : '—'],
+  ];
+}
+function trkUpdate() {
+  if (!trkData) return;
+  trkSel = trkSelect();
+  const box = trkEl('trk-quick');
+  if (trkSel.error) { box.innerHTML = `<span class="bad">✘ ${misEsc(trkSel.error)}</span>`; trkDraw3d(); return; }
+  trkSel.stats = trkStats(trkSel);
+  const st = trkSel.stats;
+  box.innerHTML = `${misEsc(trkSel.phase)} · ${misEsc(trkSel.label)}<br>`
+    + `<b>${st.n}</b> samples · CEP50 <b class="${trkCls(st.cep50, 0.05, 0.10)}">${(100 * st.cep50).toFixed(1)} cm</b>`
+    + ` · R95 <b class="${trkCls(st.r95, 0.10, 0.20)}">${(100 * st.r95).toFixed(1)} cm</b> · within 10 cm <b>${st.in10.toFixed(0)} %</b>`
+    + ` · vertical RMS <b>${(100 * st.rmsZ).toFixed(1)} cm</b>`;
+  trkDraw3d();
+  if (!trkEl('trk-report').hidden) trkRenderReport();
+}
+
+// 3D: the whole path (thin), the studied samples coloured by distance, the target(s) with 5/10/20 cm rings
+const trkGroup = new THREE.Group(); scene.add(trkGroup);
+const TRK_BANDS = [[0.05, 0x5adf7a, '#5adf7a'], [0.10, 0xffcc44, '#ffcc44'], [0.20, 0xff9a3c, '#ff9a3c'], [Infinity, 0xff5a5a, '#ff5a5a']];
+const trkBand = d => TRK_BANDS.find(b => d <= b[0]);
+function trkDraw3d() {
+  while (trkGroup.children.length) {
+    const o = trkGroup.children.pop();
+    if (o.geometry) o.geometry.dispose();
+  }
+  if (!trkData || !trkEl('trk-3d').checked) return;
+  const { rows: R, col: C } = trkData;
+  if (R.length > 1) trkGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(R.map(r => tv(r[C.x], r[C.y], r[C.z]))),
+    new THREE.LineBasicMaterial({ color: 0x8a8a8a, transparent: true, opacity: 0.45 })));
+  if (!trkSel || trkSel.error) return;
+  const pos = [], colors = [], c = new THREE.Color();
+  trkSel.pts.forEach(p => { const v = tv(p.x, p.y, p.z); pos.push(v.x, v.y, v.z); c.setHex(trkBand(p.dh)[1]); colors.push(c.r, c.g, c.b); });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  trkGroup.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 0.018, vertexColors: true })));
+  const targets = [...new Map(trkSel.pts.map(p => [p.tg.join(','), p.tg])).values()].slice(0, 50);
+  targets.forEach(t => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.015, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    m.position.copy(tv(...t)); trkGroup.add(m);
+    TRK_BANDS.slice(0, 3).forEach(([r, col]) => {
+      const ring = Array.from({ length: 49 }, (_, i) => tv(t[0] + r * Math.cos(i / 48 * 2 * Math.PI), t[1] + r * Math.sin(i / 48 * 2 * Math.PI), t[2]));
+      trkGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), new THREE.LineBasicMaterial({ color: col })));
+    });
+  });
+}
+
+// ── Report: charts drawn on plain canvases ──
+const TRK_FONT = '11px system-ui, "Segoe UI", sans-serif';
+function trkCanvas(cv, w, h, dpr) {
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = '#161616'; g.fillRect(0, 0, w, h); g.font = TRK_FONT;
+  return g;
+}
+function trkTicks(lo, hi, n) {
+  const raw = (hi - lo) / n, mag = 10 ** Math.floor(Math.log10(raw || 1));
+  const step = [1, 2, 5, 10].map(k => k * mag).find(s => s >= raw) || mag * 10, out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-6; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+const trkFmt = v => String(+v.toFixed(Math.abs(v) >= 10 ? 0 : 2));
+function trkAxes(g, box, xr, yr, xl, yl) {
+  const X = v => box.x + (v - xr[0]) / (xr[1] - xr[0]) * box.w, Y = v => box.y + box.h - (v - yr[0]) / (yr[1] - yr[0]) * box.h;
+  g.lineWidth = 1; g.fillStyle = '#8a8a8a';
+  g.textAlign = 'center';
+  trkTicks(xr[0], xr[1], Math.max(3, box.w / 70)).forEach(v => {
+    g.strokeStyle = '#262626'; g.beginPath(); g.moveTo(X(v), box.y); g.lineTo(X(v), box.y + box.h); g.stroke();
+    g.fillText(trkFmt(v), X(v), box.y + box.h + 13);
+  });
+  g.textAlign = 'right';
+  trkTicks(yr[0], yr[1], Math.max(3, box.h / 40)).forEach(v => {
+    g.strokeStyle = v === 0 ? '#444' : '#262626'; g.beginPath(); g.moveTo(box.x, Y(v)); g.lineTo(box.x + box.w, Y(v)); g.stroke();
+    g.fillText(trkFmt(v), box.x - 4, Y(v) + 4);
+  });
+  g.strokeStyle = '#444'; g.strokeRect(box.x, box.y, box.w, box.h);
+  g.fillStyle = '#aaa'; g.textAlign = 'center';
+  if (xl) g.fillText(xl, box.x + box.w / 2, box.y + box.h + 27);
+  if (yl) { g.save(); g.translate(box.x - 36, box.y + box.h / 2); g.rotate(-Math.PI / 2); g.fillText(yl, 0, 0); g.restore(); }
+  return { X, Y };
+}
+function trkLine(g, A, P, fx, fy, color, width = 1.2, dash) {
+  g.strokeStyle = color; g.lineWidth = width; g.setLineDash(dash || []); g.beginPath();
+  let pen = false, last = null;
+  P.forEach(p => {
+    const x = fx(p), y = fy(p);
+    if (y == null || !isFinite(y) || (last != null && x - last > 0.6)) { pen = false; if (y == null || !isFinite(y)) return; }
+    if (pen) g.lineTo(A.X(x), A.Y(y)); else g.moveTo(A.X(x), A.Y(y));
+    pen = true; last = x;
+  });
+  g.stroke(); g.setLineDash([]);
+}
+function trkLegend(g, x, y, items) {
+  g.textAlign = 'left';
+  items.forEach(([text, color]) => { g.fillStyle = color; g.fillRect(x, y - 8, 12, 3); g.fillStyle = '#ccc'; g.fillText(text, x + 16, y - 4); x += g.measureText(text).width + 34; });
+}
+function trkRange(vals, pad = 0.08, minSpan = 0) {
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (!isFinite(lo)) { lo = 0; hi = 1; }
+  const mid = (lo + hi) / 2, span = Math.max(hi - lo, minSpan) * (1 + 2 * pad);
+  return [mid - span / 2, mid + span / 2];
+}
+const TRK_AX = { x: '#ff6b6b', y: '#5adf7a', z: '#4fd1ff' };
+function trkChartFlight(cv, w, h, dpr) {           // whole recording, selection shaded
+  const g = trkCanvas(cv, w, h, dpr), { rows: R, col: C } = trkData, box = { x: 48, y: 22, w: w - 62, h: h - 58 };
+  const vals = []; R.forEach(r => vals.push(r[C.x], r[C.y], r[C.z]));
+  const A = trkAxes(g, box, [0, Math.max(1, R[R.length - 1][C.t])], trkRange(vals, 0.06, 0.5), 'time [s]', 'position [m]');
+  const sel = new Set(trkSel.pts.map(p => p.t));
+  g.fillStyle = 'rgba(255, 204, 68, 0.10)';
+  let start = null, prev = null;
+  const flush = () => { if (start != null) g.fillRect(A.X(start), box.y, Math.max(1, A.X(prev) - A.X(start)), box.h); };
+  R.forEach(r => { const t = r[C.t]; if (sel.has(t)) { if (start == null || t - prev > 0.6) { flush(); start = t; } prev = t; } });
+  flush();
+  ['x', 'y', 'z'].forEach(k => {
+    trkLine(g, A, R, r => r[C.t], r => r[C['t' + k]], TRK_AX[k], 1, [5, 4]);
+    trkLine(g, A, R, r => r[C.t], r => r[C[k]], TRK_AX[k], 1.3);
+  });
+  trkLegend(g, box.x + 4, 14, [['X', TRK_AX.x], ['Y', TRK_AX.y], ['Z', TRK_AX.z], ['dashed: mission target', '#888'], ['shaded: studied', '#ffcc44']]);
+}
+function trkChartTop(cv, w, h, dpr) {              // samples around the target, seen from above
+  const g = trkCanvas(cv, w, h, dpr), P = trkSel.pts, st = trkSel.stats;
+  const side = Math.min(w - 60, h - 52), box = { x: 48 + (w - 60 - side) / 2, y: 12, w: side, h: side };
+  const lim = Math.max(0.25, trkPct(P.map(p => Math.max(Math.abs(p.dx), Math.abs(p.dy))).sort((a, b) => a - b), 99.5) * 1.15) * 100;
+  const A = trkAxes(g, box, [-lim, lim], [-lim, lim], 'X error [cm] (+ toward the 1 m mark)', 'Y error [cm] (+ left)');
+  g.save(); g.beginPath(); g.rect(box.x, box.y, box.w, box.h); g.clip();
+  const circle = (r, color, dash, width = 1) => { g.strokeStyle = color; g.lineWidth = width; g.setLineDash(dash || []); g.beginPath();
+    g.arc(A.X(0), A.Y(0), (A.X(r) - A.X(0)), 0, 2 * Math.PI); g.stroke(); g.setLineDash([]); };
+  TRK_BANDS.slice(0, 3).forEach(([r, , col]) => { circle(100 * r, col + '88'); g.fillStyle = col; g.textAlign = 'left'; g.fillText(`${100 * r} cm`, A.X(100 * r * 0.71) + 3, A.Y(100 * r * 0.71) - 3); });
+  g.globalAlpha = P.length > 3000 ? 0.35 : 0.65;
+  P.forEach(p => { g.fillStyle = trkBand(p.dh)[2]; g.fillRect(A.X(100 * p.dx) - 1.5, A.Y(100 * p.dy) - 1.5, 3, 3); });
+  g.globalAlpha = 1;
+  circle(100 * st.cep50, '#fff', [4, 3], 1.5); circle(100 * st.r95, '#b98cf5', [4, 3], 1.5);
+  g.strokeStyle = '#fff'; g.lineWidth = 2; const bx = A.X(100 * st.mx), by = A.Y(100 * st.my);
+  g.beginPath(); g.moveTo(bx - 6, by); g.lineTo(bx + 6, by); g.moveTo(bx, by - 6); g.lineTo(bx, by + 6); g.stroke();
+  g.restore();
+  trkLegend(g, box.x + 4, box.y + box.h + 44, [[`CEP50 ${(100 * st.cep50).toFixed(1)} cm`, '#fff'], [`R95 ${(100 * st.r95).toFixed(1)} cm`, '#b98cf5'], ['+ mean', '#fff']]);
+}
+function trkChartHist(cv, w, h, dpr) {             // horizontal distance distribution + cumulative %
+  const g = trkCanvas(cv, w, h, dpr), P = trkSel.pts, st = trkSel.stats, box = { x: 48, y: 22, w: w - 92, h: h - 58 };
+  const dh = P.map(p => 100 * p.dh).sort((a, b) => a - b);
+  const top = Math.max(10, trkPct(dh, 99.5) * 1.15), bin = top > 40 ? 2 : top > 15 ? 1 : 0.5, nb = Math.ceil(top / bin);
+  const counts = new Array(nb).fill(0); dh.forEach(v => { counts[Math.min(nb - 1, Math.floor(v / bin))]++; });
+  const pctMax = Math.max(...counts) / dh.length * 100;
+  const A = trkAxes(g, box, [0, nb * bin], [0, pctMax * 1.12], 'horizontal distance from the target [cm]', 'samples [%]');
+  counts.forEach((c, i) => {
+    g.fillStyle = trkBand(((i + 0.5) * bin) / 100)[2] + 'bb';
+    g.fillRect(A.X(i * bin) + 0.5, A.Y(c / dh.length * 100), Math.max(1, A.X(bin) - A.X(0) - 1), A.Y(0) - A.Y(c / dh.length * 100));
+  });
+  const Yc = v => box.y + box.h - v / 100 * box.h;            // cumulative curve on the right axis
+  g.strokeStyle = '#ddd'; g.lineWidth = 1.5; g.beginPath();
+  dh.forEach((v, i) => { const x = A.X(Math.min(v, nb * bin)), y = Yc(100 * (i + 1) / dh.length); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+  g.fillStyle = '#8a8a8a'; g.textAlign = 'left';
+  [0, 50, 95, 100].forEach(v => g.fillText(v + ' %', box.x + box.w + 4, Yc(v) + 4));
+  [[st.cep50, '#fff', 'CEP50'], [st.r95, '#b98cf5', 'R95']].forEach(([v, col, name]) => {
+    g.strokeStyle = col; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(A.X(100 * v), box.y); g.lineTo(A.X(100 * v), box.y + box.h); g.stroke(); g.setLineDash([]);
+    g.fillStyle = col; g.fillText(`${name} ${(100 * v).toFixed(1)}`, A.X(100 * v) + 3, box.y + 12 + (name === 'R95' ? 14 : 0));
+  });
+  trkLegend(g, box.x + 4, 14, [['bars: share of samples per distance', '#888'], ['line: cumulative (right axis)', '#ddd']]);
+}
+function trkChartError(cv, w, h, dpr) {            // distance from the target over time
+  const g = trkCanvas(cv, w, h, dpr), P = trkSel.pts, box = { x: 48, y: 22, w: w - 62, h: h - 58 };
+  const vals = P.flatMap(p => [100 * p.dh, 100 * p.dz]);
+  const A = trkAxes(g, box, [trkSel.t0, Math.max(trkSel.t1, trkSel.t0 + 1)], trkRange([...vals, 0, 10], 0.05), 'time [s]', 'error [cm]');
+  [5, 10, 20].forEach(v => { g.strokeStyle = trkBand(v / 100)[2] + '55'; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(box.x, A.Y(v)); g.lineTo(box.x + box.w, A.Y(v)); g.stroke(); });
+  g.setLineDash([]);
+  trkLine(g, A, P, p => p.t, p => 100 * p.dz, '#ff9a3c', 1);
+  trkLine(g, A, P, p => p.t, p => 100 * p.dh, '#4fd1ff', 1.4);
+  trkLegend(g, box.x + 4, 14, [['horizontal distance', '#4fd1ff'], ['vertical error (+ above)', '#ff9a3c'], ['dashed: 5 / 10 / 20 cm', '#888']]);
+}
+function trkChartAxes(cv, w, h, dpr) {             // signed error per axis
+  const g = trkCanvas(cv, w, h, dpr), P = trkSel.pts, box = { x: 48, y: 22, w: w - 62, h: h - 58 };
+  const A = trkAxes(g, box, [trkSel.t0, Math.max(trkSel.t1, trkSel.t0 + 1)], trkRange(P.flatMap(p => [100 * p.dx, 100 * p.dy, 100 * p.dz]), 0.05, 10), 'time [s]', 'error [cm]');
+  [['dx', 'x'], ['dy', 'y'], ['dz', 'z']].forEach(([k, a]) => trkLine(g, A, P, p => p.t, p => 100 * p[k], TRK_AX[a], 1.1));
+  const ekf = P.filter(p => p.ex != null);
+  g.fillStyle = '#ddd';
+  ekf.forEach(p => { const y = 100 * Math.hypot(p.ex - p.x, p.ey - p.y); g.fillRect(A.X(p.t) - 1, A.Y(y) - 1, 2, 2); });
+  trkLegend(g, box.x + 4, 14, [['X', TRK_AX.x], ['Y', TRK_AX.y], ['Z', TRK_AX.z], ['dots: |EKF − lighthouse| horizontal', '#ddd']]);
+}
+function trkChartAtt(cv, w, h, dpr) {              // attitude and battery: a steady tilt explains a slow drift
+  const g = trkCanvas(cv, w, h, dpr), P = trkSel.pts.filter(p => p.roll != null), box = { x: 48, y: 22, w: w - 92, h: h - 58 };
+  if (!P.length) { g.fillStyle = '#888'; g.textAlign = 'center'; g.fillText('no attitude in this track', w / 2, h / 2); return; }
+  const A = trkAxes(g, box, [trkSel.t0, Math.max(trkSel.t1, trkSel.t0 + 1)], trkRange(P.flatMap(p => [p.roll, p.pitch]), 0.05, 4), 'time [s]', 'angle [°]');
+  trkLine(g, A, P, p => p.t, p => p.roll, '#ff6bd5', 1.1);
+  trkLine(g, A, P, p => p.t, p => p.pitch, '#b9f56b', 1.1);
+  const V = P.filter(p => p.volt != null);
+  if (V.length) {
+    const vr = trkRange(V.map(p => p.volt), 0.1, 0.2), Yv = v => box.y + box.h - (v - vr[0]) / (vr[1] - vr[0]) * box.h;
+    g.strokeStyle = '#ffd36b'; g.lineWidth = 1; g.setLineDash([2, 3]); g.beginPath();
+    V.forEach((p, i) => i ? g.lineTo(A.X(p.t), Yv(p.volt)) : g.moveTo(A.X(p.t), Yv(p.volt))); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#ffd36b'; g.textAlign = 'left';
+    trkTicks(vr[0], vr[1], 4).forEach(v => g.fillText(v.toFixed(1) + ' V', box.x + box.w + 4, Yv(v) + 4));
+  }
+  trkLegend(g, box.x + 4, 14, [['roll', '#ff6bd5'], ['pitch', '#b9f56b'], ['battery (right axis)', '#ffd36b']]);
+}
+const TRK_CHARTS = [['trk-c-flight', trkChartFlight], ['trk-c-top', trkChartTop], ['trk-c-hist', trkChartHist],
+                    ['trk-c-err', trkChartError], ['trk-c-axes', trkChartAxes], ['trk-c-att', trkChartAtt]];
+function trkStatsHtml(st) {
+  return '<table class="cal-metrics">' + trkStatsRows(st).map(([k, v, cls, hint]) =>
+    `<tr><td title="${misEsc(hint || '')}">${misEsc(k)}</td><td class="${cls || ''}">${misEsc(v)}</td></tr>`).join('') + '</table>';
+}
+function trkRenderReport() {
+  if (!trkSel || trkSel.error) return;
+  trkEl('trk-r-title').textContent = `${trkData.meta.name} · ${trkSel.phase} · ${trkSel.label} · t ${trkSel.t0.toFixed(0)}–${trkSel.t1.toFixed(0)} s`;
+  trkEl('trk-stats').innerHTML = trkStatsHtml(trkSel.stats);
+  const dpr = window.devicePixelRatio || 1;
+  TRK_CHARTS.forEach(([id, draw]) => { const cv = trkEl(id); draw(cv, cv.clientWidth, cv.clientHeight, dpr); });
+}
+trkEl('trk-open').addEventListener('click', () => {
+  if (!trkSel || trkSel.error) return;
+  trkEl('trk-report').hidden = false;
+  requestAnimationFrame(trkRenderReport);
+});
+trkEl('trk-r-close').addEventListener('click', () => { trkEl('trk-report').hidden = true; });
+window.addEventListener('resize', () => { if (!trkEl('trk-report').hidden) trkRenderReport(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') trkEl('trk-report').hidden = true; });
+function trkDownload(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function trkCsv() {
+  const { rows: R, meta } = trkData;
+  const cell = v => v == null ? '' : typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v;
+  trkDownload(new Blob([[meta.columns.join(','), ...R.map(r => r.map(cell).join(','))].join('\n')], { type: 'text/csv' }), meta.name + '.csv');
+}
+trkEl('trk-csv').addEventListener('click', () => trkData && trkCsv());
+trkEl('trk-r-csv').addEventListener('click', () => trkData && trkCsv());
+// One PNG with the title, the stats and every chart (for reports / colleagues)
+trkEl('trk-r-png').addEventListener('click', () => {
+  if (!trkSel || trkSel.error) return;
+  const W = 1800, out = document.createElement('canvas'), layout = [
+    [trkChartFlight, 0, 70, W, 300], [trkChartTop, 0, 380, 620, 620], [trkChartHist, 630, 380, 640, 620],
+    [trkChartError, 0, 1010, W, 280], [trkChartAxes, 0, 1300, W, 280], [trkChartAtt, 0, 1590, W, 240]];
+  out.width = W; out.height = 1840;
+  const g = out.getContext('2d');
+  g.fillStyle = '#121212'; g.fillRect(0, 0, W, out.height);
+  g.fillStyle = '#fff'; g.font = 'bold 22px system-ui, "Segoe UI", sans-serif'; g.textAlign = 'left';
+  g.fillText('Lighthouse hover accuracy · ' + trkData.meta.name, 16, 32);
+  g.font = '14px system-ui, "Segoe UI", sans-serif'; g.fillStyle = '#aaa';
+  g.fillText(`${trkData.meta.started} · ${trkSel.phase} · ${trkSel.label} · t ${trkSel.t0.toFixed(0)}–${trkSel.t1.toFixed(0)} s`, 16, 56);
+  layout.forEach(([draw, x, y, w, h]) => { const cv = document.createElement('canvas'); draw(cv, w, h, 1); g.drawImage(cv, x, y); });
+  const colours = { good: '#5adf7a', warn: '#e4b960', bad: '#f48a8a' };
+  let y = 404; g.font = '14px system-ui, "Segoe UI", sans-serif';
+  trkStatsRows(trkSel.stats).forEach(([k, v, cls]) => {
+    g.fillStyle = '#999'; g.fillText(k, 1290, y);
+    g.fillStyle = colours[cls] || '#eee'; g.fillText(v, 1290, y + 18); y += 46;
+  });
+  out.toBlob(b => trkDownload(b, `${trkData.meta.name}_report.png`), 'image/png');
+});
+trkClear();
+
 const trackMode = document.getElementById('track-mode');
 const relayRow = document.getElementById('relay-row');
 const trackConnectButton = document.getElementById('track-connect-btn');
@@ -1620,6 +2116,7 @@ function disconnectTracking() {
   updateOdoFc();
   updateHold(null);
   updateMission(null);
+  updateTrack(null);
 }
 
 trackConnectButton.addEventListener('click', () => {
@@ -1660,6 +2157,7 @@ trackConnectButton.addEventListener('click', () => {
           relayConnected = true;
           updateHud(state.fc);
           updateMission(state.mission);
+          updateTrack(state.track);
           if (state.odometry && state.sequence !== lastSequence) {
             lastSequence = state.sequence;
             updateDronePosition(state.odometry);
