@@ -600,6 +600,17 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <div class="hint" id="mis-area">—</div>
     </div>
     <div class="bs-card">
+      <div class="grp-lbl">LIMITS · WHERE POINTS MAY GO</div>
+      <div class="row" title="Lowest target height, in room coordinates (Z of the ODOMETRY panel; 0 = the calibration floor)">
+        <div class="lbl" style="width:150px;">Min height</div><input id="mis-zmin" type="number" value="0.4" min="0.15" max="2.5" step="0.05"><div class="lbl">m</div></div>
+      <div class="row" title="Highest target height (Z of the ODOMETRY panel)">
+        <div class="lbl" style="width:150px;">Max height</div><input id="mis-zmax" type="number" value="2.0" min="0.3" max="3" step="0.1"><div class="lbl">m</div></div>
+      <div class="row" title="The allowed floor area is the rectangle between the calibrated base stations, shrunk by this much on every side (near the stations the drone is seen at grazing angles)">
+        <div class="lbl" style="width:150px;">Margin from the stations</div><input id="mis-margin" type="number" value="0.3" min="0" max="1" step="0.05"><div class="lbl">m</div></div>
+      <div class="hint">Heights are the <b>Z</b> of the ODOMETRY panel (0 = calibration floor). With points relative to the drone,
+        a point's height is the drone's Z when it starts + dZ. The dashed rectangle on the floor in 3D is the allowed area.</div>
+    </div>
+    <div class="bs-card">
       <div class="grp-lbl">SETTINGS</div>
       <div class="row"><div class="lbl" style="width:120px;">Speed</div><input id="mis-speed" type="number" value="0.3" min="0.1" max="1" step="0.05"><div class="lbl">m/s</div></div>
       <div class="row"><div class="lbl" style="width:120px;" title="A point counts as reached within this distance">Arrival radius</div><input id="mis-tol" type="number" value="10" min="3" max="50" step="1"><div class="lbl">cm</div></div>
@@ -1287,8 +1298,10 @@ function misBad(p) {                                   // why a room point would
   if (!p) return '';
   const area = misStatus && misStatus.area, zr = (misStatus && misStatus.z_range) || [0.4, 2.0];
   if (p.some(v => !isFinite(v))) return 'not a number';
-  if (p[2] < zr[0] || p[2] > zr[1]) return `height outside ${zr[0]}..${zr[1]} m`;
-  if (area && (p[0] < area[0] || p[0] > area[1] || p[1] < area[2] || p[1] > area[3])) return 'outside the covered area';
+  if (p[2] < zr[0]) return `height ${p[2].toFixed(2)} m is below the min height ${zr[0].toFixed(2)} m (Limits)`;
+  if (p[2] > zr[1]) return `height ${p[2].toFixed(2)} m is above the max height ${zr[1].toFixed(2)} m (Limits)`;
+  if (area && (p[0] < area[0] || p[0] > area[1] || p[1] < area[2] || p[1] > area[3]))
+    return `(${p[0].toFixed(2)}, ${p[1].toFixed(2)}) is outside the area between the stations (Limits → margin)`;
   return '';
 }
 function misRenderTable() {
@@ -1397,7 +1410,11 @@ function misRefresh() {
   el.innerHTML = items.map(i => `<div class="${i.ok ? 'ok' : 'no'}">${i.ok ? '✔' : '✘'} ${misEsc(i.text)}</div>`).join('');
   misStartBtn.disabled = misRunning() || !items.every(i => i.ok);
   const a = s.area;
-  document.getElementById('mis-area').textContent = a ? `Covered area: X ${a[0].toFixed(2)} … ${a[1].toFixed(2)} m, Y ${a[2].toFixed(2)} … ${a[3].toFixed(2)} m, Z ${s.z_range[0]} … ${s.z_range[1]} m` : 'Covered area unknown (no pose header): only the height is checked.';
+  const lim = s.limits || {};
+  document.getElementById('mis-area').textContent = a
+    ? `Allowed: X ${a[0].toFixed(2)} … ${a[1].toFixed(2)} m, Y ${a[2].toFixed(2)} … ${a[3].toFixed(2)} m (between the stations, ${(lim.margin ?? 0.3).toFixed(2)} m margin), height ${s.z_range[0].toFixed(2)} … ${s.z_range[1].toFixed(2)} m`
+      + (misLive() ? ` · drone now at Z ${lastOdomPos.z.toFixed(2)} m` : '')
+    : `Station area unknown (no pose header): only the height ${s.z_range[0].toFixed(2)} … ${s.z_range[1].toFixed(2)} m is checked.`;
   const st = document.getElementById('mis-status');
   if (misRunning()) st.textContent = `Running · point ${s.leg + 1}/${s.points.length}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
   else st.textContent = ({ idle: 'Ready when all checks are green.', done: '✔ Mission complete', aborted: '■ Mission stopped', error: '✘ Mission error' }[s.state] || s.state)
@@ -1408,6 +1425,8 @@ let misLastKey = '';
 let misDrawAt = 0;
 function updateMission(s) {
   misStatus = s || null;
+  if (!s) misLimitsSynced = false;
+  else if (!misLimitsSynced) misSendLimits();            // a (re)started bridge gets this browser's limits
   const autoBox = document.getElementById('mis-auto');
   if (s && Date.now() - misAutoSentAt > 1500) autoBox.checked = !!s.auto;   // the bridge decides
   if (!s) autoBox.checked = false;
@@ -1419,7 +1438,7 @@ function updateMission(s) {
 // Auto-start: the bridge holds the figure and starts it when the radio switches into GUIDED
 let misAutoSentAt = 0, misAutoTimer = null;
 function misAutoBody(enabled) {
-  return { enabled, frame: misFrame, points: misPoints, speed: parseFloat(document.getElementById('mis-speed').value),
+  return { enabled, frame: misFrame, points: misPoints, limits: misLimits(), speed: parseFloat(document.getElementById('mis-speed').value),
            tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
            settle: parseFloat(document.getElementById('mis-settle').value) };
 }
@@ -1434,6 +1453,24 @@ document.getElementById('mis-auto').addEventListener('change', e => {
   misCall('auto', misAutoBody(e.target.checked));
 });
 ['mis-speed', 'mis-tol', 'mis-settle'].forEach(id => document.getElementById(id).addEventListener('change', misSendAuto));
+// Limits: kept in this browser, sent to the bridge (it checks every point against them)
+const MIS_LIMITS = [['mis-zmin', 'z_min'], ['mis-zmax', 'z_max'], ['mis-margin', 'margin']];
+try {
+  const saved = JSON.parse(localStorage.getItem('lh2.mission.limits') || 'null');
+  if (saved) MIS_LIMITS.forEach(([id, k]) => { if (saved[k] != null) document.getElementById(id).value = saved[k]; });
+} catch (_e) { /* storage blocked */ }
+function misLimits() {
+  const out = {};
+  MIS_LIMITS.forEach(([id, k]) => { const v = parseFloat(document.getElementById(id).value); if (isFinite(v)) out[k] = v; });
+  return out;
+}
+let misLimitsSynced = false;
+function misSendLimits() {
+  try { localStorage.setItem('lh2.mission.limits', JSON.stringify(misLimits())); } catch (_e) { /* storage blocked */ }
+  misLimitsSynced = true;
+  misCall('limits', { limits: misLimits() });
+}
+MIS_LIMITS.forEach(([id]) => document.getElementById(id).addEventListener('change', () => { misSendLimits(); misSendAuto(); }));
 function misUrl(action) { return new URL('/api/fc/mission/' + action, new URL(document.getElementById('relay-url').value.trim())); }
 async function misCall(action, body) {
   try {
@@ -1444,7 +1481,7 @@ async function misCall(action, body) {
   } catch (err) { document.getElementById('mis-status').textContent = '✘ Bridge unreachable: ' + err.message; }
 }
 misStartBtn.addEventListener('click', () => misCall('start', {
-  points: misPoints, frame: misFrame, speed: parseFloat(document.getElementById('mis-speed').value),
+  points: misPoints, frame: misFrame, limits: misLimits(), speed: parseFloat(document.getElementById('mis-speed').value),
   tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
   settle: parseFloat(document.getElementById('mis-settle').value),
 }));

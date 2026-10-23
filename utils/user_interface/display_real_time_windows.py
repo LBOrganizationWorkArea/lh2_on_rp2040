@@ -598,7 +598,10 @@ class MissionRunner:
     targets are sent only while the FC is armed in GUIDED, and any other mode on the radio
     (Loiter, PosHold) ends the mission at once."""
 
-    Z_RANGE = (0.4, 2.0)          # allowed target heights [m]
+    # Where targets may go: heights (Z of the room, 0 = calibration floor) and the rectangle between
+    # the stations shrunk by a margin. Set from the editor (Mission → Limits) within these bounds.
+    LIMITS_DEFAULT = {"z_min": 0.4, "z_max": 2.0, "margin": 0.3}
+    LIMITS_BOUNDS = {"z_min": (0.15, 2.5), "z_max": (0.3, 3.0), "margin": (0.0, 1.0)}
     MAX_SPEED = 1.0               # [m/s]
     AGREE_M = 0.15                # EKF vs lighthouse position: larger = do not send targets
     EKF_LAG_S = 0.8               # the EKF position may be this much behind the lighthouse one
@@ -612,6 +615,7 @@ class MissionRunner:
         self.thread = None
         self.status_ = {"state": "idle", "points": [], "leg": None, "message": "", "log": [], "distance": None,
                         "area": None}
+        self.limits = dict(self.LIMITS_DEFAULT)
         # Auto-start: the editor arms a figure; it runs when the radio switches INTO GUIDED
         # (a transition seen here, never because the app connected while already in GUIDED).
         self.auto = None            # {"frame", "points", "speed", "tolerance", "settle"}
@@ -680,15 +684,29 @@ class MissionRunner:
             out["agree"] = (False, "EKF position (LOCAL_POSITION_NED) missing")
         return {k: {"ok": ok, "detail": detail} for k, (ok, detail) in out.items()}
 
+    def set_limits(self, limits):
+        """Update the target limits (missing keys keep their value), clamped to LIMITS_BOUNDS."""
+        new = dict(self.limits)
+        for key, (low, high) in self.LIMITS_BOUNDS.items():
+            if limits.get(key) not in (None, ""):
+                new[key] = min(high, max(low, float(limits[key])))
+        if new["z_max"] < new["z_min"] + 0.1:
+            raise ValueError("the maximum height must be at least 0.1 m above the minimum")
+        with self.lock:
+            self.limits = new
+
     def validate(self, points):
-        area = station_area()
+        lim = self.limits
+        area = station_area(lim["margin"])
         bad = []
         for i, p in enumerate(points):
             x, y, z = p
-            if not self.Z_RANGE[0] <= z <= self.Z_RANGE[1]:
-                bad.append(f"point {i + 1}: height {z:.2f} m outside {self.Z_RANGE[0]}..{self.Z_RANGE[1]} m")
+            if z < lim["z_min"]:
+                bad.append(f"point {i + 1}: height {z:.2f} m is below the minimum height {lim['z_min']:.2f} m")
+            elif z > lim["z_max"]:
+                bad.append(f"point {i + 1}: height {z:.2f} m is above the maximum height {lim['z_max']:.2f} m")
             if area and not (area[0] <= x <= area[1] and area[2] <= y <= area[3]):
-                bad.append(f"point {i + 1}: ({x:.2f}, {y:.2f}) outside the covered area "
+                bad.append(f"point {i + 1}: ({x:.2f}, {y:.2f}) outside the area between the stations "
                            f"X {area[0]:.2f}..{area[1]:.2f}, Y {area[2]:.2f}..{area[3]:.2f}")
         return bad
 
@@ -718,7 +736,8 @@ class MissionRunner:
         tolerance = min(0.5, max(0.03, float(tolerance)))
         settle = min(5.0, max(0.0, float(settle)))
         with self.lock:
-            self.status_.update(state="running", points=points, leg=0, distance=None, log=[], area=station_area())
+            self.status_.update(state="running", points=points, leg=0, distance=None, log=[],
+                                area=station_area(self.limits["margin"]))
         self.stop_event.clear()
         self.thread = threading.Thread(target=self._run, args=(points, speed, tolerance, settle), daemon=True)
         self.thread.start()
@@ -808,9 +827,10 @@ class MissionRunner:
         with self.lock:
             out = dict(self.status_)
         out["checks"] = self.checks()
-        if out["area"] is None:
-            out["area"] = station_area()
-        out["z_range"] = list(self.Z_RANGE)
+        out["area"] = station_area(self.limits["margin"])
+        out["z_range"] = [self.limits["z_min"], self.limits["z_max"]]
+        out["limits"] = dict(self.limits)
+        out["stations_area"] = station_area(0.0)
         with self.lock:
             out["auto"] = self.auto
         return out
@@ -2031,7 +2051,11 @@ def make_handler(state, capture, ootx, fc, mission):
                 try:
                     length = int(self.headers.get("Content-Length") or 0)
                     body = json.loads(self.rfile.read(length) or b"{}") if 0 < length < 65536 else {}
-                    if action == "start":
+                    if body.get("limits"):
+                        mission.set_limits(body["limits"])
+                    if action == "limits":
+                        pass
+                    elif action == "start":
                         mission.start(body.get("points", []), body.get("speed", 0.3),
                                       body.get("tolerance", 0.10), body.get("settle", 1.0), body.get("frame", "absolute"))
                     elif action == "auto":

@@ -205,8 +205,14 @@ the app connected while the drone was already in GUIDED, only on a switch.
 **The pilot stays in charge.** Targets are sent only while the drone is armed in GUIDED. Any other
 mode on the radio (Loiter, PosHold) ends the mission at once and the app sends nothing more.
 **Stop** sends "hover here". A point not reached in time, or a lighthouse / EKF problem lasting
-over a second, also stops the mission with "hover here". The covered area is the rectangle
-between the calibrated stations, shrunk by 30 cm.
+over a second, also stops the mission with "hover here".
+
+**Limits** (Mission tab): points must lie inside the rectangle between the calibrated stations,
+shrunk by a margin (default 30 cm), at a height between the minimum and maximum height (default
+0.4–2.0 m). The height is the Z of the ODOMETRY panel, where 0 is the calibration floor. With
+relative points, a point's height is the drone's Z when it starts plus dZ. All three values can be
+changed in the tab: the bridge allows 0.15–2.5 m for the minimum, 0.3–3 m for the maximum and
+0–1 m for the margin. A refused point says which limit it breaks.
 
 ### Where the app keeps its files
 
