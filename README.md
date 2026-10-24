@@ -114,6 +114,8 @@ The window has two modes, switched at the top left:
 | **Measure** | both | Distance tool in the 3D view. |
 | **Code** | Sandbox | The `bs_poses_cal.h` content for the poses on screen. |
 | **Calib** | Calibration | The calibration wizard (below). |
+| **Mission** | both | A list of room points (X / Y / Z, the same as the ODOMETRY panel) flown one by one in GUIDED — see [Automatic mission](#automatic-mission-guided). |
+| **Track** | both | Flight log: records the path and builds an **accuracy report** of how still the drone holds a point — see [Track: flight log and hover accuracy](#track-flight-log-and-hover-accuracy). |
 | **?** | both | Help. |
 
 ### The Calib panel
@@ -178,11 +180,139 @@ and Import / Export of a whole session as one JSON file.
 - **Over USB instead**: the older path, which reads the `O,` lines from the Pico's USB port. It is
   only needed for firmware that predates on-board decoding.
 
+### Automatic mission (GUIDED)
+
+The **Mission** tab flies a list of points, either **relative to where the drone is** (dX, dY, dZ:
+the figure runs from wherever the drone is when it starts) or in **room coordinates**. Type them,
+add the drone's position, or create a figure of a chosen size that starts and ends where the drone
+is. Straight-line figures stop at every corner: forward and back, square, triangle, cross, 5-point
+star, zig-zag over a square, vertical square, cube. Curves are flown without stopping: circle,
+figure of eight, flat spiral, rising helix (with turns and rise per turn).
+**Fly through the points without stopping** (ticked automatically for curves) makes every point but
+the last a pass-through point (go on once within 15 cm, no hold).
+The path is drawn in 3D (a relative figure around the drone's current position) with the covered
+area on the floor.
+
+**Start automatically when the radio switches to GUIDED**: tick it and the bridge holds the figure.
+Every time the radio switches *into* GUIDED (armed) it flies it from that point. No need to touch
+the PC: fly anywhere, flip to GUIDED, flip back to Loiter / PosHold to stop. It never fires because
+the app connected while the drone was already in GUIDED, only on a switch.
+
+1. Take off by hand and hover; switch to **GUIDED** on the radio.
+2. When every check is green, press **Start**. The checks are: telemetry, armed, GUIDED, a fresh
+   lighthouse position, the EKF agreeing with the lighthouse within 15 cm, and every point
+   inside the covered area at 0.4–2 m height.
+3. The bridge sends one `SET_POSITION_TARGET_LOCAL_NED` at a time. It converts room coordinates
+   to the EKF frame with the same turn the firmware applies to ODOMETRY, and holds the current yaw
+   with `DO_CHANGE_SPEED` set as configured. A point counts as reached the first time the lighthouse
+   position comes within the arrival radius. The drone then stays there for the **hold time**
+   (0–600 s, counted from the arrival, whatever small excursions it makes), and the next point is sent.
+4. At the end the drone hovers at the last point (still GUIDED): take over on the radio.
+
+**The pilot stays in charge.** Targets are sent only while the drone is armed in GUIDED. Any other
+mode on the radio (Loiter, PosHold) ends the mission at once and the app sends nothing more.
+**Stop** sends "hover here". A point not reached in time, or a lighthouse / EKF problem lasting
+over a second, also stops the mission with "hover here".
+
+**Limits** (Mission tab): points must lie inside the rectangle between the calibrated stations,
+shrunk by a margin (default 30 cm), at a height between the minimum and maximum height (default
+0.4–2.0 m). The height is the Z of the ODOMETRY panel, where 0 is the calibration floor. With
+relative points, a point's height is the drone's Z when it starts plus dZ. All three values can be
+changed in the tab: the bridge allows 0.15–2.5 m for the minimum, 0.3–3 m for the maximum and
+0–1 m for the margin. A refused point says which limit it breaks.
+
+### Track: flight log and hover accuracy
+
+The **Track** tab records the flight and measures how well the drone holds a point.
+**Record** saves one row per lighthouse position (10 Hz) with:
+
+- the EKF position (`LOCAL_POSITION_NED` turned into room coordinates);
+- roll / pitch, battery voltage, flight mode and armed state;
+- the mission state, the current point and its target;
+- whether the drone is in the hold at that point.
+
+The file is rewritten every 5 s while recording, so a crash loses little.
+
+Typical hover study:
+
+1. Mission tab: one point (room coordinates or relative), **Hold at each point** e.g. 120 s.
+2. Track tab: **Record**.
+3. Take off and switch to GUIDED (or press Start). The drone flies to the point and holds it.
+4. When the mission says *complete*, **Stop** the recording. The newest track is loaded.
+
+**Study** chooses the samples and what they are compared with:
+
+- *Samples*: the mission hold (default), the hold plus the hovering after it, or the whole
+  recording; all of these can be cut to a time window.
+- *Target*: the mission point(s), a fixed point, or the median position. The median shows the
+  spread only, with no target.
+
+The 3D view shows the path (grey) and the studied samples, coloured by horizontal distance:
+green ≤ 5 cm, yellow ≤ 10, orange ≤ 20, red beyond. Rings of 5 / 10 / 20 cm surround the target.
+
+**📊 Accuracy report** opens the charts:
+
+- position over time for the whole recording, with the studied part shaded;
+- the samples seen from above around the target, with CEP50 / R95 circles and the mean offset;
+- a histogram of the horizontal distance with its cumulative curve;
+- distance over time;
+- error per axis over time, plus |EKF − lighthouse|;
+- roll / pitch and battery over time.
+
+It also lists the numbers:
+
+- **CEP50 / R95**: radius holding 50 % / 95 % of the samples.
+- Horizontal RMS, mean and max.
+- Share of samples within 5 / 10 / 20 cm.
+- **Bias**: the mean offset, i.e. where the drone sat on average.
+- **Spread**: σ about that mean, i.e. how much it moved around it.
+- Vertical RMS / p95 / max and 3D RMS.
+- **Drift**: the trend of the offset, in cm/min.
+- EKF − lighthouse RMS.
+- Mean roll / pitch: a steady tilt explains a slow drift.
+- Battery at the start and at the end.
+
+Point at a line of the numbers to see what it means. Two more numbers help to find the cause of an error:
+
+- **Spread forward-back / sideways**: the spread split along the drone's own axes. Forward much larger
+  than sideways means a pitch-axis problem (balance, tuning), not a lighthouse one.
+- **Pitch / roll movement**: how much the drone tilts while it works.
+
+**Study → a path** measures how well the drone follows a figure flown as a mission (square, circle,
+helix…). Each sample is compared with the straight line of its leg, from the previous point (the start
+position for the first leg) to the point being flown to. By default the holds at the points are left
+out; tick *include the holds* to count them. The report shows:
+
+- the planned lines and the flown samples seen from above, coloured by distance;
+- a histogram of the distance from the line;
+- the path error over time, leg by leg;
+- the height along the path, planned against flown;
+- a table per leg: length, time, speed, error RMS and max;
+- the numbers: path error RMS / median / p95 / max, share within 5 / 10 / 20 cm, height error,
+  planned against flown length, mean speed, EKF − lighthouse, attitude and battery.
+
+A track with a figure opens on the path study, a track with a one-point hold on the point study.
+
+**Compare sessions**: tick 2–8 tracks and press **Compare**. The same study (point or path, with the
+settings above) runs on each track. For a point, each track uses its whole hold; for a path, its last
+figure. The oldest track is the baseline. The comparison shows:
+
+- one curve per session of the share of samples within a distance (higher and further left = better);
+- CEP50 / R95 (or path RMS / p95) bars;
+- a table of every number with its change against the baseline: green better, red worse, plain within 5 %;
+- a small top view of each session at the same scale.
+
+**Save PNG** writes the whole report (or comparison) as one image, for sharing. **CSV** exports the raw
+rows, or the comparison table.
+The positions are the lighthouse's own: they measure how well the drone holds the point *as the
+lighthouse sees it*, not errors of the lighthouse system itself.
+
 ### Where the app keeps its files
 
 | What | Where |
 |---|---|
 | Calibration sessions | `Documents\LH2\calib_runs` (the reference run is copied there on the first start) |
+| Flight tracks (Track tab) | `Documents\LH2\tracks\track_<date>_<time>[_name].json` |
 | Saved factory calibration | `Documents\LH2\lh2_factory_calibration.json` + `lh2_factory_cal.h` |
 | Backend log | `%APPDATA%\LightHouse Studio\logs\backend.log` (Help → Backend log) |
 | Firmware UF2s / headers shipped with the app | File → Open firmware folder |
@@ -295,10 +425,11 @@ inside:
 - It listens for the drone's MAVLink on UDP 14550 and sends GCS heartbeats to the radio on port 14555,
   which is how the radio learns where to send.
 - It serves the UI on `http://127.0.0.1:8051`, with `/api/odometry` (position + the flight controller's HUD
-  telemetry), `/api/fc/param` (read / write the whitelisted ArduPilot parameters) and `/api/lh2/*` for
+  telemetry), `/api/fc/param` (read / write the whitelisted ArduPilot parameters), `/api/fc/mission/*`
+  (GUIDED missions), `/api/track/*` (flight log: start, stop, list, get, delete) and `/api/lh2/*` for
   capture, solve, simulation, evaluation, export and OOTX. It asks the flight controller for the
   POSITION, EXTRA3, EXTENDED_STATUS, EXTRA1 and EXTRA2 streams.
-- Data folders can be moved with `LH2_RUNS_DIR` (sessions) and `LH2_DATA_DIR` (factory calibration).
+- Data folders can be moved with `LH2_RUNS_DIR` (sessions) and `LH2_DATA_DIR` (factory calibration, flight tracks).
 
 Without the desktop app (development, Linux):
 

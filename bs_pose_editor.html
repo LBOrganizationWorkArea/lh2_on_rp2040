@@ -68,6 +68,19 @@ body[data-mode=calib] #cal-hud { display: block; }
 #fc-params-card .row input { width: 90px; }
 #fc-params-card .pname { width: 128px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #ddd; }
 #fc-param-status { font-size: 12px; color: #9ab; min-height: 16px; white-space: pre-wrap; }
+#mis-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+#mis-table th { color: #8aa; font-weight: normal; text-align: left; padding: 2px 3px; }
+#mis-table td { padding: 2px 3px; }
+#mis-table input { width: 64px; }
+#mis-table tr.bad input { border-color: #c44; color: #ff8a8a; }
+#mis-table tr.cur td:first-child { color: #ffcc44; font-weight: bold; }
+#mis-table button { padding: 2px 7px; }
+#mis-checks div { font-size: 12px; line-height: 1.6; }
+#mis-checks .ok { color: #6fdc8c; } #mis-checks .no { color: #ff8a8a; }
+#mis-start { background: #2c6b3a; border-color: #3f9a53; color: #fff; font-weight: 600; }
+#mis-start:disabled { background: #2a2a2a; border-color: #444; color: #777; }
+#mis-stop { background: #8a2c2c; border-color: #c44; color: #fff; font-weight: 600; }
+#mis-status { font-size: 13px; color: #ddd; }
 .bs-card.selected { border-color: #4f8fca; box-shadow: 0 0 0 1px #4f8fca inset; }
 #conn-dot { width: 9px; height: 9px; border-radius: 50%; background: #666; flex: none; }
 #conn-dot.live { background: #5adf7a; box-shadow: 0 0 6px #5adf7a; }
@@ -277,6 +290,40 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 #scene-container { position: absolute; inset: 0; background: #161616; }
 #scene-container canvas { display: block; }
 .label3d { font-size: 12px; font-family: system-ui, 'Segoe UI', sans-serif; font-weight: bold; pointer-events: none; user-select: none; text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000; }
+/* Track: flight log + accuracy report */
+#trk-rec { background: #2c6b3a; border: 1px solid #3f9a53; color: #fff; font-weight: 600; border-radius: 4px; padding: 8px; cursor: pointer; }
+#trk-rec.on { background: #8a2c2c; border-color: #c44; }
+#trk-rec:disabled { background: #2a2a2a; border-color: #444; color: #777; cursor: default; }
+#trk-state { font-size: 12px; color: #9ab; word-break: break-all; }
+#trk-list { width: 100%; background: #141414; border: 1px solid #444; color: #ddd; border-radius: 3px; font-size: 12px; }
+#sec-track input[type=text], #sec-track select:not(#trk-list) { flex: 1; min-width: 0; background: #141414; border: 1px solid #444; border-radius: 3px; color: #fff; padding: 4px; }
+#sec-track .row input[type=number] { width: 70px; }
+#trk-info, #trk-quick, #trk-msg { font-size: 12px; color: #bbb; line-height: 1.5; }
+#trk-quick .good { color: #5adf7a; } #trk-quick .warn { color: #ffcc44; } #trk-quick .bad { color: #ff8a8a; }
+#trk-cmp { max-height: 150px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: #ccc; }
+#trk-cmp label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.trk-q { color: #777; font-size: 10px; border: 1px solid #555; border-radius: 50%; padding: 0 4px; }
+.trk-tablewrap { overflow-x: auto; }
+.trk-table { border-collapse: collapse; font-size: 12px; width: 100%; font-variant-numeric: tabular-nums; }
+.trk-table th { color: #8aa; font-weight: normal; text-align: left; padding: 3px 8px 3px 0; white-space: nowrap; }
+.trk-table td { color: #ddd; padding: 3px 8px 3px 0; border-top: 1px solid #262626; white-space: nowrap; }
+.trk-table td:first-child { color: #999; }
+.trk-table .good { color: #5adf7a; } .trk-table .warn { color: #e4b960; } .trk-table .bad { color: #f48a8a; }
+#trk-load, #trk-refresh, #trk-csv, #trk-cmp-go { background: #1d3742; border: 1px solid #2f6577; color: #a6e4f5; border-radius: 4px; padding: 6px 10px; cursor: pointer; }
+#trk-open { background: #18313a; border: 1px solid #2c5968; color: #8adcf0; border-radius: 4px; padding: 8px; cursor: pointer; font-weight: 600; flex: 1; }
+#trk-report { position: absolute; inset: 0; z-index: 30; background: rgba(14,14,14,0.98); display: flex; flex-direction: column; }
+.trk-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid #333; }
+.trk-head b { color: #fff; font-size: 13px; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trk-head button { background: #18313a; border: 1px solid #2c5968; color: #8adcf0; border-radius: 4px; padding: 5px 12px; cursor: pointer; }
+.trk-grid { flex: 1; overflow-y: auto; padding: 10px; display: grid; grid-template-columns: minmax(300px, 1fr) minmax(300px, 1.1fr) minmax(280px, 0.9fr); gap: 10px; align-content: start; }
+.trk-card { background: #1b1b1b; border: 1px solid #333; border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.trk-card.wide { grid-column: 1 / -1; }
+.trk-ct { font-size: 12px; color: #ccc; font-weight: 600; }
+.trk-card canvas { width: 100%; height: 240px; display: block; }
+.trk-card canvas.sq { height: auto; aspect-ratio: 1 / 1; max-height: 520px; }
+#trk-c-hist { height: 100%; min-height: 300px; }
+.trk-card .cal-metrics td { padding: 3px 6px 3px 0; }
+@media (max-width: 1100px) { .trk-grid { grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -295,6 +342,8 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   <button class="tb-btn" data-sec="meas" title="Measure tool"><span class="ic">📏</span><span class="lb">Measure</span></button>
   <button class="tb-btn" data-sec="code" data-modes="sandbox" title="C code for bs_poses_cal.h"><span class="ic">&lt;/&gt;</span><span class="lb">Code</span></button>
   <button class="tb-btn" data-sec="calib" data-modes="calib" title="Auto-calibration capture"><span class="ic">🧭</span><span class="lb">Calib</span></button>
+  <button class="tb-btn" data-sec="mission" title="Automatic mission: fly a list of room points in GUIDED"><span class="ic">🛫</span><span class="lb">Mission</span></button>
+  <button class="tb-btn" data-sec="track" title="Flight log: record the path and study how still the drone holds a point"><span class="ic">📈</span><span class="lb">Track</span></button>
   <button class="tb-btn" data-sec="help" title="Help"><span class="ic">❓</span></button>
   <div class="tb-spacer"></div>
   <div id="conn-dot" title="Connection status"></div>
@@ -560,6 +609,142 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <div id="cal-ootx-saved" class="hint"></div>
     </details>
   </div>
+  <div class="sec" id="sec-mission">
+    <div class="sec-title">MISSION · GUIDED</div>
+    <div class="hint">Points in room coordinates (the X / Y / Z of the ODOMETRY panel). Take off by hand, hover,
+      switch to <b>GUIDED</b> on the radio, then Start. <b>Any other mode on the radio (Loiter, PosHold) stops the mission at once.</b></div>
+    <div class="bs-card">
+      <div class="grp-lbl">POINTS</div>
+      <div class="row"><div class="lbl" style="width:62px;">Points</div>
+        <select id="mis-frame" style="flex:1;">
+          <option value="relative">relative to where the drone is (dX, dY, dZ)</option>
+          <option value="absolute">room coordinates (X, Y, Z)</option>
+        </select></div>
+      <table id="mis-table"><thead><tr><th>#</th><th id="mis-hx">X m</th><th id="mis-hy">Y m</th><th id="mis-hz">Z m</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="row" style="flex-wrap:wrap;gap:6px;">
+        <button id="mis-add" type="button">+ Point</button>
+        <button id="mis-add-drone" type="button" title="Add where the drone is now">+ Drone position</button>
+        <button id="mis-clear" type="button">Clear</button>
+      </div>
+      <div class="grp-lbl" style="display:block;margin-top:6px;">FIGURE · REPLACES THE LIST, STARTS AND ENDS WHERE THE DRONE IS</div>
+      <div class="row" style="flex-wrap:wrap;gap:6px;">
+        <select id="mis-preset" style="flex:1;min-width:150px;">
+          <optgroup label="Straight lines (stop at each corner)">
+            <option value="line">Forward and back (+X)</option>
+            <option value="square">Square</option>
+            <option value="triangle">Triangle</option>
+            <option value="cross">Cross</option>
+            <option value="star">Star (5 points)</option>
+            <option value="zigzag">Zig-zag (scan a square)</option>
+            <option value="vsquare">Vertical square (up / down)</option>
+            <option value="cube">Cube (square, up, square, down)</option>
+          </optgroup>
+          <optgroup label="Curves (flown without stopping)">
+            <option value="circle">Circle</option>
+            <option value="eight">Figure of eight</option>
+            <option value="spiral">Spiral (flat, outwards)</option>
+            <option value="helix">Helix (rising circle)</option>
+          </optgroup>
+        </select>
+        <button id="mis-make" type="button">Create</button>
+      </div>
+      <div class="row" style="flex-wrap:wrap;gap:6px;">
+        <div class="lbl" title="Side of the square / triangle / zig-zag, diameter of the circle, spiral, helix, star and eight, length of the line">Size</div>
+        <input id="mis-size" type="number" value="0.6" min="0.1" max="3" step="0.1" style="width:64px;"><div class="lbl">m</div>
+        <div class="lbl mis-turns" title="Spiral / helix: number of turns">Turns</div>
+        <input id="mis-turns" class="mis-turns" type="number" value="2" min="1" max="3" step="0.5" style="width:54px;">
+        <div class="lbl mis-rise" title="Helix: height gained per turn; vertical square / cube: height">Rise</div>
+        <input id="mis-rise" class="mis-rise" type="number" value="0.3" min="0.05" max="1" step="0.05" style="width:60px;"><div class="lbl mis-rise">m</div>
+      </div>
+      <div class="hint" id="mis-area">—</div>
+    </div>
+    <div class="bs-card">
+      <div class="grp-lbl">LIMITS · WHERE POINTS MAY GO</div>
+      <div class="row" title="Lowest target height, in room coordinates (Z of the ODOMETRY panel; 0 = the calibration floor)">
+        <div class="lbl" style="width:150px;">Min height</div><input id="mis-zmin" type="number" value="0.4" min="0.15" max="2.5" step="0.05"><div class="lbl">m</div></div>
+      <div class="row" title="Highest target height (Z of the ODOMETRY panel)">
+        <div class="lbl" style="width:150px;">Max height</div><input id="mis-zmax" type="number" value="2.0" min="0.3" max="3" step="0.1"><div class="lbl">m</div></div>
+      <div class="row" title="The allowed floor area is the rectangle between the calibrated base stations, shrunk by this much on every side (near the stations the drone is seen at grazing angles)">
+        <div class="lbl" style="width:150px;">Margin from the stations</div><input id="mis-margin" type="number" value="0.3" min="0" max="1" step="0.05"><div class="lbl">m</div></div>
+      <div class="hint">Heights are the <b>Z</b> of the ODOMETRY panel (0 = calibration floor). With points relative to the drone,
+        a point's height is the drone's Z when it starts + dZ. The dashed rectangle on the floor in 3D is the allowed area.</div>
+    </div>
+    <div class="bs-card">
+      <div class="grp-lbl">SETTINGS</div>
+      <div class="row"><div class="lbl" style="width:120px;">Speed</div><input id="mis-speed" type="number" value="0.3" min="0.1" max="1" step="0.05"><div class="lbl">m/s</div></div>
+      <div class="row"><div class="lbl" style="width:120px;" title="A point counts as reached within this distance">Arrival radius</div><input id="mis-tol" type="number" value="10" min="3" max="50" step="1"><div class="lbl">cm</div></div>
+      <div class="row"><div class="lbl" style="width:120px;" title="How long to stay once the point is reached (counted from the arrival). Up to 600 s for hover studies: record them in the Track tab.">Hold at each point</div><input id="mis-settle" type="number" value="1" min="0" max="600" step="1"><div class="lbl">s</div></div>
+      <label class="row" style="gap:6px;cursor:pointer;" title="Every point but the last only has to be passed within 15 cm, without holding: curves made of many points are flown smoothly. Ticked automatically for circle, eight, spiral and helix.">
+        <input id="mis-pass" type="checkbox"> Fly through the points without stopping (curves)</label>
+    </div>
+    <label class="row" style="gap:8px;cursor:pointer;align-items:flex-start;" title="The bridge starts the figure by itself when the radio switches INTO GUIDED (armed): no need to press Start. Leaving GUIDED stops it as always.">
+      <input id="mis-auto" type="checkbox" style="margin-top:3px;">
+      <span><b>Start automatically when the radio switches to GUIDED</b><br>
+      <span class="hint">Fly anywhere, switch to GUIDED: the figure runs from that point. Switch back to Loiter / PosHold to stop.</span></span></label>
+    <div class="bs-card">
+      <div class="grp-lbl">READY?</div>
+      <div id="mis-checks"><div class="no">Connect in the Drone tab (UDP via bridge).</div></div>
+    </div>
+    <div class="row">
+      <button id="mis-start" type="button" style="flex:1;" disabled>▶ Start</button>
+      <button id="mis-stop" type="button" style="flex:1;">■ Stop (hover here)</button>
+    </div>
+    <div id="mis-status">—</div>
+    <div id="mis-log" class="cal-log" style="max-height:160px;">—</div>
+  </div>
+  <div class="sec" id="sec-track">
+    <div class="sec-title">TRACK · FLIGHT LOG &amp; ACCURACY</div>
+    <div class="hint">Records every lighthouse position (10 Hz) with the EKF position, attitude, battery, mode and the
+      mission target. Typical study: <b>Record</b>, take off, switch to GUIDED with a one-point mission and a long hold
+      (Mission → Hold, e.g. 120 s), then <b>Stop</b> and look at how the samples spread around the point.</div>
+    <div class="bs-card">
+      <div class="grp-lbl">RECORD</div>
+      <div class="row"><div class="lbl" style="width:62px;">Name</div><input id="trk-name" type="text" placeholder="optional, e.g. hover_120s" spellcheck="false"></div>
+      <button id="trk-rec" type="button" disabled>● Record</button>
+      <div id="trk-state">Connect in the Drone tab (UDP via bridge).</div>
+    </div>
+    <div class="bs-card">
+      <div class="grp-lbl">RECORDED TRACKS</div>
+      <select id="trk-list" size="6"></select>
+      <div class="row" style="gap:6px;"><button id="trk-load" type="button" style="flex:1;">Load</button>
+        <button id="trk-refresh" type="button">↻</button><button id="trk-del" type="button" class="rm-btn">Delete</button></div>
+      <div id="trk-info">No track loaded.</div>
+    </div>
+    <div class="bs-card" id="trk-study" hidden>
+      <div class="grp-lbl">STUDY</div>
+      <div class="row"><div class="lbl" style="width:62px;">Study</div><select id="trk-kind">
+        <option value="point">hover at a point (how still it holds)</option>
+        <option value="path">a path (how well it follows a figure)</option></select></div>
+      <div id="trk-point-ctl">
+        <div class="row"><div class="lbl" style="width:62px;">Samples</div><select id="trk-phase">
+          <option value="hold">during the mission hold</option>
+          <option value="after">mission hold + hovering after it</option>
+          <option value="all">whole recording (time window)</option></select></div>
+        <div class="row"><div class="lbl" style="width:62px;">Window</div><input id="trk-t0" type="number" min="0" step="1"><div class="lbl" style="width:auto;">to</div><input id="trk-t1" type="number" min="0" step="1"><div class="lbl">s</div></div>
+        <div class="row"><div class="lbl" style="width:62px;">Target</div><select id="trk-target">
+          <option value="mission">the mission point(s)</option>
+          <option value="fixed">a fixed point (below)</option>
+          <option value="median">the median position (spread only)</option></select></div>
+        <div class="row"><div class="lbl">X</div><input id="trk-fx" type="number" step="0.05"><div class="lbl">Y</div><input id="trk-fy" type="number" step="0.05"><div class="lbl">Z</div><input id="trk-fz" type="number" step="0.05"></div>
+      </div>
+      <div id="trk-path-ctl" hidden>
+        <div class="row"><div class="lbl" style="width:62px;">Figure</div><select id="trk-mission"></select></div>
+        <label class="row" style="gap:6px;cursor:pointer;" title="Count also the samples while the drone holds at a point (corners of a square, the last point)"><input id="trk-holds" type="checkbox"> include the holds at the points</label>
+        <div class="hint">Each sample is measured against the straight line of its leg (from the previous point to the one being flown to).</div>
+      </div>
+      <label class="row" style="gap:6px;cursor:pointer;"><input id="trk-3d" type="checkbox" checked> Show in 3D (points coloured by distance: green ≤ 5 cm, yellow ≤ 10, orange ≤ 20, red more)</label>
+      <div id="trk-quick">—</div>
+      <div class="row" style="gap:6px;"><button id="trk-open" type="button">📊 Accuracy report</button><button id="trk-csv" type="button">CSV</button></div>
+    </div>
+    <div class="bs-card">
+      <div class="grp-lbl">COMPARE SESSIONS</div>
+      <div class="hint">Tick 2–8 tracks: the same study (point or path, the settings above) is run on each and put side by side.
+        The oldest is the baseline; every number shows its change against it.</div>
+      <div id="trk-cmp"></div>
+      <button id="trk-cmp-go" type="button">⚖ Compare</button>
+    </div>
+    <div id="trk-msg"></div>
+  </div>
   <div class="sec" id="sec-help">
     <div class="sec-title">HELP</div>
     <div class="hint">
@@ -592,6 +777,10 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 </div>
 
 <div id="scene-container"></div>
+<div id="trk-report" hidden>
+  <div class="trk-head"><b id="trk-r-title"></b><button id="trk-r-png" type="button">Save PNG</button><button id="trk-r-csv" type="button">CSV</button><button id="trk-r-close" type="button">✕ Close</button></div>
+  <div class="trk-grid" id="trk-grid"></div>
+</div>
 <button id="fit-view" title="Frame the base stations and the floor marks">⤢ Fit view</button>
 <div id="hud-wrap" title="Flight-controller telemetry (needs the UDP bridge link)">
   <canvas id="hud"></canvas>
@@ -1198,6 +1387,285 @@ fcWriteBtn.addEventListener('click', async () => {
   fcRefresh();
 });
 
+// ─── Mission: room points flown in GUIDED by the bridge (/api/fc/mission/*) ───
+const misBody = document.querySelector('#mis-table tbody');
+let misPoints = [];
+let misFrame = 'relative';                             // 'relative' (offsets from the drone) or 'absolute' (room)
+let misStatus = null;                                  // bridge mission snapshot (state.mission)
+const misEsc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+try {
+  const saved = JSON.parse(localStorage.getItem('lh2.mission') || 'null');
+  if (Array.isArray(saved)) { misPoints = saved; misFrame = 'absolute'; }       // older format: room points
+  else if (saved) { misPoints = saved.points || []; misFrame = saved.frame === 'absolute' ? 'absolute' : 'relative'; }
+} catch (_e) { misPoints = []; }
+if (!misPoints.length) { misFrame = 'relative'; misPoints = [[0, 0, 0], [0.5, 0, 0], [0.5, 0.5, 0], [0, 0.5, 0], [0, 0, 0]]; }
+const misSave = () => {
+  try { localStorage.setItem('lh2.mission', JSON.stringify({ frame: misFrame, points: misPoints })); } catch (_e) { /* storage blocked */ }
+  misSendAuto();
+};
+const misLive = () => lastOdomPos && Date.now() - lastOdomAt < 2000;
+/** Room points to check and draw: the running mission, else the list (relative: around the drone now). */
+function misAbsolute() {
+  if (misRunning()) return misStatus.points;
+  if (misFrame === 'absolute') return misPoints;
+  if (!misLive()) return null;
+  return misPoints.map(p => [lastOdomPos.x + p[0], lastOdomPos.y + p[1], lastOdomPos.z + p[2]]);
+}
+const misRunning = () => misStatus && misStatus.state === 'running';
+function misBad(p) {                                   // why a room point would be refused, or ''
+  if (!p) return '';
+  const area = misStatus && misStatus.area, zr = (misStatus && misStatus.z_range) || [0.4, 2.0];
+  if (p.some(v => !isFinite(v))) return 'not a number';
+  if (p[2] < zr[0]) return `height ${p[2].toFixed(2)} m is below the min height ${zr[0].toFixed(2)} m (Limits)`;
+  if (p[2] > zr[1]) return `height ${p[2].toFixed(2)} m is above the max height ${zr[1].toFixed(2)} m (Limits)`;
+  if (area && (p[0] < area[0] || p[0] > area[1] || p[1] < area[2] || p[1] > area[3]))
+    return `(${p[0].toFixed(2)}, ${p[1].toFixed(2)}) is outside the area between the stations (Limits → margin)`;
+  return '';
+}
+function misRenderTable() {
+  const cur = misRunning() ? misStatus.leg : -1, abs = misAbsolute();
+  const rel = misFrame === 'relative';
+  document.getElementById('mis-frame').value = misFrame;
+  ['x', 'y', 'z'].forEach(a => { document.getElementById('mis-h' + a).textContent = (rel ? 'd' : '') + a.toUpperCase() + ' m'; });
+  misBody.innerHTML = misPoints.map((p, i) => {
+    const bad = abs ? misBad(abs[i]) : '';
+    return `<tr class="${bad ? 'bad' : ''} ${i === cur ? 'cur' : ''}" title="${misEsc(bad)}"><td>${i + 1}</td>` +
+      [0, 1, 2].map(k => `<td><input type="number" step="0.05" data-i="${i}" data-k="${k}" value="${p[k]}" ${misRunning() ? 'disabled' : ''}></td>`).join('') +
+      `<td><button data-del="${i}" ${misRunning() ? 'disabled' : ''}>✕</button></td></tr>`;
+  }).join('') || '<tr><td colspan="5" style="color:#888;">No points yet.</td></tr>';
+  misDraw();
+}
+misBody.addEventListener('change', e => {
+  const t = e.target;
+  if (t.dataset.i == null) return;
+  misPoints[+t.dataset.i][+t.dataset.k] = Math.round(parseFloat(t.value) * 100) / 100;
+  misSave(); misRenderTable(); misRefresh();
+});
+misBody.addEventListener('click', e => {
+  if (e.target.dataset.del == null) return;
+  misPoints.splice(+e.target.dataset.del, 1); misSave(); misRenderTable(); misRefresh();
+});
+const r2 = v => Math.round(v * 100) / 100;
+function misHere() {                                    // drone position, else the middle of the area
+  if (lastOdomPos && Date.now() - lastOdomAt < 2000) return [r2(lastOdomPos.x), r2(lastOdomPos.y), r2(Math.min(1.5, Math.max(0.8, lastOdomPos.z)))];
+  const a = misStatus && misStatus.area;
+  return a ? [r2((a[0] + a[1]) / 2), r2((a[2] + a[3]) / 2), 1.0] : [0, 0, 1.0];
+}
+document.getElementById('mis-frame').addEventListener('change', e => {
+  if (misLive()) {                                      // keep the same figure: convert the list around the drone
+    const here = [lastOdomPos.x, lastOdomPos.y, lastOdomPos.z], sign = e.target.value === 'absolute' ? 1 : -1;
+    misPoints = misPoints.map(p => p.map((v, k) => r2(v + sign * here[k])));
+  }
+  misFrame = e.target.value; misSave(); misRenderTable(); misRefresh();
+});
+document.getElementById('mis-add').addEventListener('click', () => {
+  const last = misPoints[misPoints.length - 1] || (misFrame === 'relative' ? [0, 0, 0] : misHere());
+  misPoints.push([r2(last[0] + (misPoints.length ? 0.5 : 0)), last[1], last[2]]); misSave(); misRenderTable(); misRefresh();
+});
+document.getElementById('mis-add-drone').addEventListener('click', () => {
+  if (!lastOdomPos || Date.now() - lastOdomAt > 2000) { document.getElementById('mis-status').textContent = 'No live drone position.'; return; }
+  misPoints.push(misFrame === 'relative' ? [0, 0, 0] : [r2(lastOdomPos.x), r2(lastOdomPos.y), r2(lastOdomPos.z)]);
+  misSave(); misRenderTable(); misRefresh();
+});
+/** A figure as offsets [dx, dy, dz] from the start, starting and ending there. */
+function misFigure(name, size, turns, rise) {
+  const d = size, r = size / 2, TAU = 2 * Math.PI;
+  const ring = (n, f) => Array.from({ length: n + 1 }, (_, i) => f(i / n));          // n segments, closed
+  switch (name) {
+    case 'line': return [[0, 0, 0], [d, 0, 0], [0, 0, 0]];
+    case 'square': return [[0, 0, 0], [d, 0, 0], [d, d, 0], [0, d, 0], [0, 0, 0]];
+    case 'triangle': return [[0, 0, 0], [d, 0, 0], [d / 2, d * Math.sqrt(3) / 2, 0], [0, 0, 0]];
+    case 'cross': return [[0, 0, 0], [r, 0, 0], [0, 0, 0], [-r, 0, 0], [0, 0, 0], [0, r, 0], [0, 0, 0], [0, -r, 0], [0, 0, 0]];
+    case 'star': {                                    // 5 points on a circle, every second one, first at the start
+      const v = k => { const a = Math.PI + (k * 2 % 5) * TAU / 5; return [r + r * Math.cos(a), r * Math.sin(a), 0]; };
+      return [0, 1, 2, 3, 4, 5].map(v);
+    }
+    case 'zigzag': {                                  // lawn-mower over a d × d square, rows d/4 apart
+      const pts = [[0, 0, 0]]; const rows = 4;
+      for (let i = 0; i <= rows; i++) {
+        const yy = d * i / rows, far = i % 2 === 0;
+        if (i) pts.push([far ? 0 : d, yy, 0]);
+        pts.push([far ? d : 0, yy, 0]);
+      }
+      pts.push([0, 0, 0]);
+      return pts;
+    }
+    case 'vsquare': return [[0, 0, 0], [d, 0, 0], [d, 0, rise], [0, 0, rise], [0, 0, 0]];
+    case 'cube': {
+      const sq = h => [[0, 0, h], [d, 0, h], [d, d, h], [0, d, h], [0, 0, h]];
+      return [...sq(0), ...sq(rise), [0, 0, 0]];
+    }
+    case 'circle':                                    // through the start, centre r ahead, counter-clockwise
+      return ring(16, u => [r + r * Math.cos(Math.PI + TAU * u), r * Math.sin(Math.PI + TAU * u), 0]);
+    case 'eight':                                     // lemniscate through the start (twice)
+      return ring(24, u => [r * Math.sin(TAU * u), (r / 2) * Math.sin(2 * TAU * u), 0]);
+    case 'spiral': {                                  // from the start outwards to radius r, then straight back
+      const per = turns > 2 ? 12 : 16, n = Math.round(per * turns);
+      const pts = Array.from({ length: n + 1 }, (_, i) => { const u = i / n, a = TAU * turns * u; return [r * u * Math.cos(a), r * u * Math.sin(a), 0]; });
+      pts.push([0, 0, 0]);
+      return pts;
+    }
+    case 'helix': {                                   // circle through the start, rising, then straight down
+      const per = turns > 2 ? 12 : 16, n = Math.round(per * turns);
+      const pts = Array.from({ length: n + 1 }, (_, i) => { const u = i / n, a = Math.PI + TAU * turns * u;
+        return [r + r * Math.cos(a), r * Math.sin(a), rise * turns * u]; });
+      pts.push([0, 0, 0]);
+      return pts;
+    }
+  }
+  return [];
+}
+const MIS_CURVES = ['circle', 'eight', 'spiral', 'helix'];
+function misFigureInputs() {
+  const f = document.getElementById('mis-preset').value;
+  document.querySelectorAll('.mis-turns').forEach(e => { e.style.display = ['spiral', 'helix'].includes(f) ? '' : 'none'; });
+  document.querySelectorAll('.mis-rise').forEach(e => { e.style.display = ['helix', 'vsquare', 'cube'].includes(f) ? '' : 'none'; });
+}
+document.getElementById('mis-preset').addEventListener('change', misFigureInputs);
+misFigureInputs();
+document.getElementById('mis-make').addEventListener('click', () => {
+  const name = document.getElementById('mis-preset').value;
+  const num = (id, lo, hi, dflt) => { const v = parseFloat(document.getElementById(id).value); return isFinite(v) ? Math.min(hi, Math.max(lo, v)) : dflt; };
+  const fig = misFigure(name, num('mis-size', 0.1, 3, 0.6), num('mis-turns', 1, 3, 2), num('mis-rise', 0.05, 1, 0.3));
+  if (!fig.length) return;
+  const base = misFrame === 'relative' ? [0, 0, 0] : misHere();
+  misPoints = fig.map(p => [r2(base[0] + p[0]), r2(base[1] + p[1]), r2(base[2] + p[2])]);
+  document.getElementById('mis-pass').checked = MIS_CURVES.includes(name);   // curves: fly through, corners: stop
+  misSave(); misRenderTable(); misRefresh();
+});
+document.getElementById('mis-clear').addEventListener('click', () => { misPoints = []; misSave(); misRenderTable(); misRefresh(); });
+
+// 3D: path, numbered points, current target, covered area on the floor
+const misGroup = new THREE.Group(); scene.add(misGroup);
+function misDraw() {
+  while (misGroup.children.length) {
+    const o = misGroup.children.pop();
+    if (o.element) o.element.remove();
+    if (o.geometry) o.geometry.dispose();
+  }
+  const cur = misRunning() ? misStatus.leg : -1, pts = misAbsolute() || [];
+  if (pts.length > 1) {
+    const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(p => tv(...p))),
+      new THREE.LineBasicMaterial({ color: 0x4fd1ff }));
+    misGroup.add(line);
+  }
+  pts.forEach((p, i) => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(i === cur ? 0.07 : 0.045, 16, 12),
+      new THREE.MeshBasicMaterial({ color: misBad(p) ? 0xff5050 : i === cur ? 0xffcc44 : 0x4fd1ff }));
+    m.position.copy(tv(...p)); misGroup.add(m);
+    if (pts.length > 12 && i % 4 && i !== pts.length - 1 && i !== cur) return;   // long curves: every 4th number
+    const drop = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(p[0], p[1], 0), tv(...p)]),
+      new THREE.LineDashedMaterial({ color: 0x4fd1ff, dashSize: 0.05, gapSize: 0.05, transparent: true, opacity: 0.5 }));
+    drop.computeLineDistances(); misGroup.add(drop);
+    const d = document.createElement('div'); d.className = 'label3d'; d.textContent = String(i + 1);
+    d.style.color = i === cur ? '#ffcc44' : '#4fd1ff';
+    const o = new CSS2DObject(d); o.position.copy(tv(p[0], p[1], p[2] + 0.12)); misGroup.add(o);
+  });
+  const a = misStatus && misStatus.area;
+  if (a && pts.length) {
+    const corners = [[a[0], a[2]], [a[1], a[2]], [a[1], a[3]], [a[0], a[3]], [a[0], a[2]]].map(([x, y]) => tv(x, y, 0.005));
+    const rect = new THREE.Line(new THREE.BufferGeometry().setFromPoints(corners),
+      new THREE.LineDashedMaterial({ color: 0x4fd1ff, dashSize: 0.1, gapSize: 0.07, transparent: true, opacity: 0.6 }));
+    rect.computeLineDistances(); misGroup.add(rect);
+  }
+}
+
+// live checks, buttons, progress
+const misStartBtn = document.getElementById('mis-start');
+function misRefresh() {
+  const s = misStatus, el = document.getElementById('mis-checks');
+  if (!s) { el.innerHTML = '<div class="no">Connect in the Drone tab (UDP via bridge).</div>'; misStartBtn.disabled = true; return; }
+  const items = Object.values(s.checks || {}).map(c => ({ ok: c.ok, text: c.detail }));
+  const abs = misAbsolute();
+  const badPts = (abs || []).map((p, i) => [i, misBad(p)]).filter(([, b]) => b);
+  items.push(!misPoints.length ? { ok: false, text: 'no points' }
+    : !abs ? { ok: false, text: 'figure checked against the area once the drone position is live' }
+    : { ok: !badPts.length, text: badPts.length ? `point ${badPts[0][0] + 1}: ${badPts[0][1]}${misFrame === 'relative' ? ' (from where the drone is now)' : ''}`
+                                                 : `${misPoints.length} points inside the covered area${misFrame === 'relative' ? ' from here' : ''}` });
+  el.innerHTML = items.map(i => `<div class="${i.ok ? 'ok' : 'no'}">${i.ok ? '✔' : '✘'} ${misEsc(i.text)}</div>`).join('');
+  misStartBtn.disabled = misRunning() || !items.every(i => i.ok);
+  const a = s.area;
+  const lim = s.limits || {};
+  document.getElementById('mis-area').textContent = a
+    ? `Allowed: X ${a[0].toFixed(2)} … ${a[1].toFixed(2)} m, Y ${a[2].toFixed(2)} … ${a[3].toFixed(2)} m (between the stations, ${(lim.margin ?? 0.3).toFixed(2)} m margin), height ${s.z_range[0].toFixed(2)} … ${s.z_range[1].toFixed(2)} m`
+      + (misLive() ? ` · drone now at Z ${lastOdomPos.z.toFixed(2)} m` : '')
+    : `Station area unknown (no pose header): only the height ${s.z_range[0].toFixed(2)} … ${s.z_range[1].toFixed(2)} m is checked.`;
+  const st = document.getElementById('mis-status');
+  if (misRunning()) st.textContent = `Running · point ${s.leg + 1}/${s.points.length}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm ${s.hold_left != null ? 'away' : 'to go'}` : '')
+    + (s.hold_left != null ? ` · holding, ${s.hold_left.toFixed(0)} s left` : '');
+  else st.textContent = ({ idle: 'Ready when all checks are green.', done: '✔ Mission complete', aborted: '■ Mission stopped', error: '✘ Mission error' }[s.state] || s.state)
+    + (s.auto ? ' · AUTO-START ARMED: switch to GUIDED on the radio' : '');
+  document.getElementById('mis-log').textContent = (s.log || []).slice().reverse().join('\n') || '—';
+}
+let misLastKey = '';
+let misDrawAt = 0;
+function updateMission(s) {
+  misStatus = s || null;
+  if (!s) misLimitsSynced = false;
+  else if (!misLimitsSynced) misSendLimits();            // a (re)started bridge gets this browser's limits
+  const autoBox = document.getElementById('mis-auto');
+  if (s && Date.now() - misAutoSentAt > 1500) autoBox.checked = !!s.auto;   // the bridge decides
+  if (!s) autoBox.checked = false;
+  const key = JSON.stringify([s && s.state, s && s.leg, s && s.area]);
+  if (key !== misLastKey) { misLastKey = key; misRenderTable(); }
+  else if (misFrame === 'relative' && !misRunning() && Date.now() - misDrawAt > 500) { misDrawAt = Date.now(); misRenderTable(); }
+  misRefresh();
+}
+// Auto-start: the bridge holds the figure and starts it when the radio switches into GUIDED
+let misAutoSentAt = 0, misAutoTimer = null;
+function misAutoBody(enabled) {
+  return { enabled, frame: misFrame, points: misPoints, limits: misLimits(), pass_through: document.getElementById('mis-pass').checked,
+           speed: parseFloat(document.getElementById('mis-speed').value),
+           tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
+           settle: parseFloat(document.getElementById('mis-settle').value) };
+}
+function misSendAuto() {                                // keep an armed auto-start in step with the list
+  const box = document.getElementById('mis-auto');
+  if (!box || !box.checked) return;
+  clearTimeout(misAutoTimer);
+  misAutoTimer = setTimeout(() => { misAutoSentAt = Date.now(); misCall('auto', misAutoBody(true)); }, 300);
+}
+document.getElementById('mis-auto').addEventListener('change', e => {
+  misAutoSentAt = Date.now();
+  misCall('auto', misAutoBody(e.target.checked));
+});
+['mis-speed', 'mis-tol', 'mis-settle', 'mis-pass'].forEach(id => document.getElementById(id).addEventListener('change', misSendAuto));
+// Limits: kept in this browser, sent to the bridge (it checks every point against them)
+const MIS_LIMITS = [['mis-zmin', 'z_min'], ['mis-zmax', 'z_max'], ['mis-margin', 'margin']];
+try {
+  const saved = JSON.parse(localStorage.getItem('lh2.mission.limits') || 'null');
+  if (saved) MIS_LIMITS.forEach(([id, k]) => { if (saved[k] != null) document.getElementById(id).value = saved[k]; });
+} catch (_e) { /* storage blocked */ }
+function misLimits() {
+  const out = {};
+  MIS_LIMITS.forEach(([id, k]) => { const v = parseFloat(document.getElementById(id).value); if (isFinite(v)) out[k] = v; });
+  return out;
+}
+let misLimitsSynced = false;
+function misSendLimits() {
+  try { localStorage.setItem('lh2.mission.limits', JSON.stringify(misLimits())); } catch (_e) { /* storage blocked */ }
+  misLimitsSynced = true;
+  misCall('limits', { limits: misLimits() });
+}
+MIS_LIMITS.forEach(([id]) => document.getElementById(id).addEventListener('change', () => { misSendLimits(); misSendAuto(); }));
+function misUrl(action) { return new URL('/api/fc/mission/' + action, new URL(document.getElementById('relay-url').value.trim())); }
+async function misCall(action, body) {
+  try {
+    const r = await fetch(misUrl(action), { method: 'POST', body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
+    const data = await r.json().catch(() => ({ error: r.statusText }));
+    if (data.error) document.getElementById('mis-status').textContent = '✘ ' + data.error;
+    if (data.state) updateMission(data);
+  } catch (err) { document.getElementById('mis-status').textContent = '✘ Bridge unreachable: ' + err.message; }
+}
+misStartBtn.addEventListener('click', () => misCall('start', {
+  points: misPoints, frame: misFrame, limits: misLimits(), pass_through: document.getElementById('mis-pass').checked,
+  speed: parseFloat(document.getElementById('mis-speed').value),
+  tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
+  settle: parseFloat(document.getElementById('mis-settle').value),
+}));
+document.getElementById('mis-stop').addEventListener('click', () => misCall('stop'));
+misRenderTable();
+
 const panelEl = document.getElementById('panel');
 const tbBtns = [...document.querySelectorAll('.tb-btn[data-sec]')];
 function openSection(id) {
@@ -1219,6 +1687,762 @@ tbBtns.forEach(b => b.addEventListener('click', () => openSection(b.dataset.sec)
 setInterval(() => {
   document.getElementById('conn-dot').classList.toggle('live', lastOdomAt && Date.now() - lastOdomAt < 2000);
 }, 300);
+
+// ─── Track: flight path log (bridge /api/track/*) and hover accuracy study ───
+const trkEl = id => document.getElementById(id);
+let trkStatus = null, trkWasRecording = false, trkData = null, trkSel = null;
+function trkUrl(action, params = {}) {
+  const u = new URL('/api/track/' + action, new URL(trkEl('relay-url').value.trim()));
+  Object.entries(params).forEach(([k, v]) => u.searchParams.set(k, v));
+  return u;
+}
+async function trkApi(action, params) {
+  const r = await fetch(trkUrl(action, params), { cache: 'no-store' });
+  const data = await r.json().catch(() => ({ error: r.statusText }));
+  if (data.error) throw new Error(data.error);
+  return data;
+}
+function trkMsg(text, bad) { const e = trkEl('trk-msg'); e.textContent = text || ''; e.style.color = bad ? '#ff8a8a' : '#9ab'; }
+function updateTrack(s) {
+  trkStatus = s || null;
+  const rec = !!(s && s.recording), btn = trkEl('trk-rec');
+  btn.textContent = rec ? '■ Stop recording' : '● Record';
+  btn.classList.toggle('on', rec);
+  btn.disabled = !s;
+  trkEl('trk-state').textContent = !s ? 'Connect in the Drone tab (UDP via bridge).'
+    : rec ? `Recording ${s.name} · ${s.elapsed.toFixed(0)} s · ${s.rows} points`
+    : `Not recording. Files: ${s.dir}`;
+  if (trkWasRecording && !rec) trkRefreshList(true);
+  trkWasRecording = rec;
+}
+trkEl('trk-rec').addEventListener('click', async () => {
+  try {
+    updateTrack(trkStatus && trkStatus.recording ? await trkApi('stop') : await trkApi('start', { name: trkEl('trk-name').value.trim() }));
+    trkMsg('');
+  } catch (err) { trkMsg('✘ ' + err.message, true); }
+});
+async function trkRefreshList(loadNewest) {
+  try {
+    const data = await trkApi('list');
+    const sel = trkEl('trk-list'), keep = sel.value;
+    sel.innerHTML = data.tracks.map(t => `<option value="${misEsc(t.name)}">${misEsc(t.name.replace(/^track_/, ''))} · ${(t.size / 1024).toFixed(0)} kB</option>`).join('');
+    if (!data.tracks.length) sel.innerHTML = '<option value="" disabled>no tracks yet</option>';
+    trkCmpList(data.tracks);
+    if (loadNewest && data.tracks.length) { sel.value = data.tracks[0].name; trkLoad(); }
+    else if (keep) sel.value = keep;
+    if (data.status) updateTrack(data.status);
+  } catch (err) { trkMsg('✘ Bridge unreachable: ' + err.message, true); }
+}
+trkEl('trk-refresh').addEventListener('click', () => trkRefreshList(false));
+trkEl('trk-load').addEventListener('click', () => trkLoad());
+trkEl('trk-list').addEventListener('dblclick', () => trkLoad());
+trkEl('trk-del').addEventListener('click', e => {
+  const name = trkEl('trk-list').value;
+  if (!name) return;
+  calConfirm(e.currentTarget, 'Delete? Click again', async () => {
+    try { await trkApi('delete', { name }); if (trkData && trkData.meta.name === name) trkClear(); trkRefreshList(false); }
+    catch (err) { trkMsg('✘ ' + err.message, true); }
+  });
+});
+tbBtns.forEach(b => b.dataset.sec === 'track' && b.addEventListener('click', () => trkRefreshList(false)));
+
+function trkParse(data) {
+  const col = {}; data.meta.columns.forEach((c, i) => { col[c] = i; });
+  return { meta: data.meta, rows: data.rows, col };
+}
+// Missions flown in a track: [{i, points, t0, t1}] (t1 = start of the next one)
+function trkMissions(d) {
+  const ms = d.meta.missions || [], end = d.rows.length ? d.rows[d.rows.length - 1][d.col.t] + 1 : 0;
+  return ms.map((m, i) => ({ i, points: m.points || [], t0: m.started_t, t1: i + 1 < ms.length ? ms[i + 1].started_t : end }));
+}
+const trkPathMissions = d => trkMissions(d).filter(m => m.points.length >= 2);
+async function trkLoad() {
+  const name = trkEl('trk-list').value;
+  if (!name) return;
+  try {
+    trkData = trkParse(await trkApi('get', { name }));
+    const { rows: R, col: C, meta } = trkData, dur = R.length ? R[R.length - 1][C.t] : 0;
+    const holds = R.filter(r => r[C.hold]).length, targets = R.filter(r => r[C.tx] != null);
+    trkEl('trk-t0').value = 0; trkEl('trk-t1').value = Math.ceil(dur);
+    trkEl('trk-phase').value = holds ? 'hold' : 'all';
+    trkEl('trk-target').value = holds || targets.length ? 'mission' : 'median';
+    const last = targets.length ? targets[targets.length - 1] : null;
+    if (last) { trkEl('trk-fx').value = last[C.tx]; trkEl('trk-fy').value = last[C.ty]; trkEl('trk-fz').value = last[C.tz]; }
+    const paths = trkPathMissions(trkData);
+    trkEl('trk-mission').innerHTML = paths.length
+      ? paths.map(m => `<option value="${m.i}">mission ${m.i + 1}: ${m.points.length} points, from ${m.t0.toFixed(0)} s</option>`).join('')
+      : '<option value="">no mission with 2+ points in this track</option>';
+    if (paths.length) trkEl('trk-mission').value = paths[paths.length - 1].i;
+    trkEl('trk-kind').value = paths.length ? 'path' : 'point';      // a figure was flown: study the path
+    trkEl('trk-info').innerHTML = `<b>${misEsc(meta.name)}</b><br>${meta.started} · ${dur.toFixed(0)} s · ${R.length} points`
+      + ` (${(R.length / Math.max(dur, 1e-3)).toFixed(1)} Hz) · ${holds} in a mission hold`
+      + ((meta.missions || []).length ? ` · ${meta.missions.length} mission(s)` : '');
+    trkEl('trk-study').hidden = false;
+    trkMsg('');
+    trkUpdate();
+  } catch (err) { trkMsg('✘ ' + err.message, true); }
+}
+function trkClear() { trkData = trkSel = null; trkEl('trk-study').hidden = true; trkEl('trk-info').textContent = 'No track loaded.'; trkDraw3d(); }
+['trk-kind', 'trk-phase', 'trk-target', 'trk-t0', 'trk-t1', 'trk-fx', 'trk-fy', 'trk-fz', 'trk-3d', 'trk-mission', 'trk-holds'].forEach(id =>
+  trkEl(id).addEventListener('change', trkUpdate));
+
+const trkPct = (sorted, p) => {                      // percentile (0..100) of a sorted array, interpolated
+  if (!sorted.length) return NaN;
+  const k = (sorted.length - 1) * p / 100, i = Math.floor(k);
+  return i + 1 < sorted.length ? sorted[i] + (sorted[i + 1] - sorted[i]) * (k - i) : sorted[i];
+};
+const trkMean = a => a.reduce((s, v) => s + v, 0) / (a.length || 1);
+const trkRms = a => Math.sqrt(a.reduce((s, v) => s + v * v, 0) / (a.length || 1));
+const trkSd = a => { const m = trkMean(a); return Math.sqrt(trkMean(a.map(v => (v - m) ** 2))); };
+const trkSorted = a => a.slice().sort((x, y) => x - y);
+const trkOpts = () => ({
+  kind: trkEl('trk-kind').value, phase: trkEl('trk-phase').value, tmode: trkEl('trk-target').value,
+  t0: parseFloat(trkEl('trk-t0').value) || 0, t1: parseFloat(trkEl('trk-t1').value),
+  fixed: ['trk-fx', 'trk-fy', 'trk-fz'].map(id => parseFloat(trkEl(id).value)),
+  mission: trkEl('trk-mission').value === '' ? null : +trkEl('trk-mission').value, holds: trkEl('trk-holds').checked,
+});
+// ── Point (hover) study: the samples and their error from the target (metres) ──
+function trkSelect(d, o) {
+  const { rows: R, col: C } = d;
+  const inWin = r => r[C.t] >= o.t0 && (!isFinite(o.t1) || r[C.t] <= o.t1);
+  const keep = R.filter(r => inWin(r) && (o.phase === 'all' || r[C.hold] || (o.phase === 'after' && r[C.mission] === 'done' && r[C.tx] != null)));
+  let fixed = null, label;
+  if (o.tmode === 'fixed') {
+    fixed = o.fixed;
+    if (!fixed.every(isFinite)) return { error: 'enter the fixed point X, Y, Z' };
+    label = `fixed point (${fixed.map(v => v.toFixed(2)).join(', ')})`;
+  } else if (o.tmode === 'median') {
+    const med = k => trkPct(trkSorted(keep.map(r => r[C[k]])), 50);
+    fixed = [med('x'), med('y'), med('z')];
+    label = `median of the samples (${fixed.map(v => v.toFixed(2)).join(', ')}): spread only, no target`;
+  }
+  const pts = [];
+  for (const r of keep) {
+    const tg = fixed || (r[C.tx] != null ? [r[C.tx], r[C.ty], r[C.tz]] : null);
+    if (!tg) continue;
+    const dx = r[C.x] - tg[0], dy = r[C.y] - tg[1], dz = r[C.z] - tg[2];
+    pts.push({ t: r[C.t], x: r[C.x], y: r[C.y], z: r[C.z], tg, dx, dy, dz, dh: Math.hypot(dx, dy), d3: Math.hypot(dx, dy, dz),
+               yaw: r[C.yaw], ex: r[C.ex], ey: r[C.ey], ez: r[C.ez], roll: r[C.roll], pitch: r[C.pitch], volt: r[C.volt] });
+  }
+  if (!fixed && pts.length) {
+    const keys = [...new Set(pts.map(p => p.tg.join(',')))];
+    label = keys.length === 1 ? `mission target (${pts[0].tg.map(v => v.toFixed(2)).join(', ')})` : `mission targets (${keys.length} points)`;
+  }
+  if (!pts.length) return { error: o.phase === 'all' ? 'no samples in this window with a mission target: choose a fixed point or the median'
+                                                      : 'no samples in a mission hold: choose "whole recording", or study the path' };
+  const phaseText = { hold: 'mission hold', after: 'mission hold + hover after', all: 'whole recording' }[o.phase];
+  const sel = { kind: 'point', pts, label, phase: phaseText, t0: pts[0].t, t1: pts[pts.length - 1].t };
+  sel.stats = trkStats(sel);
+  return sel;
+}
+function trkCommon(P, st) {                          // EKF, attitude and battery figures shared by both studies
+  const ekf = P.filter(p => p.ex != null), att = P.filter(p => p.roll != null), volts = P.filter(p => p.volt != null);
+  Object.assign(st, {
+    ekfN: ekf.length, ekfH: ekf.length ? trkRms(ekf.map(p => Math.hypot(p.ex - p.x, p.ey - p.y))) : null,
+    ekfZ: ekf.length ? trkRms(ekf.map(p => p.ez - p.z)) : null,
+    roll: att.length ? trkMean(att.map(p => p.roll)) : null, pitch: att.length ? trkMean(att.map(p => p.pitch)) : null,
+    rollSd: att.length ? trkSd(att.map(p => p.roll)) : null, pitchSd: att.length ? trkSd(att.map(p => p.pitch)) : null,
+    v0: volts.length ? volts[0].volt : null, v1: volts.length ? volts[volts.length - 1].volt : null,
+  });
+  return st;
+}
+function trkStats(sel) {
+  const P = sel.pts, n = P.length, dur = sel.t1 - sel.t0;
+  const dh = trkSorted(P.map(p => p.dh)), dz = trkSorted(P.map(p => Math.abs(p.dz)));
+  const mx = trkMean(P.map(p => p.dx)), my = trkMean(P.map(p => p.dy)), mz = trkMean(P.map(p => p.dz));
+  const slope = key => {                           // least-squares drift [m/s]
+    const tm = trkMean(P.map(p => p.t)), vm = trkMean(P.map(p => p[key]));
+    let num = 0, den = 0; P.forEach(p => { num += (p.t - tm) * (p[key] - vm); den += (p.t - tm) ** 2; });
+    return den ? num / den : 0;
+  };
+  // the drone's own axes: forward / sideways, from the median heading of the samples
+  const yaws = P.filter(p => p.yaw != null).map(p => p.yaw * Math.PI / 180);
+  const yaw = yaws.length ? Math.atan2(trkMean(yaws.map(Math.sin)), trkMean(yaws.map(Math.cos))) : 0;
+  const fwd = P.map(p => p.dx * Math.cos(yaw) + p.dy * Math.sin(yaw)), lat = P.map(p => -p.dx * Math.sin(yaw) + p.dy * Math.cos(yaw));
+  const within = r => 100 * dh.filter(v => v <= r).length / n;
+  return trkCommon(P, {
+    n, dur, rate: n / Math.max(dur, 1e-3), mx, my, mz, biasH: Math.hypot(mx, my),
+    spreadH: Math.sqrt(trkMean(P.map(p => (p.dx - mx) ** 2 + (p.dy - my) ** 2))), spreadZ: trkSd(P.map(p => p.dz)),
+    fwdSd: trkSd(fwd), latSd: trkSd(lat), yawDeg: yaw * 180 / Math.PI,
+    meanH: trkMean(dh), rmsH: trkRms(dh), cep50: trkPct(dh, 50), r95: trkPct(dh, 95), maxH: dh[n - 1],
+    rmsZ: trkRms(P.map(p => p.dz)), p95Z: trkPct(dz, 95), maxZ: dz[n - 1], rms3: trkRms(P.map(p => p.d3)),
+    in5: within(0.05), in10: within(0.10), in20: within(0.20),
+    drift: Math.hypot(slope('dx'), slope('dy')) * 60,
+  });
+}
+// ── Path study: distance of every sample from the planned straight line of its leg ──
+function trkPathSelect(d, o) {
+  const { rows: R, col: C } = d, paths = trkPathMissions(d);
+  const m = o.mission == null ? paths[paths.length - 1] : paths.find(p => p.i === o.mission) || paths[paths.length - 1];
+  if (!m) return { error: 'no mission with 2 or more points in this track: fly a figure (Mission tab) while recording' };
+  const run = R.filter(r => r[C.t] >= m.t0 - 0.5 && r[C.t] < m.t1 && r[C.mission] === 'running' && r[C.leg] != null);
+  if (run.length < 5) return { error: 'too few samples while this mission was running' };
+  const start = [run[0][C.x], run[0][C.y], run[0][C.z]];
+  const plan = [start, ...m.points];                  // leg L goes from plan[L] to plan[L + 1]
+  const cum = [0]; for (let i = 1; i < plan.length; i++) cum.push(cum[i - 1] + Math.hypot(...plan[i].map((v, k) => v - plan[i - 1][k])));
+  const pts = [];
+  for (const r of run) {
+    const L = r[C.leg]; if (L + 1 >= plan.length) continue;
+    if (!o.holds && r[C.hold]) continue;
+    const A = plan[L], B = plan[L + 1], AB = B.map((v, k) => v - A[k]), len2 = AB.reduce((s, v) => s + v * v, 0);
+    const P = [r[C.x], r[C.y], r[C.z]];
+    const u = len2 ? Math.min(1, Math.max(0, AB.reduce((s, v, k) => s + v * (P[k] - A[k]), 0) / len2)) : 0;
+    const Q = A.map((v, k) => v + u * AB[k]), e = P.map((v, k) => v - Q[k]);
+    pts.push({ t: r[C.t], x: P[0], y: P[1], z: P[2], leg: L, u, along: cum[L] + u * Math.sqrt(len2), q: Q,
+               eh: Math.hypot(e[0], e[1]), ez: e[2], e3: Math.hypot(...e), hold: r[C.hold],
+               ex: r[C.ex], ey: r[C.ey], ez_: r[C.ez], roll: r[C.roll], pitch: r[C.pitch], volt: r[C.volt] });
+  }
+  if (pts.length < 5) return { error: 'too few samples on the path' };
+  const P = pts.map(p => ({ ...p, ez: p.ez_ }));      // trkCommon reads ex/ey/ez as the EKF position
+  const legs = plan.slice(1).map((B, L) => {
+    const s = pts.filter(p => p.leg === L), mv = s.filter(p => !p.hold);
+    const len = cum[L + 1] - cum[L], tm = mv.length > 1 ? mv[mv.length - 1].t - mv[0].t : 0;
+    return { L, from: plan[L], to: B, len, n: s.length, time: tm, speed: tm > 0 ? len / tm : null,
+             rms: s.length ? trkRms(s.map(p => p.eh)) : null, max: s.length ? Math.max(...s.map(p => p.eh)) : null };
+  });
+  const eh = trkSorted(pts.map(p => p.eh)), ez = trkSorted(pts.map(p => Math.abs(p.ez)));
+  let flown = 0; for (let i = 1; i < pts.length; i++) flown += Math.hypot(pts[i].x - pts[i - 1].x, pts[i].y - pts[i - 1].y, pts[i].z - pts[i - 1].z);
+  const runT = run[run.length - 1][C.t] - run[0][C.t], within = r => 100 * eh.filter(v => v <= r).length / eh.length;
+  const stats = trkCommon(P, {
+    n: pts.length, dur: runT, planned: cum[cum.length - 1], flown, speed: cum[cum.length - 1] / Math.max(runT, 1e-3),
+    xtRms: trkRms(eh), xtMean: trkMean(eh), xt50: trkPct(eh, 50), xt95: trkPct(eh, 95), xtMax: eh[eh.length - 1],
+    zRms: trkRms(pts.map(p => p.ez)), zMax: ez[ez.length - 1], rms3: trkRms(pts.map(p => p.e3)),
+    in5: within(0.05), in10: within(0.10), in20: within(0.20), legs: legs.length,
+  });
+  return { kind: 'path', pts, plan, cum, legs, stats, mission: m, t0: pts[0].t, t1: pts[pts.length - 1].t,
+           label: `mission ${m.i + 1} (${m.points.length} points, ${stats.planned.toFixed(2)} m)`,
+           phase: o.holds ? 'path, holds included' : 'path, moving only' };
+}
+function trkAnalyse(d, o) { return o.kind === 'path' ? trkPathSelect(d, o) : trkSelect(d, o); }
+
+// ── The numbers: label, value, how good, what it means (also used by the comparison) ──
+const trkCm = v => v == null || !isFinite(v) ? '—' : (100 * v).toFixed(1) + ' cm';
+const trkPc = v => v.toFixed(0) + ' %';
+const trkCls = (v, good, warn) => v == null ? '' : v <= good ? 'good' : v <= warn ? 'warn' : 'bad';
+const trkClsHi = (v, good, warn) => v >= good ? 'good' : v >= warn ? 'warn' : 'bad';
+function trkMetrics(st, kind) {   // {key, label, value, raw, better ('low' | 'high' | null), cls, hint}
+  const M = (key, label, raw, value, better, cls, hint) => ({ key, label, raw, value, better, cls: cls || '', hint });
+  const common = [
+    M('ekfH', 'EKF − lighthouse RMS, horizontal', st.ekfH, st.ekfN ? `${trkCm(st.ekfH)} (${st.ekfN} EKF samples)` : 'no EKF samples', 'low', st.ekfN ? trkCls(st.ekfH, 0.05, 0.10) : '',
+      'How far ArduPilot\'s own position (EKF) is from the lighthouse one. Small = the EKF follows the lighthouse closely. Includes the EKF\'s reporting delay, so it grows when the drone moves fast.'),
+    M('pitchSd', 'Pitch / roll movement (σ)', st.pitchSd, st.pitchSd != null ? `${st.pitchSd.toFixed(2)}° / ${st.rollSd.toFixed(2)}°` : '—', 'low', '',
+      'How much the drone tilts back and forth (pitch) and sideways (roll) while it works. Pitch much larger than roll = the controller works harder on the forward axis.'),
+    M('att', 'Mean roll / pitch', null, st.roll != null ? `${st.roll.toFixed(1)}° / ${st.pitch.toFixed(1)}°` : '—', null, '',
+      'Average tilt. A steady tilt means the drone leans to stay in place: centre of gravity off, or the level calibration off.'),
+    M('bat', 'Battery', null, st.v0 != null ? `${st.v0.toFixed(2)} → ${st.v1.toFixed(2)} V` : '—', null, '',
+      'Voltage at the start and end of the studied part. Compare sessions at similar voltages: a weak battery hovers worse.'),
+  ];
+  if (kind === 'path') return [
+    M('n', 'Samples', st.n, `${st.n} in ${st.dur.toFixed(0)} s`, null, '', 'Lighthouse positions used (10 per second).'),
+    M('planned', 'Planned / flown length', st.planned, `${st.planned.toFixed(2)} m / ${st.flown.toFixed(2)} m`, null, '',
+      'Length of the straight lines between the points, and of the path the drone really flew (longer = it wobbled or overshot).'),
+    M('speed', 'Mean speed along the path', st.speed, `${(100 * st.speed).toFixed(0)} cm/s`, null, '', 'Planned length divided by the mission time (holds included).'),
+    M('xtRms', 'Path error RMS (horizontal)', st.xtRms, trkCm(st.xtRms), 'low', trkCls(st.xtRms, 0.05, 0.10),
+      'Horizontal distance of each sample from the straight line it should be on (its leg), as a root mean square: the main "how well it follows the path" figure.'),
+    M('xt50', 'Path error median', st.xt50, trkCm(st.xt50), 'low', trkCls(st.xt50, 0.04, 0.08), 'Half the samples are closer than this to the planned line.'),
+    M('xt95', 'Path error p95', st.xt95, trkCm(st.xt95), 'low', trkCls(st.xt95, 0.10, 0.20), '95 % of the samples are closer than this to the planned line.'),
+    M('xtMax', 'Path error max', st.xtMax, trkCm(st.xtMax), 'low', '', 'The single worst sample (often a corner overshoot).'),
+    M('in5', 'Within 5 cm of the path', st.in5, trkPc(st.in5), 'high', trkClsHi(st.in5, 70, 40), 'Share of samples within 5 cm (horizontally) of the planned line.'),
+    M('in10', 'Within 10 cm of the path', st.in10, trkPc(st.in10), 'high', trkClsHi(st.in10, 90, 70), ''),
+    M('in20', 'Within 20 cm of the path', st.in20, trkPc(st.in20), 'high', trkClsHi(st.in20, 99, 90), ''),
+    M('zRms', 'Height error RMS / max', st.zRms, `${trkCm(st.zRms)} / ${trkCm(st.zMax)}`, 'low', trkCls(st.zRms, 0.03, 0.08), 'Vertical distance from the planned line.'),
+    M('rms3', '3D path error RMS', st.rms3, trkCm(st.rms3), 'low', '', 'Horizontal and vertical error together.'),
+    ...common,
+  ];
+  return [
+    M('n', 'Samples', st.n, `${st.n} in ${st.dur.toFixed(0)} s (${st.rate.toFixed(1)} Hz)`, null, '', 'Lighthouse positions used (10 per second).'),
+    M('cep50', 'CEP50 (half the samples within)', st.cep50, trkCm(st.cep50), 'low', trkCls(st.cep50, 0.05, 0.10),
+      'Radius of the circle around the target that holds half of the samples. The typical distance from the point.'),
+    M('r95', 'R95 (95 % within)', st.r95, trkCm(st.r95), 'low', trkCls(st.r95, 0.10, 0.20),
+      'Radius holding 95 % of the samples: how far the drone goes in its worst moments (ignoring the worst 5 %).'),
+    M('rmsH', 'Horizontal RMS', st.rmsH, trkCm(st.rmsH), 'low', '', 'Root mean square distance: like the mean, but large excursions weigh more.'),
+    M('meanH', 'Horizontal mean', st.meanH, trkCm(st.meanH), 'low', '', 'Average horizontal distance from the target.'),
+    M('maxH', 'Horizontal max', st.maxH, trkCm(st.maxH), 'low', '', 'The single farthest sample.'),
+    M('in5', 'Within 5 cm', st.in5, trkPc(st.in5), 'high', trkClsHi(st.in5, 70, 40), 'Share of the samples within 5 cm (horizontally) of the target.'),
+    M('in10', 'Within 10 cm', st.in10, trkPc(st.in10), 'high', trkClsHi(st.in10, 90, 70), ''),
+    M('in20', 'Within 20 cm', st.in20, trkPc(st.in20), 'high', trkClsHi(st.in20, 99, 90), ''),
+    M('biasH', 'Bias: mean offset X / Y / Z', st.biasH, `${(100 * st.mx).toFixed(1)} / ${(100 * st.my).toFixed(1)} / ${(100 * st.mz).toFixed(1)} cm`, 'low', trkCls(st.biasH, 0.03, 0.08),
+      'Where the drone sat on average, relative to the target. Near zero = no systematic error; all the error is the movement around the point.'),
+    M('spreadH', 'Spread about the mean (σ), horizontal', st.spreadH, trkCm(st.spreadH), 'low', trkCls(st.spreadH, 0.04, 0.08),
+      'How much the drone moved around its own average position (the bias removed).'),
+    M('fwdSd', 'Spread forward-back / sideways (drone axes)', st.fwdSd, `${trkCm(st.fwdSd)} / ${trkCm(st.latSd)}`, 'low', trkCls(st.fwdSd, 0.04, 0.08),
+      `The spread split along the drone's own axes (nose at ${st.yawDeg.toFixed(0)}° in the room). Forward much larger than sideways = a pitch-axis problem (balance, tuning).`),
+    M('rmsZ', 'Vertical RMS / p95 / max', st.rmsZ, `${trkCm(st.rmsZ)} / ${trkCm(st.p95Z)} / ${trkCm(st.maxZ)}`, 'low', trkCls(st.rmsZ, 0.03, 0.08), 'Height error from the target.'),
+    M('rms3', '3D RMS', st.rms3, trkCm(st.rms3), 'low', '', 'Horizontal and vertical error together.'),
+    M('drift', 'Drift (trend of the offset)', st.drift, `${(100 * st.drift).toFixed(1)} cm/min`, 'low', trkCls(st.drift, 0.02, 0.05),
+      'Straight-line trend of the offset over the studied time. A large value = the drone slowly slides away (or a slow oscillation longer than the window).'),
+    ...common,
+  ];
+}
+
+function trkUpdate() {
+  if (!trkData) return;
+  const o = trkOpts();
+  trkEl('trk-point-ctl').hidden = o.kind !== 'point';
+  trkEl('trk-path-ctl').hidden = o.kind !== 'path';
+  trkSel = trkAnalyse(trkData, o);
+  const box = trkEl('trk-quick');
+  if (trkSel.error) { box.innerHTML = `<span class="bad">✘ ${misEsc(trkSel.error)}</span>`; trkDraw3d(); return; }
+  const st = trkSel.stats;
+  box.innerHTML = trkSel.kind === 'path'
+    ? `${misEsc(trkSel.phase)} · ${misEsc(trkSel.label)}<br><b>${st.n}</b> samples · path error RMS <b class="${trkCls(st.xtRms, 0.05, 0.10)}">${(100 * st.xtRms).toFixed(1)} cm</b>`
+      + ` · p95 <b class="${trkCls(st.xt95, 0.10, 0.20)}">${(100 * st.xt95).toFixed(1)} cm</b> · within 10 cm <b>${st.in10.toFixed(0)} %</b> · height RMS <b>${(100 * st.zRms).toFixed(1)} cm</b>`
+    : `${misEsc(trkSel.phase)} · ${misEsc(trkSel.label)}<br><b>${st.n}</b> samples · CEP50 <b class="${trkCls(st.cep50, 0.05, 0.10)}">${(100 * st.cep50).toFixed(1)} cm</b>`
+      + ` · R95 <b class="${trkCls(st.r95, 0.10, 0.20)}">${(100 * st.r95).toFixed(1)} cm</b> · within 10 cm <b>${st.in10.toFixed(0)} %</b>`
+      + ` · vertical RMS <b>${(100 * st.rmsZ).toFixed(1)} cm</b>`;
+  trkDraw3d();
+  if (!trkEl('trk-report').hidden && trkView && trkView.live) trkShowReport(trkTrackView());
+}
+
+// 3D: the whole path (thin), the studied samples coloured by distance, the target(s) / planned path
+const trkGroup = new THREE.Group(); scene.add(trkGroup);
+const TRK_BANDS = [[0.05, 0x5adf7a, '#5adf7a'], [0.10, 0xffcc44, '#ffcc44'], [0.20, 0xff9a3c, '#ff9a3c'], [Infinity, 0xff5a5a, '#ff5a5a']];
+const trkBand = d => TRK_BANDS.find(b => d <= b[0]);
+function trkDraw3d() {
+  while (trkGroup.children.length) {
+    const o = trkGroup.children.pop();
+    if (o.element) o.element.remove();
+    if (o.geometry) o.geometry.dispose();
+  }
+  if (!trkData || !trkEl('trk-3d').checked) return;
+  const { rows: R, col: C } = trkData;
+  if (R.length > 1) trkGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(R.map(r => tv(r[C.x], r[C.y], r[C.z]))),
+    new THREE.LineBasicMaterial({ color: 0x8a8a8a, transparent: true, opacity: 0.45 })));
+  if (!trkSel || trkSel.error) return;
+  const pos = [], colors = [], c = new THREE.Color(), path = trkSel.kind === 'path';
+  trkSel.pts.forEach(p => { const v = tv(p.x, p.y, p.z); pos.push(v.x, v.y, v.z); c.setHex(trkBand(path ? p.eh : p.dh)[1]); colors.push(c.r, c.g, c.b); });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+  trkGroup.add(new THREE.Points(g, new THREE.PointsMaterial({ size: 0.018, vertexColors: true })));
+  if (path) {
+    trkGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(trkSel.plan.map(p => tv(...p))), new THREE.LineBasicMaterial({ color: 0xffffff })));
+    trkSel.plan.forEach((p, i) => {
+      const m = new THREE.Mesh(new THREE.SphereGeometry(0.02, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+      m.position.copy(tv(...p)); trkGroup.add(m);
+      if (trkSel.plan.length > 14 && i % 4 && i !== trkSel.plan.length - 1) return;
+      const d = document.createElement('div'); d.className = 'label3d'; d.textContent = i ? String(i) : 'start'; d.style.color = '#fff';
+      const o = new CSS2DObject(d); o.position.copy(tv(p[0], p[1], p[2] + 0.08)); trkGroup.add(o);
+    });
+    return;
+  }
+  const targets = [...new Map(trkSel.pts.map(p => [p.tg.join(','), p.tg])).values()].slice(0, 50);
+  targets.forEach(t => {
+    const m = new THREE.Mesh(new THREE.SphereGeometry(0.015, 12, 8), new THREE.MeshBasicMaterial({ color: 0xffffff }));
+    m.position.copy(tv(...t)); trkGroup.add(m);
+    TRK_BANDS.slice(0, 3).forEach(([r, col]) => {
+      const ring = Array.from({ length: 49 }, (_, i) => tv(t[0] + r * Math.cos(i / 48 * 2 * Math.PI), t[1] + r * Math.sin(i / 48 * 2 * Math.PI), t[2]));
+      trkGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring), new THREE.LineBasicMaterial({ color: col })));
+    });
+  });
+}
+
+// ── Charts on plain canvases ──
+const TRK_FONT = '11px system-ui, "Segoe UI", sans-serif';
+function trkCanvas(cv, w, h, dpr) {
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr);
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = '#161616'; g.fillRect(0, 0, w, h); g.font = TRK_FONT;
+  return g;
+}
+function trkTicks(lo, hi, n) {
+  const raw = (hi - lo) / n, mag = 10 ** Math.floor(Math.log10(raw || 1));
+  const step = [1, 2, 5, 10].map(k => k * mag).find(s => s >= raw) || mag * 10, out = [];
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-6; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+const trkFmt = v => String(+v.toFixed(Math.abs(v) >= 100 ? 0 : 2));
+function trkAxes(g, box, xr, yr, xl, yl, noX) {
+  const X = v => box.x + (v - xr[0]) / (xr[1] - xr[0]) * box.w, Y = v => box.y + box.h - (v - yr[0]) / (yr[1] - yr[0]) * box.h;
+  g.lineWidth = 1; g.fillStyle = '#8a8a8a';
+  g.textAlign = 'center';
+  if (!noX) trkTicks(xr[0], xr[1], Math.max(3, box.w / 70)).forEach(v => {
+    g.strokeStyle = '#262626'; g.beginPath(); g.moveTo(X(v), box.y); g.lineTo(X(v), box.y + box.h); g.stroke();
+    g.fillText(trkFmt(v), X(v), box.y + box.h + 13);
+  });
+  g.textAlign = 'right';
+  trkTicks(yr[0], yr[1], Math.max(3, box.h / 40)).forEach(v => {
+    g.strokeStyle = v === 0 ? '#444' : '#262626'; g.beginPath(); g.moveTo(box.x, Y(v)); g.lineTo(box.x + box.w, Y(v)); g.stroke();
+    g.fillText(trkFmt(v), box.x - 4, Y(v) + 4);
+  });
+  g.strokeStyle = '#444'; g.strokeRect(box.x, box.y, box.w, box.h);
+  g.fillStyle = '#aaa'; g.textAlign = 'center';
+  if (xl) g.fillText(xl, box.x + box.w / 2, box.y + box.h + 27);
+  if (yl) { g.save(); g.translate(box.x - 36, box.y + box.h / 2); g.rotate(-Math.PI / 2); g.fillText(yl, 0, 0); g.restore(); }
+  return { X, Y };
+}
+function trkLine(g, A, P, fx, fy, color, width = 1.2, dash) {
+  g.strokeStyle = color; g.lineWidth = width; g.setLineDash(dash || []); g.beginPath();
+  let pen = false, last = null;
+  P.forEach(p => {
+    const x = fx(p), y = fy(p);
+    if (y == null || !isFinite(y) || (last != null && x - last > 0.6)) { pen = false; if (y == null || !isFinite(y)) return; }
+    if (pen) g.lineTo(A.X(x), A.Y(y)); else g.moveTo(A.X(x), A.Y(y));
+    pen = true; last = x;
+  });
+  g.stroke(); g.setLineDash([]);
+}
+function trkLegend(g, x, y, items) {
+  g.textAlign = 'left';
+  items.forEach(([text, color]) => { g.fillStyle = color; g.fillRect(x, y - 8, 12, 3); g.fillStyle = '#ccc'; g.fillText(text, x + 16, y - 4); x += g.measureText(text).width + 34; });
+}
+function trkRange(vals, pad = 0.08, minSpan = 0) {
+  vals = vals.filter(v => v != null && isFinite(v));
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (!isFinite(lo)) { lo = 0; hi = 1; }
+  const mid = (lo + hi) / 2, span = Math.max(hi - lo, minSpan) * (1 + 2 * pad);
+  return [mid - span / 2, mid + span / 2];
+}
+const TRK_AX = { x: '#ff6b6b', y: '#5adf7a', z: '#4fd1ff' };
+const trkBox = (w, h, right = 14) => ({ x: 48, y: 22, w: w - 48 - right, h: h - 58 });
+function trkChartFlight(cv, w, h, dpr) {           // whole recording, studied part shaded
+  const g = trkCanvas(cv, w, h, dpr), { rows: R, col: C } = trkData, box = trkBox(w, h);
+  const vals = []; R.forEach(r => vals.push(r[C.x], r[C.y], r[C.z]));
+  const A = trkAxes(g, box, [0, Math.max(1, R[R.length - 1][C.t])], trkRange(vals, 0.06, 0.5), 'time [s]', 'position [m]');
+  const sel = new Set(trkSel.pts.map(p => p.t));
+  g.fillStyle = 'rgba(255, 204, 68, 0.10)';
+  let start = null, prev = null;
+  const flush = () => { if (start != null) g.fillRect(A.X(start), box.y, Math.max(1, A.X(prev) - A.X(start)), box.h); };
+  R.forEach(r => { const t = r[C.t]; if (sel.has(t)) { if (start == null || t - prev > 0.6) { flush(); start = t; } prev = t; } });
+  flush();
+  ['x', 'y', 'z'].forEach(k => {
+    trkLine(g, A, R, r => r[C.t], r => r[C['t' + k]], TRK_AX[k], 1, [5, 4]);
+    trkLine(g, A, R, r => r[C.t], r => r[C[k]], TRK_AX[k], 1.3);
+  });
+  trkLegend(g, box.x + 4, 14, [['X', TRK_AX.x], ['Y', TRK_AX.y], ['Z', TRK_AX.z], ['dashed: mission target', '#888'], ['shaded: studied', '#ffcc44']]);
+}
+function trkChartTop(cv, w, h, dpr) {              // samples around the target, seen from above
+  const g = trkCanvas(cv, w, h, dpr), P = trkSel.pts, st = trkSel.stats;
+  const side = Math.min(w - 60, h - 52), box = { x: 48 + (w - 60 - side) / 2, y: 12, w: side, h: side };
+  const lim = Math.max(0.25, trkPct(trkSorted(P.map(p => Math.max(Math.abs(p.dx), Math.abs(p.dy)))), 99.5) * 1.15) * 100;
+  const A = trkAxes(g, box, [-lim, lim], [-lim, lim], 'X error [cm] (+ toward the 1 m mark)', 'Y error [cm] (+ left)');
+  g.save(); g.beginPath(); g.rect(box.x, box.y, box.w, box.h); g.clip();
+  const circle = (r, color, dash, width = 1) => { g.strokeStyle = color; g.lineWidth = width; g.setLineDash(dash || []); g.beginPath();
+    g.arc(A.X(0), A.Y(0), (A.X(r) - A.X(0)), 0, 2 * Math.PI); g.stroke(); g.setLineDash([]); };
+  TRK_BANDS.slice(0, 3).forEach(([r, , col]) => { circle(100 * r, col + '88'); g.fillStyle = col; g.textAlign = 'left'; g.fillText(`${100 * r} cm`, A.X(100 * r * 0.71) + 3, A.Y(100 * r * 0.71) - 3); });
+  g.globalAlpha = P.length > 3000 ? 0.35 : 0.65;
+  P.forEach(p => { g.fillStyle = trkBand(p.dh)[2]; g.fillRect(A.X(100 * p.dx) - 1.5, A.Y(100 * p.dy) - 1.5, 3, 3); });
+  g.globalAlpha = 1;
+  circle(100 * st.cep50, '#fff', [4, 3], 1.5); circle(100 * st.r95, '#b98cf5', [4, 3], 1.5);
+  // the drone's nose: forward / sideways axes
+  const yr = st.yawDeg * Math.PI / 180, L = lim * 0.9;
+  g.strokeStyle = '#ffffff55'; g.setLineDash([2, 4]); g.beginPath();
+  g.moveTo(A.X(-L * Math.cos(yr)), A.Y(-L * Math.sin(yr))); g.lineTo(A.X(L * Math.cos(yr)), A.Y(L * Math.sin(yr))); g.stroke(); g.setLineDash([]);
+  g.fillStyle = '#ffffffaa'; g.textAlign = 'center'; g.fillText('nose', A.X(L * Math.cos(yr)), A.Y(L * Math.sin(yr)) - 4);
+  g.strokeStyle = '#fff'; g.lineWidth = 2; const bx = A.X(100 * st.mx), by = A.Y(100 * st.my);
+  g.beginPath(); g.moveTo(bx - 6, by); g.lineTo(bx + 6, by); g.moveTo(bx, by - 6); g.lineTo(bx, by + 6); g.stroke();
+  g.restore();
+  trkLegend(g, box.x + 4, box.y + box.h + 44, [[`CEP50 ${(100 * st.cep50).toFixed(1)} cm`, '#fff'], [`R95 ${(100 * st.r95).toFixed(1)} cm`, '#b98cf5'], ['+ mean', '#fff']]);
+}
+// Histogram of distances (metres) + cumulative %, with dashed marks [[value, colour, name]]
+function trkHist(values, xlabel, marks) {
+  return (cv, w, h, dpr) => {
+    const g = trkCanvas(cv, w, h, dpr), box = trkBox(w, h, 44);
+    const dh = trkSorted(values.map(v => 100 * v));
+    const top = Math.max(10, trkPct(dh, 99.5) * 1.15), bin = top > 40 ? 2 : top > 15 ? 1 : 0.5, nb = Math.ceil(top / bin);
+    const counts = new Array(nb).fill(0); dh.forEach(v => { counts[Math.min(nb - 1, Math.floor(v / bin))]++; });
+    const pctMax = Math.max(...counts) / dh.length * 100;
+    const A = trkAxes(g, box, [0, nb * bin], [0, pctMax * 1.12], xlabel, 'samples [%]');
+    counts.forEach((c, i) => {
+      g.fillStyle = trkBand(((i + 0.5) * bin) / 100)[2] + 'bb';
+      g.fillRect(A.X(i * bin) + 0.5, A.Y(c / dh.length * 100), Math.max(1, A.X(bin) - A.X(0) - 1), A.Y(0) - A.Y(c / dh.length * 100));
+    });
+    const Yc = v => box.y + box.h - v / 100 * box.h;
+    g.strokeStyle = '#ddd'; g.lineWidth = 1.5; g.beginPath();
+    dh.forEach((v, i) => { const x = A.X(Math.min(v, nb * bin)), y = Yc(100 * (i + 1) / dh.length); i ? g.lineTo(x, y) : g.moveTo(x, y); }); g.stroke();
+    g.fillStyle = '#8a8a8a'; g.textAlign = 'left';
+    [0, 50, 95, 100].forEach(v => g.fillText(v + ' %', box.x + box.w + 4, Yc(v) + 4));
+    marks.forEach(([v, col, name], k) => {
+      g.strokeStyle = col; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(A.X(100 * v), box.y); g.lineTo(A.X(100 * v), box.y + box.h); g.stroke(); g.setLineDash([]);
+      g.fillStyle = col; g.fillText(`${name} ${(100 * v).toFixed(1)}`, A.X(100 * v) + 3, box.y + 12 + 14 * k);
+    });
+    trkLegend(g, box.x + 4, 14, [['bars: share of samples per distance', '#888'], ['line: cumulative (right axis)', '#ddd']]);
+  };
+}
+function trkChartError(cv, w, h, dpr) {            // distance from the target over time
+  const g = trkCanvas(cv, w, h, dpr), P = trkSel.pts, box = trkBox(w, h);
+  const A = trkAxes(g, box, [trkSel.t0, Math.max(trkSel.t1, trkSel.t0 + 1)], trkRange([...P.flatMap(p => [100 * p.dh, 100 * p.dz]), 0, 10], 0.05), 'time [s]', 'error [cm]');
+  [5, 10, 20].forEach(v => { g.strokeStyle = trkBand(v / 100)[2] + '55'; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(box.x, A.Y(v)); g.lineTo(box.x + box.w, A.Y(v)); g.stroke(); });
+  g.setLineDash([]);
+  trkLine(g, A, P, p => p.t, p => 100 * p.dz, '#ff9a3c', 1);
+  trkLine(g, A, P, p => p.t, p => 100 * p.dh, '#4fd1ff', 1.4);
+  trkLegend(g, box.x + 4, 14, [['horizontal distance', '#4fd1ff'], ['vertical error (+ above)', '#ff9a3c'], ['dashed: 5 / 10 / 20 cm', '#888']]);
+}
+function trkChartAxes(cv, w, h, dpr) {             // signed error per axis
+  const g = trkCanvas(cv, w, h, dpr), P = trkSel.pts, box = trkBox(w, h);
+  const A = trkAxes(g, box, [trkSel.t0, Math.max(trkSel.t1, trkSel.t0 + 1)], trkRange(P.flatMap(p => [100 * p.dx, 100 * p.dy, 100 * p.dz]), 0.05, 10), 'time [s]', 'error [cm]');
+  [['dx', 'x'], ['dy', 'y'], ['dz', 'z']].forEach(([k, a]) => trkLine(g, A, P, p => p.t, p => 100 * p[k], TRK_AX[a], 1.1));
+  g.fillStyle = '#ddd';
+  P.filter(p => p.ex != null).forEach(p => { const y = 100 * Math.hypot(p.ex - p.x, p.ey - p.y); g.fillRect(A.X(p.t) - 1, A.Y(y) - 1, 2, 2); });
+  trkLegend(g, box.x + 4, 14, [['X', TRK_AX.x], ['Y', TRK_AX.y], ['Z', TRK_AX.z], ['dots: |EKF − lighthouse| horizontal', '#ddd']]);
+}
+function trkChartAtt(cv, w, h, dpr) {              // attitude and battery: a steady tilt explains a slow drift
+  const g = trkCanvas(cv, w, h, dpr), P = trkSel.pts.filter(p => p.roll != null), box = trkBox(w, h, 44);
+  if (!P.length) { g.fillStyle = '#888'; g.textAlign = 'center'; g.fillText('no attitude in this track', w / 2, h / 2); return; }
+  const A = trkAxes(g, box, [trkSel.t0, Math.max(trkSel.t1, trkSel.t0 + 1)], trkRange(P.flatMap(p => [p.roll, p.pitch]), 0.05, 4), 'time [s]', 'angle [°]');
+  trkLine(g, A, P, p => p.t, p => p.roll, '#ff6bd5', 1.1);
+  trkLine(g, A, P, p => p.t, p => p.pitch, '#b9f56b', 1.1);
+  const V = P.filter(p => p.volt != null);
+  if (V.length) {
+    const vr = trkRange(V.map(p => p.volt), 0.1, 0.2), Yv = v => box.y + box.h - (v - vr[0]) / (vr[1] - vr[0]) * box.h;
+    g.strokeStyle = '#ffd36b'; g.lineWidth = 1; g.setLineDash([2, 3]); g.beginPath();
+    V.forEach((p, i) => i ? g.lineTo(A.X(p.t), Yv(p.volt)) : g.moveTo(A.X(p.t), Yv(p.volt))); g.stroke(); g.setLineDash([]);
+    g.fillStyle = '#ffd36b'; g.textAlign = 'left';
+    trkTicks(vr[0], vr[1], 4).forEach(v => g.fillText(v.toFixed(2) + ' V', box.x + box.w + 4, Yv(v) + 4));
+  }
+  trkLegend(g, box.x + 4, 14, [['roll', '#ff6bd5'], ['pitch', '#b9f56b'], ['battery (right axis)', '#ffd36b']]);
+}
+// Path charts
+function trkChartPathTop(cv, w, h, dpr) {          // planned lines and the flown samples, seen from above
+  const g = trkCanvas(cv, w, h, dpr), S = trkSel, P = S.pts;
+  const xs = [...P.map(p => p.x), ...S.plan.map(p => p[0])], ys = [...P.map(p => p.y), ...S.plan.map(p => p[1])];
+  const xr = trkRange(xs, 0.08, 0.3), yr = trkRange(ys, 0.08, 0.3), span = Math.max(xr[1] - xr[0], yr[1] - yr[0]);
+  const sq = r => [(r[0] + r[1]) / 2 - span / 2, (r[0] + r[1]) / 2 + span / 2];
+  const side = Math.min(w - 60, h - 52), box = { x: 48 + (w - 60 - side) / 2, y: 12, w: side, h: side };
+  const A = trkAxes(g, box, sq(xr), sq(yr), 'X [m] (toward the 1 m mark)', 'Y [m] (left)');
+  g.strokeStyle = '#fff'; g.lineWidth = 1.5; g.setLineDash([6, 4]); g.beginPath();
+  S.plan.forEach((p, i) => i ? g.lineTo(A.X(p[0]), A.Y(p[1])) : g.moveTo(A.X(p[0]), A.Y(p[1]))); g.stroke(); g.setLineDash([]);
+  P.forEach(p => { g.fillStyle = trkBand(p.eh)[2]; g.fillRect(A.X(p.x) - 1.5, A.Y(p.y) - 1.5, 3, 3); });
+  g.font = 'bold 11px system-ui, "Segoe UI", sans-serif';
+  S.plan.forEach((p, i) => {
+    if (S.plan.length > 14 && i % 4 && i !== S.plan.length - 1) return;
+    g.fillStyle = '#fff'; g.beginPath(); g.arc(A.X(p[0]), A.Y(p[1]), 3, 0, 2 * Math.PI); g.fill();
+    g.textAlign = 'left'; g.fillText(i ? String(i) : 'start', A.X(p[0]) + 5, A.Y(p[1]) - 5);
+  });
+  g.font = TRK_FONT;
+  trkLegend(g, box.x + 4, box.y + box.h + 44, [['planned', '#fff'], ['≤ 5 cm', '#5adf7a'], ['≤ 10', '#ffcc44'], ['≤ 20', '#ff9a3c'], ['more', '#ff5a5a']]);
+}
+function trkChartPathSide(cv, w, h, dpr) {         // height along the path
+  const g = trkCanvas(cv, w, h, dpr), S = trkSel, P = S.pts, box = trkBox(w, h);
+  const A = trkAxes(g, box, [0, Math.max(0.1, S.cum[S.cum.length - 1])], trkRange([...P.map(p => p.z), ...S.plan.map(p => p[2])], 0.1, 0.2),
+    'distance along the planned path [m]', 'height Z [m]');
+  g.strokeStyle = '#fff'; g.setLineDash([6, 4]); g.lineWidth = 1.3; g.beginPath();
+  S.plan.forEach((p, i) => i ? g.lineTo(A.X(S.cum[i]), A.Y(p[2])) : g.moveTo(A.X(0), A.Y(p[2]))); g.stroke(); g.setLineDash([]);
+  P.forEach(p => { g.fillStyle = trkBand(Math.abs(p.ez))[2]; g.fillRect(A.X(p.along) - 1.5, A.Y(p.z) - 1.5, 3, 3); });
+  g.fillStyle = '#888'; g.textAlign = 'center';
+  S.cum.forEach((c, i) => { if (i && (S.plan.length <= 14 || !(i % 4))) g.fillText(String(i), A.X(c), box.y + 10); });
+  trkLegend(g, box.x + 4, 14, [['planned height', '#fff'], ['flown (coloured by height error)', '#ffcc44'], ['numbers: points', '#888']]);
+}
+function trkChartPathErr(cv, w, h, dpr) {          // path error over time, leg by leg
+  const g = trkCanvas(cv, w, h, dpr), S = trkSel, P = S.pts, box = trkBox(w, h);
+  const A = trkAxes(g, box, [S.t0, Math.max(S.t1, S.t0 + 1)], trkRange([...P.flatMap(p => [100 * p.eh, 100 * p.ez]), 0, 10], 0.05), 'time [s]', 'error [cm]');
+  let prevLeg = null; g.textAlign = 'center';
+  P.forEach(p => {
+    if (p.leg !== prevLeg) {
+      g.strokeStyle = '#333'; g.beginPath(); g.moveTo(A.X(p.t), box.y); g.lineTo(A.X(p.t), box.y + box.h); g.stroke();
+      if (S.legs.length <= 14 || !(p.leg % 4)) { g.fillStyle = '#888'; g.fillText(`→${p.leg + 1}`, A.X(p.t) + 10, box.y + 10); }
+      prevLeg = p.leg;
+    }
+  });
+  trkLine(g, A, P, p => p.t, p => 100 * p.ez, '#ff9a3c', 1);
+  trkLine(g, A, P, p => p.t, p => 100 * p.eh, '#4fd1ff', 1.4);
+  trkLegend(g, box.x + 4, 14, [['horizontal distance from the planned line', '#4fd1ff'], ['height error (+ above)', '#ff9a3c'], ['→n: leg toward point n', '#888']]);
+}
+
+// ── Report: a list of cards (chart / numbers / table), shown in the overlay and saved as one PNG ──
+let trkView = null;
+function trkTrackView() {
+  const S = trkSel, st = S.stats, rows = trkMetrics(st, S.kind);
+  const head = `${trkData.meta.name} · ${S.phase} · ${S.label} · t ${S.t0.toFixed(0)}–${S.t1.toFixed(0)} s`;
+  if (S.kind === 'path') return { live: true, title: 'Lighthouse path accuracy · ' + trkData.meta.name, sub: `${trkData.meta.started} · ${head}`, cards: [
+    { title: 'Whole recording: position over time (shaded = the samples studied)', wide: true, draw: trkChartFlight },
+    { title: 'Seen from above: planned lines and the flown samples', sq: true, draw: trkChartPathTop },
+    { title: 'Distance from the planned line (horizontal)', draw: trkHist(S.pts.map(p => p.eh), 'horizontal distance from the planned line [cm]',
+        [[st.xt50, '#fff', 'median'], [st.xt95, '#b98cf5', 'p95']]) },
+    { title: 'Numbers', rows },
+    { title: 'Path error over time', wide: true, draw: trkChartPathErr },
+    { title: 'Height along the path', wide: true, draw: trkChartPathSide },
+    { title: 'Leg by leg', wide: true, table: { head: ['Leg', 'From → to', 'Length', 'Time', 'Speed', 'Error RMS', 'Error max'],
+        rows: S.legs.map(l => [`${l.L + 1}`, `(${l.from.map(v => v.toFixed(2)).join(', ')}) → (${l.to.map(v => v.toFixed(2)).join(', ')})`,
+          `${l.len.toFixed(2)} m`, l.time ? `${l.time.toFixed(1)} s` : '—', l.speed ? `${(100 * l.speed).toFixed(0)} cm/s` : '—',
+          { v: trkCm(l.rms), cls: trkCls(l.rms, 0.05, 0.10) }, trkCm(l.max)]) } },
+    { title: 'Attitude and battery', wide: true, draw: trkChartAtt },
+  ] };
+  return { live: true, title: 'Lighthouse hover accuracy · ' + trkData.meta.name, sub: `${trkData.meta.started} · ${head}`, cards: [
+    { title: 'Whole recording: position over time (shaded = the samples studied)', wide: true, draw: trkChartFlight },
+    { title: 'Seen from above: where each sample fell around the target', sq: true, draw: trkChartTop },
+    { title: 'How far from the target (horizontal)', draw: trkHist(S.pts.map(p => p.dh), 'horizontal distance from the target [cm]',
+        [[st.cep50, '#fff', 'CEP50'], [st.r95, '#b98cf5', 'R95']]) },
+    { title: 'Numbers', rows },
+    { title: 'Distance from the target over time', wide: true, draw: trkChartError },
+    { title: 'Error per axis over time (+ EKF disagreement)', wide: true, draw: trkChartAxes },
+    { title: 'Attitude and battery (a steady tilt explains a slow drift)', wide: true, draw: trkChartAtt },
+  ] };
+}
+const trkCell = c => typeof c === 'object' ? c : { v: c, cls: '' };
+function trkShowReport(view) {
+  trkView = view;
+  trkEl('trk-r-title').textContent = view.title + (view.sub ? ' — ' + view.sub : '');
+  const grid = trkEl('trk-grid');
+  grid.innerHTML = view.cards.map((c, i) => {
+    let body;
+    if (c.draw) body = `<canvas data-i="${i}" class="${c.sq ? 'sq' : ''}" style="${c.h ? `height:${c.h}px` : ''}"></canvas>`;
+    else if (c.rows) body = '<table class="cal-metrics">' + c.rows.map(r =>
+      `<tr title="${misEsc(r.hint || '')}"><td>${misEsc(r.label)}${r.hint ? ' <span class="trk-q">?</span>' : ''}</td><td class="${r.cls}">${misEsc(r.value)}</td></tr>`).join('') + '</table>'
+      + '<div class="hint">Point at a line to see what it means.</div>';
+    else body = '<div class="trk-tablewrap"><table class="trk-table"><tr>' + c.table.head.map(hh => `<th>${misEsc(hh)}</th>`).join('') + '</tr>'
+      + c.table.rows.map(r => '<tr>' + r.map(trkCell).map(x => `<td class="${x.cls || ''}" title="${misEsc(x.tip || '')}">${misEsc(x.v)}</td>`).join('') + '</tr>').join('') + '</table></div>'
+      + (c.note ? `<div class="hint">${c.note}</div>` : '');
+    return `<div class="trk-card${c.wide ? ' wide' : ''}"><div class="trk-ct">${misEsc(c.title)}</div>${body}</div>`;
+  }).join('');
+  trkEl('trk-report').hidden = false;
+  requestAnimationFrame(trkRenderReport);
+}
+function trkRenderReport() {
+  if (!trkView) return;
+  const dpr = window.devicePixelRatio || 1;
+  trkEl('trk-grid').querySelectorAll('canvas[data-i]').forEach(cv => trkView.cards[+cv.dataset.i].draw(cv, cv.clientWidth, cv.clientHeight, dpr));
+}
+trkEl('trk-open').addEventListener('click', () => { if (trkSel && !trkSel.error) trkShowReport(trkTrackView()); });
+trkEl('trk-r-close').addEventListener('click', () => { trkEl('trk-report').hidden = true; });
+window.addEventListener('resize', () => { if (!trkEl('trk-report').hidden) trkRenderReport(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') trkEl('trk-report').hidden = true; });
+function trkDownload(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function trkCsv() {
+  const { rows: R, meta } = trkData;
+  const cell = v => v == null ? '' : typeof v === 'string' ? `"${v.replace(/"/g, '""')}"` : v;
+  trkDownload(new Blob([[meta.columns.join(','), ...R.map(r => r.map(cell).join(','))].join('\n')], { type: 'text/csv' }), meta.name + '.csv');
+}
+trkEl('trk-csv').addEventListener('click', () => trkData && trkCsv());
+trkEl('trk-r-csv').addEventListener('click', () => {
+  if (!trkView) return;
+  if (trkView.csv) trkDownload(new Blob([trkView.csv()], { type: 'text/csv' }), trkView.file + '.csv');
+  else if (trkData) trkCsv();
+});
+// One PNG with every card: charts drawn again at a fixed size, numbers and tables as text
+trkEl('trk-r-png').addEventListener('click', () => {
+  if (!trkView) return;
+  const W = 1800, GAP = 10, colours = { good: '#5adf7a', warn: '#e4b960', bad: '#f48a8a' };
+  const items = []; let x = 0, y = 70, rowH = 0;
+  const place = (c, w, h) => {
+    if (x + w > W + 1) { x = 0; y += rowH + GAP; rowH = 0; }
+    items.push({ c, x, y, w, h }); x += w + GAP; rowH = Math.max(rowH, h);
+  };
+  trkView.cards.forEach(c => {
+    const textH = c.rows ? 40 + 22 * c.rows.length : c.table ? 44 + 20 * (c.table.rows.length + 1) : 0;
+    if (c.wide) { if (x) { x = 0; y += rowH + GAP; rowH = 0; } place(c, W, c.draw ? (c.h || 280) : textH); x = W + 1; }
+    else place(c, Math.floor((W - 2 * GAP) / 3), c.draw ? 600 : Math.max(textH, 600));
+  });
+  const out = document.createElement('canvas'); out.width = W; out.height = y + rowH + 20;
+  const g = out.getContext('2d');
+  g.fillStyle = '#121212'; g.fillRect(0, 0, W, out.height);
+  g.fillStyle = '#fff'; g.font = 'bold 22px system-ui, "Segoe UI", sans-serif'; g.textAlign = 'left';
+  g.fillText(trkView.title, 16, 32);
+  g.font = '14px system-ui, "Segoe UI", sans-serif'; g.fillStyle = '#aaa'; g.fillText(trkView.sub || '', 16, 56);
+  items.forEach(({ c, x: ix, y: iy, w, h }) => {
+    g.fillStyle = '#1b1b1b'; g.fillRect(ix, iy, w, h);
+    g.fillStyle = '#ccc'; g.font = 'bold 13px system-ui, "Segoe UI", sans-serif'; g.textAlign = 'left'; g.fillText(c.title, ix + 8, iy + 18);
+    g.font = '13px system-ui, "Segoe UI", sans-serif';
+    if (c.draw) { const cv = document.createElement('canvas'); c.draw(cv, w, h - 26, 1); g.drawImage(cv, ix, iy + 26); }
+    else if (c.rows) c.rows.forEach((r, k) => {
+      g.fillStyle = '#999'; g.fillText(r.label, ix + 10, iy + 46 + 22 * k);
+      g.fillStyle = colours[r.cls] || '#eee'; g.fillText(r.value, ix + w * 0.55, iy + 46 + 22 * k);
+    });
+    else {
+      const n = c.table.head.length, cw = (w - 20) / n;
+      [c.table.head, ...c.table.rows].forEach((r, k) => r.map(trkCell).forEach((cell, j) => {
+        g.fillStyle = k ? colours[cell.cls] || '#ddd' : '#8aa';
+        const text = String(cell.v); g.fillText(text.length * 7 > cw ? text.slice(0, Math.floor(cw / 7)) + '…' : text, ix + 10 + j * cw, iy + 46 + 20 * k);
+      }));
+    }
+  });
+  out.toBlob(b => trkDownload(b, `${trkView.file || (trkData && trkData.meta.name) || 'track'}_report.png`), 'image/png');
+});
+
+// ── Compare sessions: the same study (point or path, same settings) on several tracks ──
+const TRK_COLOURS = ['#4fd1ff', '#ffcc44', '#ff6bd5', '#5adf7a', '#ff9a3c', '#b98cf5', '#ff6b6b', '#cfd8dc'];
+function trkCmpList(tracks) {
+  const box = trkEl('trk-cmp'), was = new Set([...box.querySelectorAll('input:checked')].map(i => i.value));
+  box.innerHTML = tracks.length ? tracks.map(t => `<label><input type="checkbox" value="${misEsc(t.name)}"${was.has(t.name) ? ' checked' : ''}> ${misEsc(t.name.replace(/^track_/, ''))}</label>`).join('')
+    : '<div class="hint">no tracks yet</div>';
+}
+trkEl('trk-cmp-go').addEventListener('click', async () => {
+  const names = [...trkEl('trk-cmp').querySelectorAll('input:checked')].map(i => i.value).sort();   // oldest first = baseline
+  if (names.length < 2) { trkMsg('✘ tick at least two tracks to compare', true); return; }
+  if (names.length > 8) { trkMsg('✘ at most 8 tracks', true); return; }
+  const o = { ...trkOpts(), t0: 0, t1: Infinity, mission: null };       // each track: its whole hold / its last figure
+  trkMsg('Loading ' + names.length + ' tracks…');
+  try {
+    const sessions = [];
+    for (const [k, name] of names.entries()) {
+      const d = trkParse(await trkApi('get', { name })), sel = trkAnalyse(d, o);
+      sessions.push({ name, short: name.replace(/^track_\d{8}_/, ''), date: d.meta.started, colour: TRK_COLOURS[k], sel });
+    }
+    const ok = sessions.filter(s => !s.sel.error);
+    if (ok.length < 2) { trkMsg('✘ fewer than two tracks have this kind of study: ' + sessions.filter(s => s.sel.error).map(s => `${s.short}: ${s.sel.error}`).join('; '), true); return; }
+    trkMsg(sessions.length > ok.length ? `Left out: ${sessions.filter(s => s.sel.error).map(s => s.short).join(', ')} (no ${o.kind === 'path' ? 'figure' : 'hold'} in them)` : '');
+    trkShowReport(trkCompareView(ok, o));
+  } catch (err) { trkMsg('✘ ' + err.message, true); }
+});
+function trkCompareView(S, o) {
+  const path = o.kind === 'path', dist = s => path ? s.sel.pts.map(p => p.eh) : s.sel.pts.map(p => p.dh);
+  const keys = path ? ['xtRms', 'xt95'] : ['cep50', 'r95'];
+  const metricSets = S.map(s => trkMetrics(s.sel.stats, o.kind));
+  const base = metricSets[0];
+  const rows = base.map((m, i) => [m.label, ...metricSets.map((ms, k) => {
+    const x = ms[i];
+    if (!k || x.better == null || m.raw == null || x.raw == null || !isFinite(m.raw) || !m.raw) return { v: x.value, cls: '' };
+    const change = (x.raw - m.raw) / Math.abs(m.raw) * 100, better = x.better === 'low' ? change < 0 : change > 0;
+    const unit = x.better === 'high' ? ` (${x.raw - m.raw >= 0 ? '+' : ''}${(x.raw - m.raw).toFixed(0)} pt)` : ` (${change >= 0 ? '+' : ''}${change.toFixed(0)} %)`;
+    return { v: x.value + unit, cls: Math.abs(change) < 5 ? '' : better ? 'good' : 'bad' };
+  })]);
+  const cdf = (cv, w, h, dpr) => {                  // share of samples within a distance, one curve per session
+    const g = trkCanvas(cv, w, h, dpr), box = trkBox(w, h), all = S.map(s => trkSorted(dist(s).map(v => 100 * v)));
+    const top = Math.max(10, Math.max(...all.map(a => trkPct(a, 99))) * 1.1);
+    const A = trkAxes(g, box, [0, top], [0, 100], path ? 'distance from the planned line [cm]' : 'distance from the target [cm]', 'samples within [%]');
+    [50, 95].forEach(v => { g.strokeStyle = '#555'; g.setLineDash([3, 4]); g.beginPath(); g.moveTo(box.x, A.Y(v)); g.lineTo(box.x + box.w, A.Y(v)); g.stroke(); });
+    g.setLineDash([]);
+    all.forEach((a, k) => {
+      g.strokeStyle = S[k].colour; g.lineWidth = 2; g.beginPath();
+      a.forEach((v, i) => { const X = A.X(Math.min(v, top)), Y = A.Y(100 * (i + 1) / a.length); i ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.stroke();
+    });
+    trkLegend(g, box.x + 4, 14, S.map(s => [s.short, s.colour]));
+  };
+  const bars = (cv, w, h, dpr) => {                 // the two headline numbers per session
+    const g = trkCanvas(cv, w, h, dpr), box = trkBox(w, h), vals = S.map(s => keys.map(k => 100 * s.sel.stats[k]));
+    const A = trkAxes(g, box, [0, 1], [0, Math.max(10, ...vals.flat()) * 1.15], '', 'cm', true);
+    const gw = box.w / S.length, bw = gw / 3;
+    S.forEach((s, k) => vals[k].forEach((v, j) => {
+      const x0 = box.x + k * gw + bw * (0.5 + j);
+      g.fillStyle = s.colour + (j ? '88' : 'ff'); g.fillRect(x0, A.Y(v), bw - 2, A.Y(0) - A.Y(v));
+      g.fillStyle = '#ddd'; g.textAlign = 'center'; g.fillText(v.toFixed(1), x0 + bw / 2, A.Y(v) - 4);
+    }));
+    g.fillStyle = '#aaa'; g.textAlign = 'center';
+    S.forEach((s, k) => g.fillText(s.short.length > 22 ? s.short.slice(0, 21) + '…' : s.short, box.x + (k + 0.5) * gw, box.y + box.h + 14));
+    trkLegend(g, box.x + 4, 14, [[path ? 'path error RMS (solid)' : 'CEP50 (solid)', '#ddd'], [path ? 'p95 (light)' : 'R95 (light)', '#888']]);
+  };
+  const tops = S.map(s => ({                         // small top views, same scale for all
+    title: s.short, colour: s.colour,
+    draw: (cv, w, h, dpr) => {
+      const g = trkCanvas(cv, w, h, dpr), side = Math.min(w - 60, h - 40), box = { x: 48 + (w - 60 - side) / 2, y: 8, w: side, h: side };
+      const lim = 100 * Math.max(0.2, ...S.map(x => trkPct(trkSorted(dist(x)), 99))) * 1.1;
+      if (path) { const keep = trkSel; trkSel = s.sel; try { trkChartPathTop(cv, w, h, dpr); } finally { trkSel = keep; } return; }
+      const A = trkAxes(g, box, [-lim, lim], [-lim, lim], 'X error [cm]', 'Y error [cm]');
+      [0.05, 0.10, 0.20].forEach(r => { g.strokeStyle = trkBand(r)[2] + '88'; g.beginPath(); g.arc(A.X(0), A.Y(0), A.X(100 * r) - A.X(0), 0, 2 * Math.PI); g.stroke(); });
+      g.globalAlpha = 0.6; s.sel.pts.forEach(p => { g.fillStyle = trkBand(p.dh)[2]; g.fillRect(A.X(100 * p.dx) - 1, A.Y(100 * p.dy) - 1, 2.5, 2.5); }); g.globalAlpha = 1;
+    },
+  }));
+  const file = 'compare_' + S.map(s => s.short).join('_vs_').slice(0, 80);
+  return {
+    live: false, file,
+    title: `Comparison of ${S.length} sessions · ${path ? 'path following' : 'hover at a point'}`,
+    sub: `${path ? 'each track: its last figure, ' + (o.holds ? 'holds included' : 'moving only') : 'each track: ' + { hold: 'mission hold', after: 'hold + hover after', all: 'whole recording' }[o.phase] + ', target ' + { mission: 'mission point', fixed: 'fixed point', median: 'median position' }[o.tmode]} · baseline = ${S[0].short}`,
+    csv: () => [['metric', ...S.map(s => s.name)].join(','), ...rows.map(r => r.map(c => `"${String(trkCell(c).v).replace(/"/g, '""')}"`).join(','))].join('\n'),
+    cards: [
+      { title: 'Share of samples within a distance (higher and further left = better)', wide: true, draw: cdf, h: 300 },
+      { title: path ? 'Path error RMS and p95 per session' : 'CEP50 and R95 per session', wide: true, draw: bars, h: 260 },
+      { title: 'All the numbers (change against the first session: green better, red worse, plain within 5 %)', wide: true,
+        table: { head: ['', ...S.map(s => `${s.short} (${s.date.slice(5, 16)})`)], rows },
+        note: 'Sessions are sorted oldest first; the first one is the baseline. Compare flights at similar battery voltage and the same point when you can.' },
+      ...tops.map(t => ({ title: t.title, draw: t.draw, sq: true })),
+    ],
+  };
+}
+trkClear();
 
 const trackMode = document.getElementById('track-mode');
 const relayRow = document.getElementById('relay-row');
@@ -1244,6 +2468,8 @@ function disconnectTracking() {
   hudVisible();
   updateOdoFc();
   updateHold(null);
+  updateMission(null);
+  updateTrack(null);
 }
 
 trackConnectButton.addEventListener('click', () => {
@@ -1283,6 +2509,8 @@ trackConnectButton.addEventListener('click', () => {
           if (!trackingPolling) return;
           relayConnected = true;
           updateHud(state.fc);
+          updateMission(state.mission);
+          updateTrack(state.track);
           if (state.odometry && state.sequence !== lastSequence) {
             lastSequence = state.sequence;
             updateDronePosition(state.odometry);
