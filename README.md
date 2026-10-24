@@ -272,7 +272,38 @@ It also lists the numbers:
 - Mean roll / pitch: a steady tilt explains a slow drift.
 - Battery at the start and at the end.
 
-**Save PNG** writes the whole report as one image, for sharing. **CSV** exports the raw rows.
+Point at a line of the numbers to see what it means. Two more numbers help to find the cause of an error:
+
+- **Spread forward-back / sideways**: the spread split along the drone's own axes. Forward much larger
+  than sideways means a pitch-axis problem (balance, tuning), not a lighthouse one.
+- **Pitch / roll movement**: how much the drone tilts while it works.
+
+**Study → a path** measures how well the drone follows a figure flown as a mission (square, circle,
+helix…). Each sample is compared with the straight line of its leg, from the previous point (the start
+position for the first leg) to the point being flown to. By default the holds at the points are left
+out; tick *include the holds* to count them. The report shows:
+
+- the planned lines and the flown samples seen from above, coloured by distance;
+- a histogram of the distance from the line;
+- the path error over time, leg by leg;
+- the height along the path, planned against flown;
+- a table per leg: length, time, speed, error RMS and max;
+- the numbers: path error RMS / median / p95 / max, share within 5 / 10 / 20 cm, height error,
+  planned against flown length, mean speed, EKF − lighthouse, attitude and battery.
+
+A track with a figure opens on the path study, a track with a one-point hold on the point study.
+
+**Compare sessions**: tick 2–8 tracks and press **Compare**. The same study (point or path, with the
+settings above) runs on each track. For a point, each track uses its whole hold; for a path, its last
+figure. The oldest track is the baseline. The comparison shows:
+
+- one curve per session of the share of samples within a distance (higher and further left = better);
+- CEP50 / R95 (or path RMS / p95) bars;
+- a table of every number with its change against the baseline: green better, red worse, plain within 5 %;
+- a small top view of each session at the same scale.
+
+**Save PNG** writes the whole report (or comparison) as one image, for sharing. **CSV** exports the raw
+rows, or the comparison table.
 The positions are the lighthouse's own: they measure how well the drone holds the point *as the
 lighthouse sees it*, not errors of the lighthouse system itself.
 
