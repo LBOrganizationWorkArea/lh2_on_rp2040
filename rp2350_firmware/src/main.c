@@ -75,8 +75,13 @@
 // Timing
 // ---------------------------------------------------------------------------
 
-/** Diagnostic print interval [µs] — 10 Hz */
+/** Diagnostic print / TUNNEL interval [µs] — 10 Hz */
 #define PRINT_INTERVAL_US  100000ULL
+/** ODOMETRY interval [µs] — 30 Hz, sent only with a new position. EKF3 drops an ExtNav sample
+ *  stamped less than 20 ms after the previous one (extNavIntervalMin_ms), so the stamps of two
+ *  samples sent must also be at least ODOM_MIN_GAP_US apart. */
+#define ODOM_INTERVAL_US   33333ULL
+#define ODOM_MIN_GAP_US    25000ULL
 
 // ---------------------------------------------------------------------------
 // LFSR count → plane angle [deg] = A * count + B
@@ -505,8 +510,9 @@ int main(void)
     stdio_flush();
     printf("BOOT: LH2 firmware started\n");
     stdio_flush();
-    mavlink_init();          /* UART0 GPIO 0/1 @ 115200 → Pixhawk TELEM2 */
-    printf("DBG2: MAVLink initialized\n");
+    const uint32_t mav_baud = mavlink_init();   /* UART0 GPIO 0/1 → Pixhawk TELEM2 */
+    printf("DBG2: MAVLink initialized at %lu baud (flight controller: SERIALx_BAUD = %lu)\n",
+           (unsigned long)mav_baud, (unsigned long)((mav_baud + 500u) / 1000u));
     stdio_flush();
     mavlink_request_ekf_stream();  /* ask FC to stream EKF_STATUS_REPORT @ 1 Hz */
     printf("=== LH2 Crossing-Beams 3D Solver (dual-core) ===\n");
@@ -540,6 +546,8 @@ int main(void)
     uint64_t last_yaw_us = 0;
     uint64_t jump_since_us = 0;      /* first solve of a centre jump > JUMP_GATE_M, 0 = none */
     uint64_t last_meas_us = 0;       /* capture time the accepted centre refers to (ODOMETRY stamp) */
+    uint64_t last_odom_us = 0;       /* when the last ODOMETRY was sent */
+    uint64_t sent_meas_us = 0;       /* the stamp it carried */
     float    last_sensor_xyz[NUM_SENSORS][3] = {{0.0f}};
     bool     last_sensor_valid[NUM_SENSORS] = {false};
     uint64_t last_sensor_update_us[NUM_SENSORS] = {0};
@@ -559,7 +567,7 @@ int main(void)
                 printf(",%s=%lu", BS_NAME[b], (unsigned long)(pairs - last_pairs[b]));
                 last_pairs[b] = pairs;
             }
-            printf("\n");
+            printf(",rx_lost=%lu\n", (unsigned long)mavlink_rx_dropped());
             stdio_flush();
             last_debug_us = now_us;
         }
@@ -668,7 +676,29 @@ int main(void)
             }
         }
 
-        /* ── 10 Hz: odometry + EKF home-set (once) + diagnostic prints ──────── */
+        /* ── 30 Hz: ODOMETRY, only with a position newer than the last one sent ── */
+        if (last_yaw_us != 0 && (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) &&
+            now_us - last_odom_us >= ODOM_INTERVAL_US &&
+            last_meas_us > sent_meas_us && last_meas_us - sent_meas_us >= ODOM_MIN_GAP_US) {
+            /* World frame is right-handed Z-up (X -> the 1 m mark, Y left); LOCAL_FRD is
+             * X forward, Y right, Z down: flip Y and Z. Flipping Z alone mirrors the
+             * lateral axis and position hold runs away sideways. With compass yaw ArduPilot
+             * reads these as north / east, so the frame is turned by the heading of +X
+             * (BS_WORLD_HEADING_DEG); a wrong heading makes position hold circle the spot. */
+            const float fwd = last_cx, right = -last_cy;
+            /* Yaw goes the same way: clockwise (FRD) = -world, then + the +X heading. A yaw
+             * older than YAW_STALE_US is still sent, flagged as unknown by a large variance. */
+            const float yaw_ned = -last_yaw + BS_WORLD_HEADING_DEG * (float)M_PI / 180.0f;
+            const bool  yaw_fresh = now_us - last_yaw_us < YAW_STALE_US;
+            mavlink_send_odometry(mavlink_timesync_corrected_us(last_meas_us),
+                                  fwd * s_heading_cos - right * s_heading_sin,
+                                  fwd * s_heading_sin + right * s_heading_cos, -last_cz,
+                                  yaw_ned, yaw_fresh ? last_yaw_var : YAW_VAR_UNKNOWN);
+            last_odom_us = now_us;
+            sent_meas_us = last_meas_us;
+        }
+
+        /* ── 10 Hz: TUNNEL, OOTX, EKF home-set (once) + diagnostic prints ───── */
         if (now_us - last_print_us < PRINT_INTERVAL_US) {
             continue;
         }
@@ -720,24 +750,9 @@ int main(void)
             }
         }
 
-        /* Send ODOMETRY at 10 Hz with timestamp corrected to FC timebase. */
+        /* Yaw for the USB console (ODOMETRY itself goes out at 30 Hz above). */
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
-            /* World frame is right-handed Z-up (X -> the 1 m mark, Y left); LOCAL_FRD is
-             * X forward, Y right, Z down: flip Y and Z. Flipping Z alone mirrors the
-             * lateral axis and position hold runs away sideways. With compass yaw ArduPilot
-             * reads these as north / east, so the frame is turned by the heading of +X
-             * (BS_WORLD_HEADING_DEG); a wrong heading makes position hold circle the spot. */
-            const float fwd = last_cx, right = -last_cy;
-            /* Yaw goes the same way: clockwise (FRD) = -world, then + the +X heading. A yaw
-             * older than YAW_STALE_US is still sent, flagged as unknown by a large variance. */
-            const float yaw_ned = -last_yaw + BS_WORLD_HEADING_DEG * (float)M_PI / 180.0f;
-            const bool  yaw_fresh = last_yaw_us != 0 && now_us - last_yaw_us < YAW_STALE_US;
-            if (last_yaw_us != 0) {
-                mavlink_send_odometry(mavlink_timesync_corrected_us(last_meas_us ? last_meas_us : now_us),
-                                      fwd * s_heading_cos - right * s_heading_sin,
-                                      fwd * s_heading_sin + right * s_heading_cos, -last_cz,
-                                      yaw_ned, yaw_fresh ? last_yaw_var : YAW_VAR_UNKNOWN);
-            }
+            const bool yaw_fresh = last_yaw_us != 0 && now_us - last_yaw_us < YAW_STALE_US;
             printf("YAW,%.1f,%d\n", (double)_rad2deg(last_yaw), yaw_fresh ? 1 : 0);
         }
 
