@@ -690,7 +690,12 @@ int main(void)
              * older than YAW_STALE_US is still sent, flagged as unknown by a large variance. */
             const float yaw_ned = -last_yaw + BS_WORLD_HEADING_DEG * (float)M_PI / 180.0f;
             const bool  yaw_fresh = now_us - last_yaw_us < YAW_STALE_US;
-            mavlink_send_odometry(mavlink_timesync_corrected_us(last_meas_us),
+            /* Stamp in the Pico's own clock, never TIMESYNC-corrected: ArduPilot's jitter correction
+             * (JitterCorrection, max lag 500 ms) learns the clock offset by itself, and a
+             * TIMESYNC lock arriving mid-flight would move the stamps ~6 s back at once, which
+             * it reads as samples 500 ms old for ~100 samples (flight log 2026-10-23: TIMESYNC
+             * never locked and the steady offset was harmless, lag 55-70 ms). */
+            mavlink_send_odometry(last_meas_us,
                                   fwd * s_heading_cos - right * s_heading_sin,
                                   fwd * s_heading_sin + right * s_heading_cos, -last_cz,
                                   yaw_ned, yaw_fresh ? last_yaw_var : YAW_VAR_UNKNOWN);
