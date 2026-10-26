@@ -969,6 +969,7 @@ class MissionRunner:
                 self._log(f"auto-start refused (the drone just hovers in GUIDED): {error}")
 
     def _log(self, text):
+        print(f"MISSION {time.strftime('%H:%M:%S')} {text}", flush=True)      # also in the backend log
         with self.lock:
             self.status_["message"] = text
             self.status_["log"] = (self.status_["log"] + [f"{time.strftime('%H:%M:%S')} {text}"])[-30:]
@@ -1229,7 +1230,7 @@ class MissionRunner:
                 reached = reached or now
                 if now - reached >= hover:
                     self._log(f"take-off done: hovered {hover:.0f} s at Z {pos['z']:.2f} m")
-                    return True
+                    return self._wait_agree()
             elif now - started > timeout:
                 self._abort_launch(f"take-off not completed in {timeout:.0f} s (Z {pos['z']:.2f} m)")
                 return False
@@ -1248,6 +1249,32 @@ class MissionRunner:
         self._log(text)
         with self.lock:
             self.status_.update(state=state, distance=None, hold_left=None)
+
+    AGREE_WAIT_S = 10.0
+
+    def _wait_agree(self):
+        """After the take-off the EKF may still be catching up with the lighthouse (the height on a
+        stand or the floor often jumps at lift-off): the points would stop at once on "EKF and
+        lighthouse agree". Hover until they agree, at most AGREE_WAIT_S."""
+        end, said = time.monotonic() + self.AGREE_WAIT_S, False
+        while True:
+            check = self.checks()["agree"]
+            if check["ok"]:
+                if said:
+                    self._log("EKF and lighthouse agree again: starting the points")
+                return True
+            if not said:
+                self._log(f"waiting for the EKF to agree with the lighthouse ({check['detail']})")
+                said = True
+            st = self.fc.status()
+            if st["mode"] != "GUIDED" or not st["armed"]:
+                self._finish("aborted", f"pilot took over (mode {st['mode']})")
+                return False
+            if time.monotonic() > end or self.stop_event.wait(0.2):
+                self._hold_here()
+                self._finish("aborted", f"after the take-off the EKF did not agree with the lighthouse in "
+                                        f"{self.AGREE_WAIT_S:.0f} s ({check['detail']}): hovering — take over on the radio")
+                return False
 
     def _run(self, points, speed, tolerance, settle, pass_through=False, launch=None):
         """Take off if asked (INIZIO), then fly the points. pass_through: every point but the last only
