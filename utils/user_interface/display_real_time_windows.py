@@ -519,11 +519,14 @@ class FlightController:
             0, 0, 0, 0, 0, 0, math.radians(yaw_deg), 0).pack(self.encoder.mav))
 
     def set_speed(self, speed):
-        """MAV_CMD_DO_CHANGE_SPEED: horizontal speed of GUIDED moves [m/s]."""
+        """MAV_CMD_DO_CHANGE_SPEED: speed of GUIDED moves [m/s], horizontal (type 1), climb (2) and
+        descent (3). ArduCopter resets them to WPNAV_SPEED / _UP / _DN when GUIDED starts its
+        position controller (the first position target), so send this after a target, not before."""
         with self.cond:
             sysid, compid = self.sysid, self.compid
-        self._send(self.encoder.mav.command_long_encode(
-            sysid, compid, mavlink2.MAV_CMD_DO_CHANGE_SPEED, 0, 1, speed, -1, 0, 0, 0, 0).pack(self.encoder.mav))
+        for kind in (1, 2, 3):
+            self._send(self.encoder.mav.command_long_encode(
+                sysid, compid, mavlink2.MAV_CMD_DO_CHANGE_SPEED, 0, kind, speed, -1, 0, 0, 0, 0).pack(self.encoder.mav))
 
     def _send(self, frame):
         if self.udp is None or self.address is None:
@@ -991,7 +994,6 @@ class MissionRunner:
         PASS_RADIUS (no hold), so curves made of many points are flown without stopping."""
         try:
             yaw = self.fc.status()["yaw"] or 0.0      # keep the heading the drone has now
-            self.fc.set_speed(speed)
             self._log(f"start: {len(points)} points at {speed:.2f} m/s, yaw held at {yaw:.0f} deg"
                       + (", passing through the points" if pass_through else ""))
             for leg, (x, y, z) in enumerate(points):
@@ -1008,6 +1010,7 @@ class MissionRunner:
                 self._log(f"point {leg + 1}/{len(points)}: ({x:.2f}, {y:.2f}, {z:.2f}), {distance:.2f} m away")
                 started = sent = time.monotonic()
                 self.fc.goto_ned(*world_to_ned(x, y, z), yaw)
+                self.fc.set_speed(speed)              # after the target: it would reset a speed sent before
                 inside_since = failing_since = None
                 while True:
                     if self.stop_event.wait(0.1):
@@ -1046,8 +1049,9 @@ class MissionRunner:
                         self._hold_here()
                         self._finish("aborted", f"point {leg + 1} not reached in {timeout:.0f} s ({100 * d:.0f} cm away): holding position")
                         return
-                    if now - sent > 1.0:              # repeat the target: a lost packet is harmless
+                    if now - sent > 1.0:              # repeat the target and speed: a lost packet is harmless
                         self.fc.goto_ned(*world_to_ned(x, y, z), yaw)
+                        self.fc.set_speed(speed)
                         sent = now
                 self._log(f"point {leg + 1} reached")
             self._finish("done", "mission complete: hovering at the last point (GUIDED) — take over on the radio")
