@@ -217,6 +217,17 @@ height zero moves to where the drone stood). The bridge measures that offset whi
 take-off, and at the start of every mission), adds it to every target, and the EKF/lighthouse check then watches
 only its change (> 15 cm for 1 s stops the mission).
 
+**Return home and land** (Mission → Landing, optional; also with Start and auto-start). After the last point:
+
+1. Back above home at the current height, at the mission speed. Home is the INIZIO start point (lighthouse),
+   or ArduPilot's home (HOME_POSITION, corrected by the EKF frame offset) for a mission started in the air.
+2. Slow GUIDED descent at the chosen speed (default 0.2 m/s) to 30 cm above home.
+3. LAND for the touch-down at `LAND_SPEED` (editable in the Drone tab, 30 cm/s is the gentlest).
+   ArduPilot disarms on the ground.
+
+It runs only when the mission ends normally; a mode change on the radio takes over at any moment; EKF / lighthouse
+trouble during the return or the descent makes it hover. It does not use RTL, which would climb to `RTL_ALT`.
+
 If the take-off fails or is stopped while still on the ground, the drone is disarmed; once airborne it hovers
 where it is in GUIDED. At the end it hovers at the last point: land on the radio. Climb and descent use the
 same speed as the moves.

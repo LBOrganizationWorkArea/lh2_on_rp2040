@@ -393,6 +393,8 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
       <div class="pname">VISO_DELAY_MS</div><input id="fc-p-VISO_DELAY_MS" type="number" step="1" min="0" max="250"><div class="lbl">ms</div></div>
     <div class="row" title="Position noise of the external navigation [m] (0.1..10): lower = the EKF follows our position more closely.">
       <div class="pname">VISO_POS_M_NSE</div><input id="fc-p-VISO_POS_M_NSE" type="number" step="0.01" min="0.01" max="10" title="ArduPilot documents 0.1–10 m but accepts lower values (e.g. 0.05)"><div class="lbl">m</div></div>
+    <div class="row" title="Descent speed of LAND mode (the touch-down of the mission landing) [cm/s], 30..200">
+      <div class="pname">LAND_SPEED</div><input id="fc-p-LAND_SPEED" type="number" step="5" min="30" max="200"><div class="lbl">cm/s</div></div>
     <div class="row">
       <button id="fc-param-read" type="button" style="flex:1;">Read</button>
       <button id="fc-param-write" type="button" style="flex:1;" disabled>Write changes</button>
@@ -719,6 +721,17 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
         climb, hover, then the points (relative points start from the hover point). Best where 3 or more stations
         see it (on the floor the height can be wrong and jump at lift-off), keep the radio in hand — any mode change takes over — and stay clear
         of the propellers. If the take-off fails on the ground it disarms; in the air it hovers.</div>
+    </div>
+    <div class="bs-card">
+      <div class="grp-lbl">LANDING · AT THE END</div>
+      <label class="row" style="gap:6px;cursor:pointer;" title="After the last point: back above home at the current height, slow descent, then LAND (ArduPilot touches down and disarms). Only when the mission ends normally.">
+        <input id="mis-land" type="checkbox"> Return home and land at the end</label>
+      <div class="row" title="Speed of the slow GUIDED descent above home, down to 30 cm over it; the last 30 cm are flown by LAND at LAND_SPEED (Drone tab)">
+        <div class="lbl" style="width:150px;">descent speed</div><input id="mis-land-v" type="number" value="0.2" min="0.05" max="0.5" step="0.05"><div class="lbl">m/s</div></div>
+      <div class="hint">Home = where INIZIO took off (the stand), or ArduPilot's home when the mission was started in the air.
+        Sequence: return at the current height (mission speed) → descent at the speed above to 30 cm over home →
+        <b>LAND</b> for the touch-down at <code>LAND_SPEED</code> (set 30 cm/s in the Drone tab for the gentlest).
+        A mode change on the radio takes over at any moment; a stopped mission never lands by itself.</div>
     </div>
     <div class="bs-card">
       <div class="grp-lbl">READY?</div>
@@ -1373,7 +1386,7 @@ function drawHud() {
 }
 
 // ─── ExtNav parameters on the flight controller (bridge /api/fc/param) ───
-const FC_PARAMS = ['VISO_DELAY_MS', 'VISO_POS_M_NSE'];
+const FC_PARAMS = ['VISO_DELAY_MS', 'VISO_POS_M_NSE', 'LAND_SPEED'];
 const fcRead = {};                                     // values last read back from the FC
 const fcStatus = document.getElementById('fc-param-status');
 const fcWriteBtn = document.getElementById('fc-param-write');
@@ -1389,7 +1402,7 @@ async function fcParam(name, value) {
   if (!r.ok || data.error) throw new Error(data.error || r.statusText);
   return data.value;
 }
-const fcFmt = (name, v) => name === 'VISO_DELAY_MS' ? String(Math.round(v)) : String(+v.toFixed(3));
+const fcFmt = (name, v) => name === 'VISO_DELAY_MS' || name === 'LAND_SPEED' ? String(Math.round(v)) : String(+v.toFixed(3));
 function fcChanged() {
   return FC_PARAMS.filter(n => {
     const el = document.getElementById('fc-p-' + n);
@@ -1493,6 +1506,11 @@ const misSave = () => {
 };
 const misLive = () => lastOdomPos && Date.now() - lastOdomAt < 2000;
 /** Room points to check and draw: the running mission, else the list (relative: around the drone now). */
+function misLand() {
+  if (!document.getElementById('mis-land').checked) return null;
+  const v = parseFloat(document.getElementById('mis-land-v').value);
+  return { descent: isFinite(v) ? v : 0.2 };
+}
 function misTakeoff() {
   const v = id => parseFloat(document.getElementById(id).value);
   return { climb: isFinite(v('mis-to-climb')) ? v('mis-to-climb') : 1.0, hover: isFinite(v('mis-to-hover')) ? v('mis-to-hover') : 3 };
@@ -1666,6 +1684,14 @@ function misDraw() {
     d.style.color = '#ffa040';
     const o = new CSS2DObject(d); o.position.copy(tv(lastOdomPos.x, lastOdomPos.y, lastOdomPos.z + to.climb / 2)); misGroup.add(o);
   }
+  if (misLand() && misOnGround() && misLive() && !misRunning() && pts.length) {   // return home and land
+    const L = pts[pts.length - 1], h = lastOdomPos;
+    const back = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(...L), tv(h.x, h.y, L[2]), tv(h.x, h.y, h.z)]),
+      new THREE.LineDashedMaterial({ color: 0x5adf7a, dashSize: 0.06, gapSize: 0.04 }));
+    back.computeLineDistances(); misGroup.add(back);
+    const d = document.createElement('div'); d.className = 'label3d'; d.textContent = 'return + land'; d.style.color = '#5adf7a';
+    const o = new CSS2DObject(d); o.position.copy(tv(h.x, h.y, (L[2] + h.z) / 2)); misGroup.add(o);
+  }
   const a = misStatus && misStatus.area;
   if (a && pts.length) {
     const corners = [[a[0], a[2]], [a[1], a[2]], [a[1], a[3]], [a[0], a[3]], [a[0], a[2]]].map(([x, y]) => tv(x, y, 0.005));
@@ -1707,6 +1733,9 @@ function misRefresh() {
   const st = document.getElementById('mis-status');
   if (misRunning() && s.phase === 'countdown') st.textContent = `TAKE-OFF IN ${s.countdown ?? ''} s — Stop cancels`;
   else if (misRunning() && s.phase === 'arming') st.textContent = 'GUIDED, arming…';
+  else if (misRunning() && s.phase === 'return') st.textContent = 'Returning home' + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
+  else if (misRunning() && s.phase === 'descend') st.textContent = 'Descending slowly above home' + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
+  else if (misRunning() && s.phase === 'land') st.textContent = 'LAND: touching down…';
   else if (misRunning() && s.phase === 'takeoff') st.textContent = 'Taking off' + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to climb` : '');
   else if (misRunning()) st.textContent = `Running · point ${s.leg + 1}/${s.points.length}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm ${s.hold_left != null ? 'away' : 'to go'}` : '')
     + (s.hold_left != null ? ` · holding, ${s.hold_left.toFixed(0)} s left` : '');
@@ -1733,7 +1762,7 @@ function updateMission(s) {
 let misAutoSentAt = 0, misAutoTimer = null;
 function misAutoBody(enabled) {
   return { enabled, frame: misFrame, points: misPoints, limits: misLimits(), pass_through: document.getElementById('mis-pass').checked,
-           speed: parseFloat(document.getElementById('mis-speed').value),
+           land: misLand(), speed: parseFloat(document.getElementById('mis-speed').value),
            tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
            settle: parseFloat(document.getElementById('mis-settle').value) };
 }
@@ -1777,7 +1806,7 @@ async function misCall(action, body) {
 }
 misStartBtn.addEventListener('click', () => misCall('start', {
   points: misPoints, frame: misFrame, limits: misLimits(), pass_through: document.getElementById('mis-pass').checked,
-  speed: parseFloat(document.getElementById('mis-speed').value),
+  land: misLand(), speed: parseFloat(document.getElementById('mis-speed').value),
   tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
   settle: parseFloat(document.getElementById('mis-settle').value),
 }));
@@ -1792,7 +1821,7 @@ misLaunchBtn.addEventListener('click', () => {
   ltBeep(600, 1);                                       // unlock audio for the countdown beeps
   misCall('start', {
     points: misPoints, frame: misFrame, limits: misLimits(), pass_through: document.getElementById('mis-pass').checked,
-    takeoff: misTakeoff(), speed: parseFloat(document.getElementById('mis-speed').value),
+    takeoff: misTakeoff(), land: misLand(), speed: parseFloat(document.getElementById('mis-speed').value),
     tolerance: parseFloat(document.getElementById('mis-tol').value) / 100,
     settle: parseFloat(document.getElementById('mis-settle').value),
   });
@@ -1806,7 +1835,7 @@ function misCountdownBeep(s) {                          // a beep per countdown 
   }
   misBeepKey = key;
 }
-['mis-to-climb', 'mis-to-hover'].forEach(id => document.getElementById(id).addEventListener('change', () => { misRenderTable(); misRefresh(); }));
+['mis-to-climb', 'mis-to-hover', 'mis-land', 'mis-land-v'].forEach(id => document.getElementById(id).addEventListener('change', () => { misSendAuto(); misRenderTable(); misRefresh(); }));
 document.getElementById('mis-stop').addEventListener('click', () => misCall('stop'));
 misRenderTable();
 
