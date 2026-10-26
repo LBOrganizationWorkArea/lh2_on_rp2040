@@ -67,6 +67,10 @@ body[data-mode=calib] #cal-hud { display: block; }
 #hud-close:hover { opacity: 1; }
 #fc-params-card .row input { width: 90px; }
 #fc-params-card .pname { width: 128px; font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: #ddd; }
+#lt-status { font-size: 15px; color: #ddd; font-weight: 600; min-height: 20px; }
+#lt-status.logging { color: #ff6b6b; } #lt-status.waiting { color: #ffcc44; } #lt-status.done { color: #5adf7a; }
+#lt-card .row input { width: 90px; }
+#lt-card .pname { width: 128px; font-size: 12px; color: #ddd; }
 #fc-param-status { font-size: 12px; color: #9ab; min-height: 16px; white-space: pre-wrap; }
 #mis-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 #mis-table th { color: #8aa; font-weight: normal; text-align: left; padding: 2px 3px; }
@@ -391,6 +395,23 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     </div>
     <div id="fc-param-status">Connect over the UDP bridge, then Read.</div>
     <div class="hint">Written straight to the flight controller (stored in its flash), no reboot needed.</div>
+  </div>
+  <div id="lt-card" class="bs-card">
+    <div class="grp-lbl">DELAY-TEST LOG · LOG_DISARMED TIMER</div>
+    <div class="hint">For the VISO_DELAY_MS measurement: start the timer, walk to the flight area, move the drone
+      back and forth. The flight controller logs (LOG_DISARMED = 1) only for that time, then stops by itself.</div>
+    <div class="row" title="Seconds before LOG_DISARMED is set to 1: time to get to the flight area">
+      <div class="pname">Start after</div><input id="lt-delay" type="number" value="15" min="0" max="600" step="5"><div class="lbl">s</div></div>
+    <div class="row" title="How long LOG_DISARMED stays 1 (the back-and-forth movements: 20-60 s are enough)">
+      <div class="pname">Log for</div><input id="lt-duration" type="number" value="40" min="5" max="600" step="5"><div class="lbl">s</div></div>
+    <label class="row" style="gap:6px;cursor:pointer;"><input id="lt-beep" type="checkbox" checked> Beep on this PC (last 3 s of each wait, start, end)</label>
+    <div class="row">
+      <button id="lt-start" type="button" style="flex:1;">▶ Start timer</button>
+      <button id="lt-stop" type="button" style="flex:1;">■ Stop</button>
+    </div>
+    <div id="lt-status">Connect over the UDP bridge.</div>
+    <div class="hint">The timer runs in the bridge: closing this page does not stop it, and LOG_DISARMED goes back to 0
+      even if you are away. Only closing the app while it logs leaves it at 1.</div>
   </div>
   </div>
   <div class="sec" id="sec-bs">
@@ -1386,6 +1407,54 @@ fcWriteBtn.addEventListener('click', async () => {
   fcStatus.textContent = lines.join('\n');
   fcRefresh();
 });
+
+// ─── Delay-test log: LOG_DISARMED = 1 for a while, after a delay (bridge /api/fc/logtimer/*) ───
+const ltStatusEl = document.getElementById('lt-status');
+let ltLast = null, ltBeepAt = null, ltAudio = null;
+function ltBeep(freq, ms) {
+  if (!document.getElementById('lt-beep').checked) return;
+  try {
+    ltAudio = ltAudio || new (window.AudioContext || window.webkitAudioContext)();
+    const o = ltAudio.createOscillator(), g = ltAudio.createGain();
+    o.frequency.value = freq; g.gain.value = 0.25;
+    o.connect(g); g.connect(ltAudio.destination);
+    o.start(); o.stop(ltAudio.currentTime + ms / 1000);
+  } catch (_e) { /* no audio */ }
+}
+function updateLogTimer(s) {
+  const btn = document.getElementById('lt-start');
+  if (!s) { ltStatusEl.textContent = 'Connect over the UDP bridge.'; ltStatusEl.className = ''; btn.disabled = true; ltLast = null; return; }
+  const running = s.state === 'waiting' || s.state === 'logging' || s.state === 'stopping';
+  btn.disabled = running;
+  const left = s.left != null ? Math.ceil(s.left) : null;
+  ltStatusEl.className = s.state === 'logging' ? 'logging' : s.state === 'waiting' ? 'waiting' : s.state === 'done' ? 'done' : '';
+  ltStatusEl.textContent = s.state === 'waiting' ? `Logging starts in ${left} s`
+    : s.state === 'logging' ? `● LOGGING · ${left} s left`
+    : s.state === 'idle' ? `Ready${s.log_disarmed != null ? ` · LOG_DISARMED = ${s.log_disarmed}` : ''}`
+    : (s.state === 'error' ? '✘ ' : s.state === 'done' ? '✔ ' : '') + (s.message || s.state);
+  // beeps: a short one for each of the last 3 s of a wait, a long one when logging starts, two at the end
+  if (ltLast && ltLast !== s.state) {
+    if (s.state === 'logging') ltBeep(1200, 600);
+    if (s.state === 'done' || s.state === 'stopping' && ltLast === 'logging') { ltBeep(800, 200); setTimeout(() => ltBeep(800, 200), 300); }
+  }
+  if (running && left != null && left <= 3 && left > 0 && ltBeepAt !== `${s.state}${left}`) { ltBeepAt = `${s.state}${left}`; ltBeep(900, 120); }
+  ltLast = s.state;
+}
+async function ltCall(action, params) {
+  try {
+    const url = new URL('/api/fc/logtimer/' + action, new URL(document.getElementById('relay-url').value.trim()));
+    Object.entries(params || {}).forEach(([k, v]) => url.searchParams.set(k, v));
+    const r = await fetch(url, { method: 'POST', cache: 'no-store' });
+    const data = await r.json().catch(() => ({ error: r.statusText }));
+    updateLogTimer(data);
+    if (data.error) { ltStatusEl.textContent = '✘ ' + data.error; ltStatusEl.className = ''; }
+  } catch (err) { ltStatusEl.textContent = '✘ Bridge unreachable: ' + err.message; }
+}
+document.getElementById('lt-start').addEventListener('click', () => {
+  ltBeep(600, 1);                                       // unlocks audio while the click counts as a user gesture
+  ltCall('start', { delay: document.getElementById('lt-delay').value, duration: document.getElementById('lt-duration').value });
+});
+document.getElementById('lt-stop').addEventListener('click', () => ltCall('stop'));
 
 // ─── Mission: room points flown in GUIDED by the bridge (/api/fc/mission/*) ───
 const misBody = document.querySelector('#mis-table tbody');
@@ -2470,6 +2539,7 @@ function disconnectTracking() {
   updateHold(null);
   updateMission(null);
   updateTrack(null);
+  updateLogTimer(null);
 }
 
 trackConnectButton.addEventListener('click', () => {
@@ -2511,6 +2581,7 @@ trackConnectButton.addEventListener('click', () => {
           updateHud(state.fc);
           updateMission(state.mission);
           updateTrack(state.track);
+          updateLogTimer(state.logtimer);
           if (state.odometry && state.sequence !== lastSequence) {
             lastSequence = state.sequence;
             updateDronePosition(state.odometry);
