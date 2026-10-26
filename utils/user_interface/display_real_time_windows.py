@@ -1112,7 +1112,7 @@ class MissionRunner:
         with self.lock:
             self.status_.update(state="running", points=planned, leg=None if launch else 0, distance=None, log=[],
                                 area=station_area(self.limits["margin"]), phase="countdown" if launch else "points",
-                                countdown=None, start_z=pos["z"], target=None, hold_left=None)
+                                countdown=None, start_z=pos["z"], target=None, hold_left=None, takeoff_sent=False)
         self.stop_event.clear()
         self.thread = threading.Thread(target=self._run, args=(planned, speed, tolerance, settle, bool(pass_through), launch),
                                        daemon=True)
@@ -1127,11 +1127,15 @@ class MissionRunner:
         return st["landed"] == 1 or (pos is not None and z0 is not None and pos["z"] < z0 + self.LIFTED_M)
 
     def _abort_launch(self, text):
-        """A take-off failed or was stopped: on the ground disarm, in the air hover where it is."""
+        """A take-off failed or was stopped: on the ground disarm, in the air hover where it is. Once
+        the take-off command was accepted it never disarms (2026-10-26 14:19: a late lighthouse
+        position during the climb made the bridge send disarms to a flying drone; ArduPilot refused)."""
         if not self.fc.status()["armed"]:
             self._finish("aborted", text + " — not armed, motors never started")
             return
-        if self._on_ground():
+        with self.lock:
+            sent = self.status_.get("takeoff_sent")
+        if not sent and self._on_ground():
             text += " — disarmed on the ground" if self.fc.disarm_until_confirmed() else \
                 " — STILL ARMED (no answer to the disarm for 5 s): DISARM ON THE RADIO"
         else:
@@ -1202,9 +1206,18 @@ class MissionRunner:
         self._log(f"armed (arm result {result}): climbing {climb:.2f} m (Z {z0:.2f} -> {z0 + climb:.2f} m, "
                   f"take-off to {alt + climb:.2f} m above home)")
 
+        local0, _ = self.fc.local()
+        d0 = local0[2] if local0 else None                   # EKF "down" at the start: ArduPilot climbs in this frame
+
+        def ekf_up():
+            loc, age = self.fc.local()
+            return d0 - loc[2] if loc and d0 is not None and age < 1.0 else None
+
         def lifting():
             p, _ = self.state.latest()
-            return self.fc.status()["landed"] in (2, 3) or (p is not None and p["z"] > z0 + 0.05)
+            up = ekf_up()
+            return (self.fc.status()["landed"] in (2, 3) or (p is not None and p["z"] > z0 + 0.05)
+                    or (up is not None and up > 0.05))
         result = self.fc.takeoff(alt + climb, lifting)
         if result not in (mavlink2.MAV_RESULT_ACCEPTED, "done"):
             # A repeated NAV_TAKEOFF is refused once the first one (answer lost) has started the climb:
@@ -1221,6 +1234,11 @@ class MissionRunner:
             text = self.fc.status_text()
             self._abort_launch(f"take-off not started: {names.get(result, result)}" + (f" — FC says: {text}" if text else ""))
             return False
+        with self.lock:
+            self.status_["takeoff_sent"] = True
+        # Done = ArduPilot's own climb (EKF) reached, as ArduPilot judges it; or the lighthouse height
+        # has stopped rising after at least half the climb (the EKF frame may sit off the lighthouse:
+        # 2026-10-26 14:21 the lighthouse rose 1.35 m of 1.50 and the old check waited until the timeout).
         started, failing_since, reached = time.monotonic(), None, None
         timeout = 8.0 + climb / 0.25
         while True:
@@ -1236,21 +1254,29 @@ class MissionRunner:
             failing = [checks[n]["detail"] for n in ("lighthouse", "fc") if not checks[n]["ok"]]
             if failing:
                 failing_since = failing_since or now
-                if now - failing_since >= self.PERSIST_S:
+                if now - failing_since >= 3.0:            # ArduPilot flies the climb on its EKF meanwhile
                     self._abort_launch("during take-off: " + "; ".join(failing))
                     return False
-            else:
-                failing_since = None
+                continue
+            failing_since = None
             pos, _ = self.state.latest()
+            up = ekf_up()
+            lh_up = pos["z"] - z0
+            earlier = self.state.recent(now - 1.3, now - 0.7)
+            steady = bool(earlier) and abs(pos["z"] - sum(p[2] for p in earlier) / len(earlier)) < 0.04
             with self.lock:
-                self.status_["distance"] = max(0.0, z0 + climb - pos["z"])
-            if pos["z"] >= z0 + climb - 0.08:
+                self.status_["distance"] = max(0.0, climb - (up if up is not None else lh_up))
+            done = (up is not None and up >= climb - 0.10) or (lh_up >= 0.5 * climb and steady)
+            if done:
+                if reached is None:
+                    self._log(f"take-off reached: climbed {100 * lh_up:.0f} cm by the lighthouse"
+                              + (f", {100 * up:.0f} cm by the EKF" if up is not None else "") + f" (Z {pos['z']:.2f} m)")
                 reached = reached or now
                 if now - reached >= hover:
                     self._log(f"take-off done: hovered {hover:.0f} s at Z {pos['z']:.2f} m")
                     return self._measure_offset()
             elif now - started > timeout:
-                self._abort_launch(f"take-off not completed in {timeout:.0f} s (Z {pos['z']:.2f} m)")
+                self._abort_launch(f"take-off not completed in {timeout:.0f} s (Z {pos['z']:.2f} m, climbed {100 * lh_up:.0f} cm)")
                 return False
 
     def _hold_here(self):
