@@ -1318,7 +1318,7 @@ class MissionRunner:
             except (ValueError, OSError):
                 pass
 
-    MAX_OFFSET_M = 1.0
+    MAX_OFFSET_M = 1.0            # horizontal EKF frame offset above this is not plausible
 
     def _measure_offset(self, seconds=1.5):
         """EKF minus lighthouse (NED) while the drone holds still, median of ~`seconds`; frozen for the
@@ -1342,10 +1342,15 @@ class MissionRunner:
         with self.lock:
             self.offset, self.offset_frozen = med, True
         ox, oy, oz = (a - b for a, b in zip(ned_to_world(*med), ned_to_world(0.0, 0.0, 0.0)))
-        if math.dist(med, (0, 0, 0)) > self.MAX_OFFSET_M or spread > 0.15:
+        # Any height offset is fine: the EKF puts its height zero where the drone is armed (2026-10-26: Z
+        # offsets of 100-110 cm, taking off from Z -1.00, very steady — a fixed 1 m limit refused them).
+        # Horizontally the frames should coincide; and the offset must be steady to be trusted.
+        problem = (f"unsteady (it varied by {100 * spread:.0f} cm while measuring; keep the drone still)" if spread > 0.15 else
+                   f"horizontal part {100 * math.hypot(ox, oy):.0f} cm, over {100 * self.MAX_OFFSET_M:.0f} cm" if math.hypot(ox, oy) > self.MAX_OFFSET_M
+                   else None)
+        if problem:
             self._hold_here()
-            self._finish("aborted", f"EKF frame offset X {100 * ox:+.0f}, Y {100 * oy:+.0f}, Z {100 * oz:+.0f} cm "
-                                    f"(spread {100 * spread:.0f} cm): too large or unsteady — hovering")
+            self._finish("aborted", f"EKF frame offset X {100 * ox:+.0f}, Y {100 * oy:+.0f}, Z {100 * oz:+.0f} cm: {problem} — hovering")
             return False
         if math.dist(med, (0, 0, 0)) >= 0.05:
             self._log(f"EKF frame offset from the lighthouse: X {100 * ox:+.0f}, Y {100 * oy:+.0f}, Z {100 * oz:+.0f} cm "
