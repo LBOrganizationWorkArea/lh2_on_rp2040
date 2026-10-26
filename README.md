@@ -193,6 +193,29 @@ the last a pass-through point (go on once within 15 cm, no hold).
 The path is drawn in 3D (a relative figure around the drone's current position) with the covered
 area on the floor.
 
+**INIZIO — automatic take-off** (Mission → Take-off · INIZIO). With the drone on the ground and disarmed, two
+clicks on INIZIO (the second within 3 s) start the whole sequence in the bridge:
+
+1. 3 s countdown with beeps; **Stop** cancels it.
+2. GUIDED, then arm.
+3. Vertical take-off by the chosen climb (0.3–2 m, `MAV_CMD_NAV_TAKEOFF`) and hover.
+4. The points; relative points start from the hover point.
+
+INIZIO is enabled only when every check is green:
+
+- flight-controller telemetry;
+- on the ground and disarmed;
+- radio on (RC input), so the mode switch can take over;
+- fresh lighthouse position;
+- at least 3 stations see 3 or more sensors. On the floor often only two do and the height is wrong, so take
+  off from a stand;
+- EKF and lighthouse agree;
+- the figure and the take-off height inside the limits.
+
+If the take-off fails or is stopped while still on the ground, the drone is disarmed; once airborne it hovers
+where it is in GUIDED. At the end it hovers at the last point: land on the radio. Climb and descent use the
+same speed as the moves.
+
 **Start automatically when the radio switches to GUIDED**: tick it and the bridge holds the figure.
 Every time the radio switches *into* GUIDED (armed) it flies it from that point. No need to touch
 the PC: fly anywhere, flip to GUIDED, flip back to Loiter / PosHold to stop. It never fires because
