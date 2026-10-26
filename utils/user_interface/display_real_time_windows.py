@@ -377,6 +377,7 @@ class FlightController:
     WRITABLE = {  # name -> (min, max, integer)
         "VISO_DELAY_MS": (0.0, 250.0, True),
         "VISO_POS_M_NSE": (0.01, 10.0, False),  # ArduPilot documents 0.1..10 but accepts less
+        "LOG_DISARMED": (0.0, 1.0, True),       # the delay-test log timer (LogTimer)
     }
     GPS_FIX = {0: "No GPS", 1: "No Fix", 2: "2D Fix", 3: "3D Fix", 4: "DGPS", 5: "RTK Float", 6: "RTK Fixed"}
 
@@ -566,6 +567,79 @@ class FlightController:
                         raise ValueError(f"{name}: the flight controller kept {got:g}")
                     return {"name": name, "value": got}
         raise ValueError(f"{name}: no answer from the flight controller")
+
+
+class LogTimer:
+    """Delay-test log without the PC at hand: LOG_DISARMED = 1 after `delay` seconds, back to 0
+    after `duration` seconds (or on Stop). Runs in the bridge, so closing the editor does not
+    stop it; switching it off is retried until the flight controller confirms."""
+
+    MAX_DELAY_S, MAX_DURATION_S = 600.0, 600.0
+
+    def __init__(self, fc):
+        self.fc = fc
+        self.lock = threading.Lock()
+        self.stop_event = threading.Event()
+        self.thread = None
+        self.status_ = {"state": "idle", "message": "", "phase_end": None, "delay": None, "duration": None}
+
+    def _set(self, **kw):
+        with self.lock:
+            self.status_.update(kw)
+
+    def start(self, delay, duration):
+        delay, duration = float(delay), float(duration)
+        if not 0 <= delay <= self.MAX_DELAY_S or not 5 <= duration <= self.MAX_DURATION_S:
+            raise ValueError(f"start delay 0-{self.MAX_DELAY_S:.0f} s, log time 5-{self.MAX_DURATION_S:.0f} s")
+        if self.thread and self.thread.is_alive():
+            raise ValueError("the log timer is already running")
+        self.fc.param("LOG_DISARMED")                   # the flight controller answers: fail now, not later
+        self.stop_event.clear()
+        self._set(state="waiting", message=f"logging starts in {delay:.0f} s", delay=delay, duration=duration,
+                  phase_end=time.monotonic() + delay)
+        self.thread = threading.Thread(target=self._run, args=(delay, duration), daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.stop_event.set()
+        if self.thread:
+            self.thread.join(timeout=35.0)
+
+    def _write(self, value, attempts):
+        for _ in range(attempts):
+            try:
+                self.fc.param("LOG_DISARMED", value)
+                return True
+            except (ValueError, OSError) as error:
+                self._set(message=f"LOG_DISARMED = {value}: {error} (retrying)")
+                time.sleep(1.0)
+        return False
+
+    def _run(self, delay, duration):
+        if self.stop_event.wait(delay):
+            self._set(state="cancelled", message="cancelled before logging started", phase_end=None)
+            return
+        if not self._write(1, 3):
+            self._set(state="error", message="could not set LOG_DISARMED = 1: nothing is being logged", phase_end=None)
+            return
+        self._set(state="logging", message=f"LOG_DISARMED = 1: logging for {duration:.0f} s",
+                  phase_end=time.monotonic() + duration)
+        stopped = self.stop_event.wait(duration)
+        self._set(state="stopping", message="setting LOG_DISARMED back to 0", phase_end=None)
+        if self._write(0, 30):
+            self._set(state="done", message=("stopped early: " if stopped else "")
+                      + "LOG_DISARMED = 0 again. Download the newest .bin.")
+        else:
+            self._set(state="error", message="LOG_DISARMED is still 1: set it to 0 by hand (it keeps logging)")
+
+    def snapshot(self):
+        with self.lock:
+            out = dict(self.status_)
+        out["left"] = max(0.0, out["phase_end"] - time.monotonic()) if out["phase_end"] else None
+        out.pop("phase_end")
+        value = self.fc.params.get("LOG_DISARMED", {}).get("value")
+        out["log_disarmed"] = None if value is None else int(value)
+        return out
 
 
 def world_to_ned(x, y, z):
@@ -2083,7 +2157,7 @@ def udp_receiver(state, capture, ootx, fc, listen_host, listen_port, track=None)
                     )
 
 
-def make_handler(state, capture, ootx, fc, mission, track):
+def make_handler(state, capture, ootx, fc, mission, track, logtimer):
     class Handler(BaseHTTPRequestHandler):
         def _cors_headers(self):
             self.send_header("Access-Control-Allow-Origin", "*")
@@ -2230,6 +2304,21 @@ def make_handler(state, capture, ootx, fc, mission, track):
                 except (ValueError, OSError, TypeError) as error:
                     self._json(dict(mission.snapshot(), error=str(error)), 400)
                 return
+            if request.path.startswith("/api/fc/logtimer/"):
+                action = request.path[len("/api/fc/logtimer/"):]
+                query = parse_qs(request.query)
+                try:
+                    if action == "start":
+                        logtimer.start(query.get("delay", ["10"])[0], query.get("duration", ["40"])[0])
+                    elif action == "stop":
+                        logtimer.stop()
+                    elif action != "status":
+                        self.send_error(404)
+                        return
+                    self._json(logtimer.snapshot())
+                except (ValueError, OSError) as error:
+                    self._json(dict(logtimer.snapshot(), error=str(error)), 400)
+                return
             if request.path.startswith("/api/track/"):
                 action = request.path[len("/api/track/"):]
                 query = parse_qs(request.query)
@@ -2276,7 +2365,8 @@ def make_handler(state, capture, ootx, fc, mission, track):
                 return
 
             state.set_target(host, port)
-            self._json(dict(state.snapshot(), fc=fc.snapshot(), mission=mission.snapshot(), track=track.status()))
+            self._json(dict(state.snapshot(), fc=fc.snapshot(), mission=mission.snapshot(), track=track.status(),
+                            logtimer=logtimer.snapshot()))
 
         def log_message(self, _format, *_args):
             pass
@@ -2326,6 +2416,7 @@ def main():
     fc = FlightController()
     mission = MissionRunner(state, fc)
     track = TrackRecorder(fc, mission)
+    logtimer = LogTimer(fc)
     receiver = threading.Thread(
         target=udp_receiver,
         args=(state, capture, ootx, fc, args.udp_host, args.udp_port, track),
@@ -2333,7 +2424,7 @@ def main():
     )
     receiver.start()
 
-    server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture, ootx, fc, mission, track))
+    server = ThreadingHTTPServer(("127.0.0.1", args.http_port), make_handler(state, capture, ootx, fc, mission, track, logtimer))
     print(f"HTTP API: http://127.0.0.1:{args.http_port}/api/odometry")
     print(f"Calibration sessions: {RUNS_DIR}")
     print(f"Flight tracks: {TRACKS_DIR}")
