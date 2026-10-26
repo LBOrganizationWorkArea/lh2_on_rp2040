@@ -447,6 +447,8 @@ class FlightController:
                 h.setdefault("alt", message.alt)
             elif kind == "GLOBAL_POSITION_INT":
                 h["alt"] = message.relative_alt / 1000.0      # above home, like Mission Planner
+                h["alt_at"] = now
+                h["origin"] = message.lat != 0 or message.lon != 0   # 0, 0: no EKF origin (no GPS, never set)
             elif kind == "LOCAL_POSITION_NED":
                 self.local_ned = (message.x, message.y, message.z, now)
             elif kind == "EXTENDED_SYS_STATE":
@@ -535,8 +537,10 @@ class FlightController:
     def status(self):
         with self.cond:
             now = time.monotonic()
+            alt_at = self.hud.get("alt_at")
             return {"armed": self.hud.get("armed"), "mode": self.hud.get("mode"), "yaw": self.hud.get("yaw"),
-                    "alt": self.hud.get("alt"), "landed": self.hud.get("landed"),
+                    "alt": self.hud.get("alt") if alt_at and now - alt_at < 2.0 else None,
+                    "origin": self.hud.get("origin"), "landed": self.hud.get("landed"),
                     "radio": self.rc_at is not None and now - self.rc_at < 1.5,
                     "age": now - self.last_at if self.last_at else None}
 
@@ -572,6 +576,18 @@ class FlightController:
                 return "done"
         print(f"COMMAND {command}: no answer after {attempts} attempts", flush=True)
         return None
+
+    # Where the EKF origin is put when it was never set (no GPS indoors): any fixed point works,
+    # the room is flown in local coordinates; ArduCopter's take-off needs one (it aims at a Location).
+    FAKE_ORIGIN = (45.0, 9.0, 100.0)   # lat [deg], lon [deg], altitude AMSL [m]
+
+    def set_origin(self, lat=None, lon=None, alt=None):
+        """SET_GPS_GLOBAL_ORIGIN (accepted only while the EKF has none). No answer: watch status()["origin"]."""
+        lat, lon, alt = (lat, lon, alt) if lat is not None else self.FAKE_ORIGIN
+        with self.cond:
+            sysid = self.sysid
+        self._send(self.encoder.mav.set_gps_global_origin_encode(
+            sysid, int(lat * 1e7), int(lon * 1e7), int(alt * 1000), int(time.time() * 1e6)).pack(self.encoder.mav))
 
     def set_mode(self, custom_mode):
         """DO_SET_MODE with an ArduCopter mode number (4 GUIDED)."""
@@ -1030,7 +1046,9 @@ class MissionRunner:
                             f"{seeing} station(s) see the drone well (minimum {need})"
                             + ("" if seeing >= need else ": take off where more stations see it")
                             + (" — with fewer than 3 the height may be wrong and jump at lift-off" if seeing < 3 else "")},
-               "agree": c["agree"]}
+               "agree": c["agree"],
+               "origin": {"ok": True, "detail": "EKF origin set" if st["origin"] else
+                          "no EKF origin (no GPS): INIZIO sets one before arming"}}
         return out
 
     def start(self, points, speed, tolerance, settle, frame="absolute", pass_through=False, takeoff=None):
@@ -1133,6 +1151,17 @@ class MissionRunner:
             if self.fc.status()["mode"] != "GUIDED":
                 self._abort_launch(f"could not switch to GUIDED (result {result})")
                 return False
+        if not self.fc.status()["origin"]:
+            # No EKF origin (lat/lon 0 in GLOBAL_POSITION_INT): the take-off would be refused (FAILED).
+            deadline = time.monotonic() + 4.0
+            while not self.fc.status()["origin"] and time.monotonic() < deadline:
+                self.fc.set_origin()
+                time.sleep(0.5)
+            if not self.fc.status()["origin"]:
+                self._abort_launch("no EKF origin and the flight controller did not take one "
+                                   "(set it in Mission Planner: right click on the map → Set EKF Origin here)")
+                return False
+            self._log("EKF origin set (none before, no GPS): home will be where the drone is armed")
         self._log("GUIDED: arming")
         result = self.fc.arm(True)
         deadline = time.monotonic() + 3.0
@@ -1142,9 +1171,13 @@ class MissionRunner:
             text = self.fc.status_text()
             self._abort_launch(f"arming refused (result {result})" + (f" — FC says: {text}" if text else ""))
             return False
+        time.sleep(0.6)                                       # home is set at arming: let GLOBAL_POSITION_INT catch up
         pos, _ = self.state.latest()
         z0 = pos["z"]
-        alt = self.fc.status()["alt"] or 0.0                 # altitude above home now (GLOBAL_POSITION_INT)
+        alt = self.fc.status()["alt"]                         # altitude above home now (GLOBAL_POSITION_INT)
+        if alt is None:
+            self._abort_launch("no altitude from the flight controller (GLOBAL_POSITION_INT): cannot aim the take-off")
+            return False
         with self.lock:
             self.status_.update(phase="takeoff", start_z=z0)
         self._log(f"armed (arm result {result}): climbing {climb:.2f} m (Z {z0:.2f} -> {z0 + climb:.2f} m, "
