@@ -526,6 +526,12 @@ class FlightController:
             n, e, d, at = self.local_ned
             return (n, e, d), at
 
+    def status_text(self, max_age=5.0):
+        """The flight controller's last STATUSTEXT if recent (the reason of a refusal), else ''."""
+        with self.cond:
+            at = self.hud.get("text_at")
+            return self.hud.get("text", "") if at and time.monotonic() - at < max_age else ""
+
     def status(self):
         with self.cond:
             now = time.monotonic()
@@ -543,27 +549,52 @@ class FlightController:
             0, sysid, compid, mavlink2.MAV_FRAME_LOCAL_NED, mask, north, east, down,
             0, 0, 0, 0, 0, 0, math.radians(yaw_deg), 0).pack(self.encoder.mav))
 
-    def command(self, command, params, timeout=2.5):
-        """COMMAND_LONG with 7 params; returns the MAV_RESULT the FC answers (None: no answer)."""
+    def command(self, command, params, attempts=3, wait=1.0, done=None):
+        """COMMAND_LONG with 7 params, repeated (confirmation field 0, 1, 2...) until a COMMAND_ACK
+        arrives or `done()` is true: over Wi-Fi a single command or its answer can be lost (take-off
+        of 2026-10-26: no answer to NAV_TAKEOFF nor to the disarm). Returns the MAV_RESULT, "done"
+        when the state shows it worked without an answer, or None."""
         with self.cond:
             sysid, compid = self.sysid, self.compid
         asked = time.monotonic()
-        self._send(self.encoder.mav.command_long_encode(sysid, compid, command, 0, *params).pack(self.encoder.mav))
-        with self.cond:
-            if self.cond.wait_for(lambda: self.acks.get(command, (None, 0))[1] > asked, timeout):
-                return self.acks[command][0]
+        for attempt in range(attempts):
+            self._send(self.encoder.mav.command_long_encode(sysid, compid, command, attempt, *params).pack(self.encoder.mav))
+            end = time.monotonic() + wait
+            with self.cond:
+                while time.monotonic() < end:
+                    if self.acks.get(command, (None, 0))[1] > asked:
+                        result = self.acks[command][0]
+                        print(f"COMMAND {command}: result {result} (attempt {attempt + 1})", flush=True)
+                        return result
+                    self.cond.wait(0.05)
+            if done and done():
+                print(f"COMMAND {command}: no answer, but the state shows it worked", flush=True)
+                return "done"
+        print(f"COMMAND {command}: no answer after {attempts} attempts", flush=True)
         return None
 
     def set_mode(self, custom_mode):
         """DO_SET_MODE with an ArduCopter mode number (4 GUIDED)."""
-        return self.command(mavlink2.MAV_CMD_DO_SET_MODE, (mavlink2.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, custom_mode, 0, 0, 0, 0, 0))
+        return self.command(mavlink2.MAV_CMD_DO_SET_MODE, (mavlink2.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, custom_mode, 0, 0, 0, 0, 0),
+                            done=lambda: self.status()["mode"] == "GUIDED" and custom_mode == 4)
 
     def arm(self, on):
-        return self.command(mavlink2.MAV_CMD_COMPONENT_ARM_DISARM, (1.0 if on else 0.0, 0, 0, 0, 0, 0, 0))
+        return self.command(mavlink2.MAV_CMD_COMPONENT_ARM_DISARM, (1.0 if on else 0.0, 0, 0, 0, 0, 0, 0),
+                            done=lambda: self.status()["armed"] is bool(on))
 
-    def takeoff(self, alt_above_home):
+    def disarm_until_confirmed(self, seconds=5.0):
+        """Disarm, repeated until the heartbeat shows the drone disarmed. Returns True when it does."""
+        end = time.monotonic() + seconds
+        while time.monotonic() < end:
+            self.arm(False)
+            if self.status()["armed"] is False:
+                return True
+            time.sleep(0.3)
+        return self.status()["armed"] is False
+
+    def takeoff(self, alt_above_home, lifting=None):
         """GUIDED take-off to an altitude above home [m] (ArduCopter: armed, landed, higher than now)."""
-        return self.command(mavlink2.MAV_CMD_NAV_TAKEOFF, (0, 0, 0, float("nan"), 0, 0, alt_above_home))
+        return self.command(mavlink2.MAV_CMD_NAV_TAKEOFF, (0, 0, 0, float("nan"), 0, 0, alt_above_home), done=lifting)
 
     def set_speed(self, speed):
         """MAV_CMD_DO_CHANGE_SPEED: speed of GUIDED moves [m/s], horizontal (type 1), climb (2) and
@@ -1064,9 +1095,8 @@ class MissionRunner:
             self._finish("aborted", text + " — not armed, motors never started")
             return
         if self._on_ground():
-            result = self.fc.arm(False)
-            text += " — disarmed on the ground" if result == mavlink2.MAV_RESULT_ACCEPTED else \
-                f" — DISARM REFUSED (result {result}): disarm on the radio"
+            text += " — disarmed on the ground" if self.fc.disarm_until_confirmed() else \
+                " — STILL ARMED (no answer to the disarm for 5 s): DISARM ON THE RADIO"
         else:
             self._hold_here()
             text += " — hovering here in GUIDED: take over on the radio"
@@ -1109,17 +1139,35 @@ class MissionRunner:
         while not self.fc.status()["armed"] and time.monotonic() < deadline:
             time.sleep(0.1)
         if not self.fc.status()["armed"]:
-            self._abort_launch(f"arming refused (result {result}): see the flight controller's message in the HUD")
+            text = self.fc.status_text()
+            self._abort_launch(f"arming refused (result {result})" + (f" — FC says: {text}" if text else ""))
             return False
         pos, _ = self.state.latest()
         z0 = pos["z"]
         alt = self.fc.status()["alt"] or 0.0                 # altitude above home now (GLOBAL_POSITION_INT)
         with self.lock:
             self.status_.update(phase="takeoff", start_z=z0)
-        self._log(f"armed: climbing {climb:.2f} m (Z {z0:.2f} -> {z0 + climb:.2f} m)")
-        result = self.fc.takeoff(alt + climb)
-        if result != mavlink2.MAV_RESULT_ACCEPTED:
-            self._abort_launch(f"take-off refused by the flight controller (result {result})")
+        self._log(f"armed (arm result {result}): climbing {climb:.2f} m (Z {z0:.2f} -> {z0 + climb:.2f} m, "
+                  f"take-off to {alt + climb:.2f} m above home)")
+
+        def lifting():
+            p, _ = self.state.latest()
+            return self.fc.status()["landed"] in (2, 3) or (p is not None and p["z"] > z0 + 0.05)
+        result = self.fc.takeoff(alt + climb, lifting)
+        if result not in (mavlink2.MAV_RESULT_ACCEPTED, "done"):
+            # A repeated NAV_TAKEOFF is refused once the first one (answer lost) has started the climb:
+            # look before calling it a failure, never disarm a drone that is lifting off.
+            end = time.monotonic() + 1.5
+            while time.monotonic() < end and not lifting():
+                time.sleep(0.1)
+            if lifting():
+                self._log(f"take-off: answer {result}, but the drone is climbing — going on")
+                result = "done"
+        if result not in (mavlink2.MAV_RESULT_ACCEPTED, "done"):
+            names = {None: "no answer from the flight controller (Wi-Fi link?)", 4: "FAILED (on the ground? higher than now?)",
+                     2: "DENIED", 3: "UNSUPPORTED", 1: "TEMPORARILY REJECTED"}
+            text = self.fc.status_text()
+            self._abort_launch(f"take-off not started: {names.get(result, result)}" + (f" — FC says: {text}" if text else ""))
             return False
         started, failing_since, reached = time.monotonic(), None, None
         timeout = 8.0 + climb / 0.25
