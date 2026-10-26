@@ -212,6 +212,11 @@ INIZIO is enabled only when every check is green:
 - EKF and lighthouse agree;
 - the figure and the take-off height inside the limits.
 
+The EKF frame can sit at a constant offset from the lighthouse one (after INIZIO sets the EKF origin the
+height zero moves to where the drone stood). The bridge measures that offset while the drone hovers (after the
+take-off, and at the start of every mission), adds it to every target, and the EKF/lighthouse check then watches
+only its change (> 15 cm for 1 s stops the mission).
+
 If the take-off fails or is stopped while still on the ground, the drone is disarmed; once airborne it hovers
 where it is in GUIDED. At the end it hovers at the last point: land on the radio. Climb and descent use the
 same speed as the moves.
