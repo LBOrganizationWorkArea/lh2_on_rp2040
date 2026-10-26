@@ -926,6 +926,12 @@ class MissionRunner:
         self.status_ = {"state": "idle", "points": [], "leg": None, "message": "", "log": [], "distance": None,
                         "area": None}
         self.limits = dict(self.LIMITS_DEFAULT)
+        # The EKF frame can be shifted from the lighthouse one by a constant (2026-10-26: Z 44 cm after
+        # INIZIO set the EKF origin): targets are sent with this offset (NED, EKF minus lighthouse),
+        # and "agree" checks the change from it. Tracked slowly while idle, measured and frozen when
+        # a mission starts (after the take-off for INIZIO).
+        self.offset = (0.0, 0.0, 0.0)
+        self.offset_frozen = False
         # Auto-start: the editor arms a figure; it runs when the radio switches INTO GUIDED
         # (a transition seen here, never because the app connected while already in GUIDED).
         self.auto = None            # {"frame", "points", "speed", "tolerance", "settle"}
@@ -988,14 +994,23 @@ class MissionRunner:
         }
         if pos and local and local_age < 2.0:
             # The EKF position arrives a few times a second and late: compare it with the lighthouse
-            # positions of the moments it can refer to, and keep the best match.
+            # positions of the moments it can refer to, and keep the best match. Both frames may differ
+            # by a constant (self.offset): what matters is the change from it.
             _, at = self.fc.local_at()
             candidates = self.state.recent(at - self.EKF_LAG_S, at + 0.05) or [(pos["x"], pos["y"], pos["z"])]
-            best = min(candidates, key=lambda p: math.dist(world_to_ned(*p), local))
-            gap = math.dist(world_to_ned(*best), local)
-            ex, ey, ez = (e - w for e, w in zip(ned_to_world(*local), best))   # EKF minus lighthouse, room axes
-            out["agree"] = (gap < self.AGREE_M, f"EKF and lighthouse agree within {100 * gap:.0f} cm"
-                            + (f" (EKF − lighthouse: X {100 * ex:+.0f}, Y {100 * ey:+.0f}, Z {100 * ez:+.0f} cm)" if gap >= 0.05 else ""))
+            with self.lock:
+                off, frozen = self.offset, self.offset_frozen
+            shifted = lambda p: tuple(a + o for a, o in zip(world_to_ned(*p), off))
+            best = min(candidates, key=lambda p: math.dist(shifted(p), local))
+            gap = math.dist(shifted(best), local)
+            if not frozen:                                    # idle: follow the offset slowly (~2 s)
+                raw = tuple(l - w for l, w in zip(local, world_to_ned(*best)))
+                with self.lock:
+                    self.offset = tuple(o + 0.05 * (r - o) for o, r in zip(self.offset, raw))
+            ox, oy, oz = (a - b for a, b in zip(ned_to_world(*off), ned_to_world(0.0, 0.0, 0.0)))
+            note = (f" — EKF frame offset X {100 * ox:+.0f}, Y {100 * oy:+.0f}, Z {100 * oz:+.0f} cm, compensated"
+                    if math.dist(off, (0, 0, 0)) >= 0.05 else "")
+            out["agree"] = (gap < self.AGREE_M, f"EKF and lighthouse agree within {100 * gap:.0f} cm" + note)
         else:
             out["agree"] = (False, "EKF position (LOCAL_POSITION_NED) missing")
         return {k: {"ok": ok, "detail": detail} for k, (ok, detail) in out.items()}
@@ -1233,7 +1248,7 @@ class MissionRunner:
                 reached = reached or now
                 if now - reached >= hover:
                     self._log(f"take-off done: hovered {hover:.0f} s at Z {pos['z']:.2f} m")
-                    return self._wait_agree()
+                    return self._measure_offset()
             elif now - started > timeout:
                 self._abort_launch(f"take-off not completed in {timeout:.0f} s (Z {pos['z']:.2f} m)")
                 return False
@@ -1248,36 +1263,51 @@ class MissionRunner:
             except (ValueError, OSError):
                 pass
 
+    MAX_OFFSET_M = 1.0
+
+    def _measure_offset(self, seconds=1.5):
+        """EKF minus lighthouse (NED) while the drone holds still, median of ~`seconds`; frozen for the
+        mission. Returns False (and ends the mission) if it is not plausible."""
+        samples, end = [], time.monotonic() + seconds
+        while time.monotonic() < end:
+            local, at = self.fc.local_at()
+            pos, age = self.state.latest()
+            if local and pos and age < self.ODOMETRY_MAX_AGE and time.monotonic() - at < 1.0:
+                cands = self.state.recent(at - self.EKF_LAG_S, at + 0.05) or [(pos["x"], pos["y"], pos["z"])]
+                w = [sum(c[k] for c in cands) / len(cands) for k in range(3)]
+                samples.append(tuple(l - n for l, n in zip(local, world_to_ned(*w))))
+            if self.stop_event.wait(0.1):
+                return False
+        if len(samples) < 5:
+            self._hold_here()
+            self._finish("aborted", "no EKF / lighthouse positions to compare: hovering")
+            return False
+        med = tuple(sorted(s[k] for s in samples)[len(samples) // 2] for k in range(3))
+        spread = max(math.dist(s, med) for s in samples)
+        with self.lock:
+            self.offset, self.offset_frozen = med, True
+        ox, oy, oz = (a - b for a, b in zip(ned_to_world(*med), ned_to_world(0.0, 0.0, 0.0)))
+        if math.dist(med, (0, 0, 0)) > self.MAX_OFFSET_M or spread > 0.15:
+            self._hold_here()
+            self._finish("aborted", f"EKF frame offset X {100 * ox:+.0f}, Y {100 * oy:+.0f}, Z {100 * oz:+.0f} cm "
+                                    f"(spread {100 * spread:.0f} cm): too large or unsteady — hovering")
+            return False
+        if math.dist(med, (0, 0, 0)) >= 0.05:
+            self._log(f"EKF frame offset from the lighthouse: X {100 * ox:+.0f}, Y {100 * oy:+.0f}, Z {100 * oz:+.0f} cm "
+                      "— compensated in the targets")
+        return True
+
+    def _goto(self, x, y, z, yaw):
+        """GUIDED target for a room point, in the EKF frame (lighthouse NED + the measured offset)."""
+        with self.lock:
+            off = self.offset
+        self.fc.goto_ned(*(a + o for a, o in zip(world_to_ned(x, y, z), off)), yaw)
+
     def _finish(self, state, text):
         self._log(text)
         with self.lock:
+            self.offset_frozen = False
             self.status_.update(state=state, distance=None, hold_left=None)
-
-    AGREE_WAIT_S = 10.0
-
-    def _wait_agree(self):
-        """After the take-off the EKF may still be catching up with the lighthouse (the height on a
-        stand or the floor often jumps at lift-off): the points would stop at once on "EKF and
-        lighthouse agree". Hover until they agree, at most AGREE_WAIT_S."""
-        end, said = time.monotonic() + self.AGREE_WAIT_S, False
-        while True:
-            check = self.checks()["agree"]
-            if check["ok"]:
-                if said:
-                    self._log("EKF and lighthouse agree again: starting the points")
-                return True
-            if not said:
-                self._log(f"waiting for the EKF to agree with the lighthouse ({check['detail']})")
-                said = True
-            st = self.fc.status()
-            if st["mode"] != "GUIDED" or not st["armed"]:
-                self._finish("aborted", f"pilot took over (mode {st['mode']})")
-                return False
-            if time.monotonic() > end or self.stop_event.wait(0.2):
-                self._hold_here()
-                self._finish("aborted", f"after the take-off the EKF did not agree with the lighthouse in "
-                                        f"{self.AGREE_WAIT_S:.0f} s ({check['detail']}): hovering — take over on the radio")
-                return False
 
     def _run(self, points, speed, tolerance, settle, pass_through=False, launch=None):
         """Take off if asked (INIZIO), then fly the points. pass_through: every point but the last only
@@ -1294,6 +1324,8 @@ class MissionRunner:
                         self._hold_here()
                         self._finish("aborted", "from the hover point the figure breaks the limits: " + "; ".join(bad))
                         return
+            elif not self._measure_offset(1.0):           # Start: hovering in GUIDED
+                return
             with self.lock:
                 self.status_.update(points=points, leg=0, phase="points")
             yaw = self.fc.status()["yaw"] or 0.0      # keep the heading the drone has now
@@ -1312,7 +1344,7 @@ class MissionRunner:
                 timeout = 8.0 + 2.0 * distance / speed
                 self._log(f"point {leg + 1}/{len(points)}: ({x:.2f}, {y:.2f}, {z:.2f}), {distance:.2f} m away")
                 started = sent = time.monotonic()
-                self.fc.goto_ned(*world_to_ned(x, y, z), yaw)
+                self._goto(x, y, z, yaw)
                 self.fc.set_speed(speed)              # after the target: it would reset a speed sent before
                 inside_since = failing_since = None
                 while True:
@@ -1353,7 +1385,7 @@ class MissionRunner:
                         self._finish("aborted", f"point {leg + 1} not reached in {timeout:.0f} s ({100 * d:.0f} cm away): holding position")
                         return
                     if now - sent > 1.0:              # repeat the target and speed: a lost packet is harmless
-                        self.fc.goto_ned(*world_to_ned(x, y, z), yaw)
+                        self._goto(x, y, z, yaw)
                         self.fc.set_speed(speed)
                         sent = now
                 self._log(f"point {leg + 1} reached")
