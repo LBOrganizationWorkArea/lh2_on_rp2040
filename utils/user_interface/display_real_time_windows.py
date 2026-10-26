@@ -863,8 +863,8 @@ class MissionRunner:
 
     # Where targets may go: heights (Z of the room, 0 = calibration floor) and the rectangle between
     # the stations shrunk by a margin. Set from the editor (Mission → Limits) within these bounds.
-    LIMITS_DEFAULT = {"z_min": 0.4, "z_max": 2.0, "margin": 0.3}
-    LIMITS_BOUNDS = {"z_min": (0.15, 2.5), "z_max": (0.3, 3.0), "margin": (0.0, 1.0)}
+    LIMITS_DEFAULT = {"z_min": 0.4, "z_max": 2.0, "margin": 0.3, "min_stations": 1}
+    LIMITS_BOUNDS = {"z_min": (0.15, 2.5), "z_max": (0.3, 3.0), "margin": (0.0, 1.0), "min_stations": (1, 4)}
     MAX_SPEED = 1.0               # [m/s]
     AGREE_M = 0.15                # EKF vs lighthouse position: larger = do not send targets
     EKF_LAG_S = 0.8               # the EKF position may be this much behind the lighthouse one
@@ -978,7 +978,6 @@ class MissionRunner:
     PASS_RADIUS = 0.15            # pass-through: go on to the next point once this close [m]
     MAX_HOLD_S = 600.0            # longest hold at a point (hover studies) [s]
     TAKEOFF_CLIMB = (0.3, 2.0)    # allowed climb of the automatic take-off [m]
-    TAKEOFF_STATIONS = 3          # stations that must see >= 3 sensors before taking off
     LIFTED_M = 0.15               # above the start height = airborne: a failure then holds instead of disarming
     COUNTDOWN_S = 3
 
@@ -987,6 +986,7 @@ class MissionRunner:
         st = self.fc.status()
         c = self.checks()
         seeing = self.state.stations_seeing()
+        need = int(round(self.limits.get("min_stations", 1)))   # stations that must see >= 3 sensors (editor setting)
         out = {"fc": c["fc"],
                "ground": {"ok": st["armed"] is False and st["landed"] in (None, 1),
                           "detail": "on the ground, disarmed" if st["armed"] is False and st["landed"] in (None, 1)
@@ -994,10 +994,11 @@ class MissionRunner:
                "radio": {"ok": bool(st["radio"]), "detail": "radio on: the mode switch takes over at any time" if st["radio"]
                          else "no radio (RC input): switch the transmitter on before taking off"},
                "lighthouse": c["lighthouse"],
-               "stations": {"ok": seeing is not None and seeing >= self.TAKEOFF_STATIONS,
+               "stations": {"ok": seeing is not None and seeing >= need,
                             "detail": "no lighthouse angle data" if seeing is None else
-                            f"{seeing} station(s) see the drone well" + ("" if seeing >= self.TAKEOFF_STATIONS else
-                            f" — need {self.TAKEOFF_STATIONS}: take off from a stand where more stations see it")},
+                            f"{seeing} station(s) see the drone well (minimum {need})"
+                            + ("" if seeing >= need else ": take off where more stations see it")
+                            + (" — with fewer than 3 the height may be wrong and jump at lift-off" if seeing < 3 else "")},
                "agree": c["agree"]}
         return out
 

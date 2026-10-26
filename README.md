@@ -207,8 +207,8 @@ INIZIO is enabled only when every check is green:
 - on the ground and disarmed;
 - radio on (RC input), so the mode switch can take over;
 - fresh lighthouse position;
-- at least 3 stations see 3 or more sensors. On the floor often only two do and the height is wrong, so take
-  off from a stand;
+- at least *min. stations seeing it* stations (setting, 1–4, default 1) see 3 or more sensors. With 3 or more the
+  height is right; on the floor often only one or two do, the height can be wrong and jump at lift-off;
 - EKF and lighthouse agree;
 - the figure and the take-off height inside the limits.
 
