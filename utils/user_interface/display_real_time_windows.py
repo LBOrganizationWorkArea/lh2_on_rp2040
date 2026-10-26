@@ -391,6 +391,7 @@ class FlightController:
         "VISO_DELAY_MS": (0.0, 250.0, True),
         "VISO_POS_M_NSE": (0.01, 10.0, False),  # ArduPilot documents 0.1..10 but accepts less
         "LOG_DISARMED": (0.0, 1.0, True),       # the delay-test log timer (LogTimer)
+        "LAND_SPEED": (30.0, 200.0, True),      # [cm/s] last part of the mission landing (LAND mode)
     }
     GPS_FIX = {0: "No GPS", 1: "No Fix", 2: "2D Fix", 3: "3D Fix", 4: "DGPS", 5: "RTK Float", 6: "RTK Fixed"}
 
@@ -406,6 +407,7 @@ class FlightController:
         self.link = []              # (time, received, lost) per FC message, last 5 s
         self.local_ned = None       # (north, east, down, time) from LOCAL_POSITION_NED
         self.acks = {}              # command id -> (result, time) from COMMAND_ACK
+        self.home_ned = None        # (north, east, down, time) of HOME_POSITION, EKF frame
         self.rc_at = None           # when RC_CHANNELS last showed a radio
 
     def attach(self, udp, encoder):
@@ -451,6 +453,8 @@ class FlightController:
                 h["origin"] = message.lat != 0 or message.lon != 0   # 0, 0: no EKF origin (no GPS, never set)
             elif kind == "LOCAL_POSITION_NED":
                 self.local_ned = (message.x, message.y, message.z, now)
+            elif kind == "HOME_POSITION":
+                self.home_ned = (message.x, message.y, message.z, now)
             elif kind == "EXTENDED_SYS_STATE":
                 h["landed"] = message.landed_state   # 1 on ground, 2 in air, 3 taking off, 4 landing
             elif kind == "COMMAND_ACK":
@@ -597,6 +601,26 @@ class FlightController:
     def arm(self, on):
         return self.command(mavlink2.MAV_CMD_COMPONENT_ARM_DISARM, (1.0 if on else 0.0, 0, 0, 0, 0, 0, 0),
                             done=lambda: self.status()["armed"] is bool(on))
+
+    def land(self):
+        """Switch to LAND (ArduCopter mode 9): descends at LAND_SPEED where it is, disarms on touchdown."""
+        return self.command(mavlink2.MAV_CMD_DO_SET_MODE, (mavlink2.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED, 9, 0, 0, 0, 0, 0),
+                            done=lambda: self.status()["mode"] == "LAND")
+
+    def home(self, timeout=2.0):
+        """ArduPilot's home in the EKF frame (north, east, down), asked with REQUEST_MESSAGE; None if unknown."""
+        asked = time.monotonic()
+        try:
+            self.command(mavlink2.MAV_CMD_REQUEST_MESSAGE, (mavlink2.MAVLINK_MSG_ID_HOME_POSITION, 0, 0, 0, 0, 0, 0), attempts=2,
+                         done=lambda: self.home_ned is not None and self.home_ned[3] > asked)
+        except (ValueError, OSError):
+            return None
+        end = time.monotonic() + timeout
+        while time.monotonic() < end:
+            if self.home_ned and self.home_ned[3] > asked:
+                return self.home_ned[:3]
+            time.sleep(0.05)
+        return self.home_ned[:3] if self.home_ned and time.monotonic() - self.home_ned[3] < 30 else None
 
     def disarm_until_confirmed(self, seconds=5.0):
         """Disarm, repeated until the heartbeat shows the drone disarmed. Returns True when it does."""
@@ -944,7 +968,7 @@ class MissionRunner:
             if not points or any(len(p) != 3 or not all(math.isfinite(v) for v in p) for p in points):
                 raise ValueError("give at least one point as [x, y, z]")
             config = {"frame": "relative" if config.get("frame") == "relative" else "absolute", "points": points,
-                      "pass_through": bool(config.get("pass_through")),
+                      "pass_through": bool(config.get("pass_through")), "land": config.get("land") or None,
                       "speed": float(config.get("speed", 0.3)), "tolerance": float(config.get("tolerance", 0.10)),
                       "settle": float(config.get("settle", 1.0))}
         with self.lock:
@@ -969,7 +993,7 @@ class MissionRunner:
             time.sleep(0.5)                           # let GUIDED take over, then start from here
             try:
                 self.start(auto["points"], auto["speed"], auto["tolerance"], auto["settle"], auto["frame"],
-                           auto.get("pass_through", False))
+                           auto.get("pass_through", False), None, auto.get("land"))
                 self._log("auto-start: GUIDED engaged")
             except ValueError as error:
                 self._log(f"auto-start refused (the drone just hovers in GUIDED): {error}")
@@ -1070,10 +1094,12 @@ class MissionRunner:
                           "no EKF origin (no GPS): INIZIO sets one before arming"}}
         return out
 
-    def start(self, points, speed, tolerance, settle, frame="absolute", pass_through=False, takeoff=None):
+    def start(self, points, speed, tolerance, settle, frame="absolute", pass_through=False, takeoff=None, land=None):
         """Fly `points`: room coordinates, or (frame "relative") offsets from where the drone is now.
         takeoff {"climb": m, "hover": s}: INIZIO from the ground — countdown, GUIDED, arm, climb,
-        hover, then the points (relative ones from the hover point)."""
+        hover, then the points (relative ones from the hover point).
+        land {"descent": m/s}: after the last point return home at the current height, descend slowly
+        and land (home = the INIZIO start point, else ArduPilot's home)."""
         with self.lock:
             if self.status_["state"] == "running":
                 raise ValueError("a mission is already running")
@@ -1112,9 +1138,12 @@ class MissionRunner:
         with self.lock:
             self.status_.update(state="running", points=planned, leg=None if launch else 0, distance=None, log=[],
                                 area=station_area(self.limits["margin"]), phase="countdown" if launch else "points",
-                                countdown=None, start_z=pos["z"], target=None, hold_left=None, takeoff_sent=False)
+                                countdown=None, start_z=pos["z"], target=None, hold_left=None, takeoff_sent=False,
+                                launch_home=None)
         self.stop_event.clear()
-        self.thread = threading.Thread(target=self._run, args=(planned, speed, tolerance, settle, bool(pass_through), launch),
+        if land:
+            land = {"descent": min(0.5, max(0.05, float(land.get("descent", 0.2))))}
+        self.thread = threading.Thread(target=self._run, args=(planned, speed, tolerance, settle, bool(pass_through), launch, land),
                                        daemon=True)
         self.thread.start()
 
@@ -1202,7 +1231,7 @@ class MissionRunner:
             self._abort_launch("no altitude from the flight controller (GLOBAL_POSITION_INT): cannot aim the take-off")
             return False
         with self.lock:
-            self.status_.update(phase="takeoff", start_z=z0)
+            self.status_.update(phase="takeoff", start_z=z0, launch_home=[pos["x"], pos["y"], pos["z"]])
         self._log(f"armed (arm result {result}): climbing {climb:.2f} m (Z {z0:.2f} -> {z0 + climb:.2f} m, "
                   f"take-off to {alt + climb:.2f} m above home)")
 
@@ -1335,7 +1364,105 @@ class MissionRunner:
             self.offset_frozen = False
             self.status_.update(state=state, distance=None, hold_left=None)
 
-    def _run(self, points, speed, tolerance, settle, pass_through=False, launch=None):
+    LAND_ABOVE_M = 0.30           # the slow GUIDED descent ends this high above home; LAND does the rest
+
+    def _fly_to(self, x, y, z, yaw, tol, timeout, what, horizontal=False):
+        """GUIDED target with the usual guards until within `tol` (horizontal only if asked). False: ended."""
+        started = sent = time.monotonic()
+        self._goto(x, y, z, yaw)
+        failing_since = None
+        while True:
+            if self.stop_event.wait(0.1):
+                return False
+            now = time.monotonic()
+            st = self.fc.status()
+            if st["mode"] != "GUIDED" or not st["armed"]:
+                self._finish("aborted", f"{what}: pilot took over (mode {st['mode']})")
+                return False
+            checks = self.checks()
+            failing = [checks[n]["detail"] for n in ("lighthouse", "agree", "fc") if not checks[n]["ok"]]
+            if failing:
+                failing_since = failing_since or now
+                if now - failing_since >= self.PERSIST_S:
+                    self._hold_here()
+                    self._finish("aborted", f"{what} stopped, hovering: {'; '.join(failing)}")
+                    return False
+            else:
+                failing_since = None
+            pos, _ = self.state.latest()
+            d = math.dist((pos["x"], pos["y"]), (x, y)) if horizontal else math.dist((pos["x"], pos["y"], pos["z"]), (x, y, z))
+            with self.lock:
+                self.status_["distance"] = d
+            if d <= tol:
+                return True
+            if now - started > timeout:
+                self._hold_here()
+                self._finish("aborted", f"{what}: not reached in {timeout:.0f} s ({100 * d:.0f} cm away) — hovering")
+                return False
+            if now - sent > 1.0:
+                self._goto(x, y, z, yaw)
+                sent = now
+
+    def _return_and_land(self, home, speed, descent, yaw):
+        """Back above `home` (room point) at the current height, slow descent to LAND_ABOVE_M over it,
+        then LAND (ArduPilot lands and disarms)."""
+        pos, _ = self.state.latest()
+        hx, hy, hz = home
+        with self.lock:
+            self.status_.update(phase="return", target=[hx, hy, pos["z"]], hold_left=None)
+        dist = math.dist((pos["x"], pos["y"]), (hx, hy))
+        self._log(f"return home: ({hx:.2f}, {hy:.2f}) at Z {pos['z']:.2f} m, {dist:.2f} m away")
+        self.fc.set_speed(speed)
+        if not self._fly_to(hx, hy, pos["z"], yaw, 0.10, 10.0 + 2.0 * dist / speed, "return home", horizontal=True):
+            return
+        low = hz + self.LAND_ABOVE_M
+        with self.lock:
+            self.status_.update(phase="descend", target=[hx, hy, low])
+        pos, _ = self.state.latest()
+        if pos["z"] > low + 0.05:
+            self._log(f"descending at {100 * descent:.0f} cm/s to Z {low:.2f} m ({100 * self.LAND_ABOVE_M:.0f} cm above home)")
+            self._goto(hx, hy, low, yaw)
+            self.fc.set_speed(descent)                     # after the target: climb / descent speed too
+            if not self._fly_to(hx, hy, low, yaw, 0.06, 10.0 + (pos["z"] - low) / descent * 1.5, "descent"):
+                return
+        with self.lock:
+            self.status_.update(phase="land")
+        result = self.fc.land()
+        deadline = time.monotonic() + 2.5                    # the heartbeat (1 Hz) shows the new mode
+        while self.fc.status()["mode"] != "LAND" and time.monotonic() < deadline:
+            time.sleep(0.1)
+        if self.fc.status()["mode"] != "LAND":
+            self._hold_here()
+            self._finish("aborted", f"LAND refused (result {result}): hovering above home — land on the radio")
+            return
+        self._log("LAND: touching down (LAND_SPEED), ArduPilot disarms on the ground")
+        end = time.monotonic() + 30.0
+        while time.monotonic() < end:
+            if self.stop_event.wait(0.2):
+                return
+            st = self.fc.status()
+            if not st["armed"]:
+                self._finish("done", "mission complete: landed and disarmed")
+                return
+            if st["mode"] != "LAND":
+                self._finish("aborted", f"landing: pilot took over (mode {st['mode']})")
+                return
+        self._finish("done", "mission complete: still in LAND after 30 s (on the ground? disarm on the radio)")
+
+    def _home_room(self):
+        """Home as a room point: the INIZIO start point, else ArduPilot's HOME_POSITION (EKF frame, minus
+        the measured offset). None if unknown."""
+        with self.lock:
+            launch_home = self.status_.get("launch_home")
+            off = self.offset
+        if launch_home:
+            return tuple(launch_home)
+        home = self.fc.home()
+        if home is None:
+            return None
+        return ned_to_world(*(h - o for h, o in zip(home, off)))
+
+    def _run(self, points, speed, tolerance, settle, pass_through=False, launch=None, land=None):
         """Take off if asked (INIZIO), then fly the points. pass_through: every point but the last only
         has to be passed within PASS_RADIUS (no hold), so curves of many points are flown without stopping."""
         try:
@@ -1415,6 +1542,14 @@ class MissionRunner:
                         self.fc.set_speed(speed)
                         sent = now
                 self._log(f"point {leg + 1} reached")
+            if land:
+                home = self._home_room()
+                if home is None:
+                    self._hold_here()
+                    self._finish("done", "mission complete, but home is unknown: hovering at the last point — land on the radio")
+                    return
+                self._return_and_land(home, speed, land["descent"], yaw)
+                return
             self._finish("done", "mission complete: hovering at the last point (GUIDED) — take over on the radio")
         except Exception as error:  # link or socket trouble: stop where we are
             with self.lock:
@@ -2666,7 +2801,7 @@ def make_handler(state, capture, ootx, fc, mission, track, logtimer):
                     elif action == "start":
                         mission.start(body.get("points", []), body.get("speed", 0.3),
                                       body.get("tolerance", 0.10), body.get("settle", 1.0), body.get("frame", "absolute"),
-                                      bool(body.get("pass_through")), body.get("takeoff") or None)
+                                      bool(body.get("pass_through")), body.get("takeoff") or None, body.get("land") or None)
                     elif action == "auto":
                         mission.set_auto(body if body.get("enabled") else None)
                     elif action == "stop":
