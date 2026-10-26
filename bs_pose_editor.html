@@ -713,9 +713,11 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
         <div class="lbl" style="width:60px;" title="Height gained by the take-off, from where the drone stands">climb</div><input id="mis-to-climb" type="number" value="1.0" min="0.3" max="2" step="0.1"><div class="lbl">m</div>
         <div class="lbl" style="width:50px;" title="Hover after the climb, before the first point">hover</div><input id="mis-to-hover" type="number" value="3" min="0" max="10" step="1"><div class="lbl">s</div>
       </div>
+      <div class="row" title="Stations that must see at least 3 of the 4 sensors before INIZIO takes off. 3 or more = safe height on the ground; with 1-2 the height on the floor may be wrong and jump when the drone lifts off (a lighthouse position is still required: every sensor seen by 2 stations)">
+        <div class="lbl" style="width:150px;">min. stations seeing it</div><input id="mis-minst" type="number" value="1" min="1" max="4" step="1"></div>
       <div class="hint"><b>INIZIO</b> does everything from the ground: 3 s countdown (Stop cancels), GUIDED, arm, vertical
-        climb, hover, then the points (relative points start from the hover point). Put the drone where at least 3 stations
-        see it (a stand: on the floor the height is wrong), keep the radio in hand — any mode change takes over — and stay clear
+        climb, hover, then the points (relative points start from the hover point). Best where 3 or more stations
+        see it (on the floor the height can be wrong and jump at lift-off), keep the radio in hand — any mode change takes over — and stay clear
         of the propellers. If the take-off fails on the ground it disarms; in the air it hovers.</div>
     </div>
     <div class="bs-card">
@@ -1747,7 +1749,7 @@ document.getElementById('mis-auto').addEventListener('change', e => {
 });
 ['mis-speed', 'mis-tol', 'mis-settle', 'mis-pass'].forEach(id => document.getElementById(id).addEventListener('change', misSendAuto));
 // Limits: kept in this browser, sent to the bridge (it checks every point against them)
-const MIS_LIMITS = [['mis-zmin', 'z_min'], ['mis-zmax', 'z_max'], ['mis-margin', 'margin']];
+const MIS_LIMITS = [['mis-zmin', 'z_min'], ['mis-zmax', 'z_max'], ['mis-margin', 'margin'], ['mis-minst', 'min_stations']];
 try {
   const saved = JSON.parse(localStorage.getItem('lh2.mission.limits') || 'null');
   if (saved) MIS_LIMITS.forEach(([id, k]) => { if (saved[k] != null) document.getElementById(id).value = saved[k]; });
