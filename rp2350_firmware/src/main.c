@@ -548,6 +548,7 @@ int main(void)
     uint64_t last_meas_us = 0;       /* capture time the accepted centre refers to (ODOMETRY stamp) */
     uint64_t last_odom_us = 0;       /* when the last ODOMETRY was sent */
     uint64_t sent_meas_us = 0;       /* the stamp it carried */
+    uint32_t sent_pairs = 0;         /* decoded angle pairs (all stations) when it was sent */
     float    last_sensor_xyz[NUM_SENSORS][3] = {{0.0f}};
     bool     last_sensor_valid[NUM_SENSORS] = {false};
     uint64_t last_sensor_update_us[NUM_SENSORS] = {0};
@@ -645,18 +646,10 @@ int main(void)
                 }
                 if (accept) {
                     jump_since_us = 0;
-                    /* The filtered angles describe the moments their sweeps were captured: stamp the
-                     * position with their mean, so the flight controller knows how old it is. */
-                    uint64_t meas_sum = 0; uint32_t meas_n = 0;
-                    for (int s = 0; s < NUM_SENSORS; s++) {
-                        for (int b = 0; b < NUM_BS; b++) {
-                            const lh2_angles_t *a = &g_angles[s][b];
-                            if (a->valid && a->meas_us && now_us - a->last_update_us <= FRESHNESS_US) {
-                                meas_sum += a->meas_us; meas_n++;
-                            }
-                        }
-                    }
-                    last_meas_us = meas_n ? meas_sum / meas_n : now_us;
+                    /* The solver carried every ray to now_us (capture clock): that is the moment
+                     * this position describes, and the ODOMETRY stamp. (It was the mean capture
+                     * time of all rays up to 500 ms old: it lagged and jumped back and forth.) */
+                    last_meas_us = now_us;
                     for (int s = 0; s < NUM_SENSORS; s++) {
                         if (!ok[s]) continue;
                         for (int k = 0; k < 3; k++) last_sensor_xyz[s][k] = xyz[s][k];
@@ -676,9 +669,11 @@ int main(void)
             }
         }
 
-        /* ── 30 Hz: ODOMETRY, only with a position newer than the last one sent ── */
+        /* ── 30 Hz: ODOMETRY, only with a position solved since new sweeps arrived ── */
+        uint32_t pairs_now = 0;
+        for (int b = 0; b < NUM_BS; b++) pairs_now += angle_decoder_pairs(b);
         if (last_yaw_us != 0 && (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) &&
-            now_us - last_odom_us >= ODOM_INTERVAL_US &&
+            now_us - last_odom_us >= ODOM_INTERVAL_US && pairs_now != sent_pairs &&
             last_meas_us > sent_meas_us && last_meas_us - sent_meas_us >= ODOM_MIN_GAP_US) {
             /* World frame is right-handed Z-up (X -> the 1 m mark, Y left); LOCAL_FRD is
              * X forward, Y right, Z down: flip Y and Z. Flipping Z alone mirrors the
@@ -701,6 +696,7 @@ int main(void)
                                   yaw_ned, yaw_fresh ? last_yaw_var : YAW_VAR_UNKNOWN);
             last_odom_us = now_us;
             sent_meas_us = last_meas_us;
+            sent_pairs = pairs_now;
         }
 
         /* ── 10 Hz: TUNNEL, OOTX, EKF home-set (once) + diagnostic prints ───── */

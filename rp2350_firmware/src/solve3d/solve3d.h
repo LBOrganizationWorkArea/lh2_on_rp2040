@@ -33,6 +33,10 @@ typedef struct {
 
 /** A ray farther than this from the point of the others is dropped (3+ stations) [m]. */
 #define SOLVE3D_OUTLIER_M 0.05
+/* Rays older than this are left out (they used to count for up to FRESHNESS_US = 500 ms: log
+ * 2026-10-26, 23 % of the rays used were > 100 ms old, the position lagged and its stamp
+ * jumped). Matches EMA_RESET_US: after that long without data the angle filter restarts anyway. */
+#define SOLVE3D_RAY_MAX_AGE_US 100000ULL
 
 /**
  * @brief  A base station's pose in the calibrated world frame.
@@ -71,13 +75,15 @@ void angles_to_pixels(float az_rad, float el_rad, float px_out[2]);
 /**
  * @brief  Triangulate a metric 3D point for every sensor seen by >= MIN_BS_FOR_POINT stations.
  *
- * For each sensor, every calibrated station (bs_pose_valid) with fresh angles gives a ray;
- * the point is the least-squares closest point to those rays. With three or more rays, one
+ * For each sensor, every calibrated station (bs_pose_valid) whose filtered angles were captured
+ * at most SOLVE3D_RAY_MAX_AGE_US before now_us gives a ray, its angles carried forward to now_us
+ * with the filter's angular rate: all rays describe the same moment, now_us (the ODOMETRY stamp).
+ * The point is the least-squares closest point to those rays. With three or more rays, one
  * that is farther than SOLVE3D_OUTLIER_M from the others' point is dropped.
  *
  * @param bs       array of NUM_BS base-station poses (all-zero entries = not calibrated)
  * @param angles   decoded angle table [NUM_SENSORS][NUM_BS]
- * @param now_us   current time [µs] for the freshness check
+ * @param now_us   the moment the point describes [µs, capture clock]
  * @param pts_out  caller buffer of at least NUM_SENSORS points
  * @return         number of points written (0 .. NUM_SENSORS)
  */

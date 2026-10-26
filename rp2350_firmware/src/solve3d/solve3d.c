@@ -101,9 +101,13 @@ int solve3d_calib_run(const lh2_bs_pose_t bs[NUM_BS],
         double o[NUM_BS][3], d[NUM_BS][3];
         int views = 0;
         for (int b = 0; b < NUM_BS; b++) {
-            if (!bs_pose_valid(&bs[b]) || !angle_decoder_bs_fresh(angles, s, b, now_us)) continue;
+            const lh2_angles_t *a = &angles[s][b];
+            if (!bs_pose_valid(&bs[b]) || !a->valid || !a->meas_us || a->meas_us > now_us ||
+                now_us - a->meas_us > SOLVE3D_RAY_MAX_AGE_US) continue;
+            /* The filtered angle describes its capture time: carry it to now_us with its rate. */
+            const float age_s = (float)(now_us - a->meas_us) * 1e-6f;
             for (int r = 0; r < 3; r++) o[views][r] = bs[b].origin[r];
-            _ray_direction(&bs[b], angles[s][b].ema_horiz, angles[s][b].ema_vert, d[views]);
+            _ray_direction(&bs[b], a->ema_horiz + a->rate_horiz * age_s, a->ema_vert + a->rate_vert * age_s, d[views]);
             views++;
         }
         if (views < MIN_BS_FOR_POINT) continue;
