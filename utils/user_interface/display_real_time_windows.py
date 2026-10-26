@@ -991,8 +991,11 @@ class MissionRunner:
             # positions of the moments it can refer to, and keep the best match.
             _, at = self.fc.local_at()
             candidates = self.state.recent(at - self.EKF_LAG_S, at + 0.05) or [(pos["x"], pos["y"], pos["z"])]
-            gap = min(math.dist(world_to_ned(*p), local) for p in candidates)
-            out["agree"] = (gap < self.AGREE_M, f"EKF and lighthouse agree within {100 * gap:.0f} cm")
+            best = min(candidates, key=lambda p: math.dist(world_to_ned(*p), local))
+            gap = math.dist(world_to_ned(*best), local)
+            ex, ey, ez = (e - w for e, w in zip(ned_to_world(*local), best))   # EKF minus lighthouse, room axes
+            out["agree"] = (gap < self.AGREE_M, f"EKF and lighthouse agree within {100 * gap:.0f} cm"
+                            + (f" (EKF − lighthouse: X {100 * ex:+.0f}, Y {100 * ey:+.0f}, Z {100 * ez:+.0f} cm)" if gap >= 0.05 else ""))
         else:
             out["agree"] = (False, "EKF position (LOCAL_POSITION_NED) missing")
         return {k: {"ok": ok, "detail": detail} for k, (ok, detail) in out.items()}
