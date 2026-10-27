@@ -176,6 +176,21 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 #coverage-btn:hover, #apply-layout-btn:hover:not(:disabled) { background: #214653; }
 #apply-layout-btn:disabled { opacity: 0.4; cursor: default; }
 #coverage-info { font-size: 12px; color: #a9c9d0; line-height: 1.5; white-space: pre-line; }
+.cov-btn { background: #18313a; border: 1px solid #2c5968; color: #8adcf0; border-radius: 4px; font: inherit;
+  font-size: 13px; padding: 6px 8px; cursor: pointer; text-align: center; }
+.cov-btn:hover { background: #214653; }
+#sec-overlap .row .lbl, #sec-bs .row .lbl { width: auto; }
+#sec-overlap select, #lay-name, #lay-list { flex: 1; min-width: 0; background: #141414; border: 1px solid #444; border-radius: 3px;
+  color: #fff; padding: 4px; font: inherit; font-size: 13px; }
+#cov-summary { font-size: 12px; color: #ddd; line-height: 1.5; }
+#cov-summary b.ok { color: #4fd17a; } #cov-summary b.warn { color: #ffcc44; } #cov-summary b.bad { color: #ff5a5a; }
+#cov-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+#cov-table th { color: #8a8a8a; font-weight: 600; text-align: right; padding: 2px 4px; border-bottom: 1px solid #383838; }
+#cov-table td { text-align: right; padding: 2px 4px; color: #ccc; }
+#cov-table tr.sel td { background: #1d3540; }
+#cov-table tr { cursor: pointer; }
+.cov-legend { display: flex; gap: 8px; flex-wrap: wrap; font-size: 11px; color: #aaa; }
+.cov-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 3px; vertical-align: -1px; }
 #tracking-card input, #tracking-card select {
   min-width: 0; flex: 1; background: #141414; border: 1px solid #444;
   border-radius: 3px; color: #fff; font: 13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; padding: 4px;
@@ -444,6 +459,18 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   </div>
   <div class="sec" id="sec-bs">
     <div class="sec-title">BASE STATIONS · SANDBOX</div>
+    <div class="bs-card">
+      <div class="grp-lbl">LAYOUTS · SAVE / LOAD</div>
+      <div class="row"><input id="lay-name" type="text" placeholder="name, e.g. corridor 1.5 m" spellcheck="false">
+        <button id="lay-save" class="cov-btn" type="button">Save</button></div>
+      <div class="row"><select id="lay-list"></select>
+        <button id="lay-load" class="cov-btn" type="button">Load</button>
+        <button id="lay-del" class="rm-btn" type="button">delete</button></div>
+      <div class="row"><button id="lay-export" class="cov-btn" type="button" style="flex:1">Export file…</button>
+        <button id="lay-import" class="cov-btn" type="button" style="flex:1">Import file…</button>
+        <input id="lay-file" type="file" accept=".json,application/json" hidden></div>
+      <div class="hint" id="lay-msg">Saves the stations, the room, the FOV / range and the flight area. The layout you are editing is also kept when the app is closed.</div>
+    </div>
     <div class="hint">Click a station in the 3D view to move it (arrows) or rotate it (rings) — keys T / R, Esc to finish. Or type the values below.</div>
     <div id="bs-list"></div>
   <button id="add-btn">+ Add base station</button>
@@ -496,30 +523,58 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   <div class="sec" id="sec-overlap">
     <div class="sec-title">OVERLAP / PLACEMENT</div>
     <div class="bs-card">
-    <div class="grp-lbl">OVERLAP / PLACEMENT</div>
-    <div class="row">
-      <div class="lbl" style="width:38px;">Area X</div>
-      <input type="number" id="room-x" min="0.5" step="0.1" value="4.0">
-      <div class="lbl" style="width:38px;">Area Y</div>
-      <input type="number" id="room-y" min="0.5" step="0.1" value="4.0">
+    <div class="grp-lbl">FLIGHT AREA</div>
+    <div class="row" title="Corner of the flight area with the smallest X and Y (room coordinates, as the stations)">
+      <div class="lbl" style="width:58px;">From X</div><input type="number" id="area-x0" step="0.05" value="0">
+      <div class="lbl">Y</div><input type="number" id="area-y0" step="0.05" value="0">
     </div>
     <div class="row">
-      <div class="lbl" style="width:38px;">Z min</div>
-      <input type="number" id="room-z-min" step="0.1" value="0">
-      <div class="lbl" style="width:38px;">Z max</div>
-      <input type="number" id="room-z-max" step="0.1" value="2.5">
+      <div class="lbl" style="width:58px;">Size X</div><input type="number" id="room-x" min="0.5" step="0.05" value="4.0">
+      <div class="lbl">Y</div><input type="number" id="room-y" min="0.5" step="0.05" value="4.0">
+    </div>
+    <div class="row" title="Heights of the drone (Z, 0 = floor of the calibration) to study">
+      <div class="lbl" style="width:58px;">Z min</div><input type="number" id="room-z-min" step="0.1" value="0">
+      <div class="lbl">Z max</div><input type="number" id="room-z-max" step="0.1" value="2.5">
     </div>
     <div class="row">
-      <div class="lbl" style="width:38px;">Step</div>
-      <input type="number" id="grid-step" min="0.1" step="0.05" value="0.25">
+      <div class="lbl" style="width:58px;" title="Grid spacing on the floor plan [m]">Step</div><input type="number" id="grid-step" min="0.05" step="0.05" value="0.1">
+      <div class="lbl" title="The sensors on the drone face up: a ray must arrive at least this many degrees above the horizon (flight logs: rays down to 10-20 deg are received)">Min elev °</div>
+      <input type="number" id="cov-elev" min="0" max="80" step="1" value="12">
     </div>
+    <div class="hint">Range and field of view come from the FOV tab (measured range ≈ 5 m).</div>
+    <label class="row" style="gap:6px;cursor:pointer;font-size:12px;color:#ccc;" title="Recompute while you move or rotate a station, change the room or the area">
+      <input id="cov-live" type="checkbox" checked> update while editing</label>
+    <button id="cov-run" class="cov-btn" type="button">Analyze coverage</button>
+    <div id="cov-summary">Set the flight area and press Analyze.</div>
+    <div id="cov-out" hidden>
+      <div class="row">
+        <div class="lbl">Show</div>
+        <select id="cov-view">
+          <option value="slice">map at one height</option>
+          <option value="worst">worst over Z min…Z max</option>
+          <option value="off">nothing</option>
+        </select>
+      </div>
+      <div class="row" id="cov-h-row"><input type="range" id="cov-h" min="0" max="0" step="1" value="0" style="flex:1"><span id="cov-h-val" style="font-size:12px;color:#ddd;width:58px;text-align:right"></span></div>
+      <div class="cov-legend">
+        <span><i style="background:#ff5a5a"></i>0–1: no position</span><span><i style="background:#ffcc44"></i>2</span>
+        <span><i style="background:#9be36b"></i>3</span><span><i style="background:#2fbf8f"></i>4+ stations</span>
+      </div>
+      <table id="cov-table"></table>
+      <div class="hint">Per height: share of the area seen by ≥2 / ≥3 / ≥4 stations, and the position error σ for an
+        angle noise of 1 mrad (only to compare layouts: lower = better). Click a row to show that height.
+        2 stations = a position, 3+ = margin when a prop or the body hides one.</div>
+    </div>
+    </div>
+    <div class="bs-card">
+    <div class="grp-lbl">SUGGEST A BETTER SPOT (SAME SHAPE)</div>
     <div class="row">
-      <div class="lbl" style="width:70px;">Min distance</div>
+      <div class="lbl" style="width:90px;">Min distance</div>
       <input type="number" id="min-spacing" min="0.1" step="0.1" value="1.0">
     </div>
-    <button id="coverage-btn">Analyze overlap &amp; suggest</button>
+    <button id="coverage-btn">Search a shift / rotation of the whole layout</button>
     <button id="apply-layout-btn" disabled>Apply suggested positions</button>
-    <div id="coverage-info">Define the useful volume and analyze the common coverage.</div>
+    <div id="coverage-info">Moves all the stations together (distances kept) to cover the flight area better.</div>
   </div>
   </div>
   <div class="sec" id="sec-meas">
@@ -996,12 +1051,15 @@ const roomZMaxInp = document.getElementById('room-z-max');
 const gridStepInp = document.getElementById('grid-step');
 const minSpacingInp = document.getElementById('min-spacing');
 const coverageInfo = document.getElementById('coverage-info');
+const areaX0Inp = document.getElementById('area-x0');
+const areaY0Inp = document.getElementById('area-y0');
+const covElevInp = document.getElementById('cov-elev');
 const applyLayoutBtn = document.getElementById('apply-layout-btn');
 let suggestedLayout = null;
 
 [fovHInp, fovVInp, fovRangeInp].forEach(inp => inp.addEventListener('input', () => rebuild()));
-[roomXInp, roomYInp, roomZMinInp, roomZMaxInp, gridStepInp, minSpacingInp].forEach(inp =>
-  inp.addEventListener('input', () => resetCoverageDisplay()));
+[roomXInp, roomYInp, roomZMinInp, roomZMaxInp, gridStepInp, minSpacingInp, areaX0Inp, areaY0Inp, covElevInp].forEach(inp =>
+  inp.addEventListener('input', () => { resetCoverageDisplay(); covSchedule(); layoutAutosave(); }));
 
 // ─── Math: tilt/dir/roll + world rotations -> R ─────────────────────────────
 function cross(a, b) {
@@ -3094,21 +3152,48 @@ function resetCoverageDisplay() {
   clearCoverageOverlay();
 }
 
-function makeCoverageGrid(roomX, roomY, zMin, zMax, step) {
+function makeCoverageGrid(x0, y0, roomX, roomY, zMin, zMax, step) {
   const points = [];
-  for (let x = step / 2; x < roomX; x += step) {
-    for (let y = step / 2; y < roomY; y += step) {
+  for (let x = x0 + step / 2; x < x0 + roomX; x += step) {
+    for (let y = y0 + step / 2; y < y0 + roomY; y += step) {
       for (let z = zMin + step / 2; z < zMax; z += step) points.push([x, y, z]);
     }
   }
   return points;
 }
 
+// Model of what a sensor at `point` receives: inside the station's field of view (FOV tab), within its
+// range, and arriving at least "Min elev" above the horizon (the sensors on the drone face up).
+function coverageModel(poses) {
+  return {
+    poses, basis: poses.map(bs => bsCols(bs)),
+    halfH: (parseFloat(fovHInp.value) || 150) * Math.PI / 360,
+    halfV: (parseFloat(fovVInp.value) || 110) * Math.PI / 360,
+    maxRange: parseFloat(fovRangeInp.value) || 5.2,
+    sinElev: Math.sin((Number.isFinite(parseFloat(covElevInp.value)) ? parseFloat(covElevInp.value) : 12) * Math.PI / 180),
+  };
+}
+/** Unit directions point -> station ([dx, dy, dz, distance]) of the stations that see the point. */
+function stationRays(model, point) {
+  const rays = [];
+  model.poses.forEach((bs, i) => {
+    const dx = point[0] - bs.x, dy = point[1] - bs.y, dz = point[2] - bs.z;
+    const distance = Math.hypot(dx, dy, dz);
+    if (distance > model.maxRange || distance < 1e-6) return;
+    if (-dz / distance < model.sinElev) return;            // ray too low for an upward-facing sensor
+    const { col0, col1, col2 } = model.basis[i];
+    const forward = dx * col0[0] + dy * col0[1] + dz * col0[2];
+    if (forward <= 0) return;
+    const horizontal = Math.atan2(dx * col1[0] + dy * col1[1] + dz * col1[2], forward);
+    const vertical = Math.atan2(dx * col2[0] + dy * col2[1] + dz * col2[2], forward);
+    if (Math.abs(horizontal) > model.halfH || Math.abs(vertical) > model.halfV) return;
+    rays.push([dx / distance, dy / distance, dz / distance, distance]);
+  });
+  return rays;
+}
+
 function evaluateCoverage(poses, points, keepOverlapPoints = false) {
-  const halfH = (parseFloat(fovHInp.value) || 150) * Math.PI / 360;
-  const halfV = (parseFloat(fovVInp.value) || 110) * Math.PI / 360;
-  const maxRange = parseFloat(fovRangeInp.value) || 5.2;
-  const basis = poses.map(bs => bsCols(bs));
+  const model = coverageModel(poses);
   let overlapCount = 0;
   let tripleCount = 0;
   let fullCount = 0;
@@ -3117,21 +3202,7 @@ function evaluateCoverage(poses, points, keepOverlapPoints = false) {
   const overlapPoints = keepOverlapPoints ? [] : null;
 
   for (const point of points) {
-    const visibleDirections = [];
-    for (let i = 0; i < poses.length; i++) {
-      const bs = poses[i];
-      const dx = point[0] - bs.x, dy = point[1] - bs.y, dz = point[2] - bs.z;
-      if (Math.hypot(dx, dy, dz) > maxRange) continue;
-      const { col0, col1, col2 } = basis[i];
-      const forward = dx * col0[0] + dy * col0[1] + dz * col0[2];
-      if (forward <= 0) continue;
-      const horizontal = Math.atan2(dx * col1[0] + dy * col1[1] + dz * col1[2], forward);
-      const vertical = Math.atan2(dx * col2[0] + dy * col2[1] + dz * col2[2], forward);
-      if (Math.abs(horizontal) > halfH || Math.abs(vertical) > halfV) continue;
-      const distance = Math.hypot(dx, dy, dz);
-      visibleDirections.push([dx / distance, dy / distance, dz / distance]);
-    }
-
+    const visibleDirections = stationRays(model, point);
     if (visibleDirections.length < 2) continue;
     overlapCount++;
     if (visibleDirections.length >= 3) tripleCount++;
@@ -3179,14 +3250,15 @@ function layoutIsBetter(candidate, current) {
 
 function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
   const roomX = parseFloat(roomXInp.value), roomY = parseFloat(roomYInp.value);
+  const x0 = parseFloat(areaX0Inp.value) || 0, y0 = parseFloat(areaY0Inp.value) || 0;
   const centerX = currentLayout.reduce((sum, bs) => sum + bs.x, 0) / currentLayout.length;
   const centerY = currentLayout.reduce((sum, bs) => sum + bs.y, 0) / currentLayout.length;
   const offsets = currentLayout.map(bs => [bs.x - centerX, bs.y - centerY]);
   const centerStep = Math.max(0.5, candidateStep);
   const angleStep = 30;
   const centers = [];
-  for (let x = 0; x <= roomX + 1e-9; x += centerStep) {
-    for (let y = 0; y <= roomY + 1e-9; y += centerStep) centers.push([x, y]);
+  for (let x = x0; x <= x0 + roomX + 1e-9; x += centerStep) {
+    for (let y = y0; y <= y0 + roomY + 1e-9; y += centerStep) centers.push([x, y]);
   }
   if (centers.length * (360 / angleStep) > 2500) {
     throw new Error('Search too dense; increase the grid step or reduce the volume.');
@@ -3206,7 +3278,7 @@ function findSuggestedLayout(currentLayout, points, minSpacing, candidateStep) {
         y: cy + rotatedOffsets[index][1],
         dir: bs.dir + degrees,
       }));
-      if (candidate.some(bs => bs.x < 0 || bs.x > roomX || bs.y < 0 || bs.y > roomY)) continue;
+      if (candidate.some(bs => bs.x < x0 || bs.x > x0 + roomX || bs.y < y0 || bs.y > y0 + roomY)) continue;
       let spacingValid = true;
       for (let a = 0; a < candidate.length && spacingValid; a++) {
         for (let b = a + 1; b < candidate.length; b++) {
@@ -3266,7 +3338,8 @@ document.getElementById('coverage-btn').addEventListener('click', () => {
   }
 
   try {
-    const points = makeCoverageGrid(roomX, roomY, zMin, zMax, step);
+    const points = makeCoverageGrid(parseFloat(areaX0Inp.value) || 0, parseFloat(areaY0Inp.value) || 0,
+      roomX, roomY, zMin, zMax, Math.max(step, 0.25));
     if (points.length > 30000) throw new Error('Too many grid points; increase the step.');
     const currentScore = evaluateCoverage(bsList, points, true);
     const candidateStep = Math.max(0.5, step * 2);
@@ -3275,7 +3348,7 @@ document.getElementById('coverage-btn').addEventListener('click', () => {
     applyLayoutBtn.disabled = false;
     showOverlapPoints(currentScore.overlapPoints);
     coverageInfo.textContent =
-      `Volume: ${points.length} points (${roomX} × ${roomY} m, Z ${zMin}…${zMax} m, step ${step} m)\n` +
+      `Volume: ${points.length} points (${roomX} × ${roomY} m, Z ${zMin}…${zMax} m, step ${Math.max(step, 0.25)} m)\n` +
       `Current: ${formatCoverage(currentScore)}\n` +
       `Suggested (+${suggestion.rotationDegrees.toFixed(0)}°): ${formatCoverage(suggestion.score)}\n` +
       `Rigid layout: relative distances between anchors preserved\n` +
@@ -3294,6 +3367,234 @@ applyLayoutBtn.addEventListener('click', () => {
   renderList();
   rebuild();
 });
+
+// ─── Coverage analysis: per height, how many stations see each point of the flight area ───
+const covEl = id => document.getElementById(id);
+let covData = null, covActive = false, covTimer = null, covObjs = [];
+const COV_COLORS = ['#ff5a5a', '#ff5a5a', '#ffcc44', '#9be36b', '#2fbf8f'];
+const covColor = n => COV_COLORS[Math.min(n, 4)];
+
+function covClear3d() {
+  covObjs.forEach(o => { scene.remove(o); o.geometry.dispose(); o.material.dispose(); });
+  covObjs = [];
+}
+function covSchedule() {                               // live update, debounced
+  if (!covActive || !covEl('cov-live').checked) return;
+  clearTimeout(covTimer);
+  covTimer = setTimeout(covRun, 150);
+}
+function covRun() {
+  covActive = true;
+  const x0 = parseFloat(areaX0Inp.value) || 0, y0 = parseFloat(areaY0Inp.value) || 0;
+  const lx = parseFloat(roomXInp.value), ly = parseFloat(roomYInp.value);
+  const zMin = parseFloat(roomZMinInp.value), zMax = parseFloat(roomZMaxInp.value);
+  const step = Math.max(0.05, parseFloat(gridStepInp.value) || 0.1);
+  if (![lx, ly, zMin, zMax].every(Number.isFinite) || lx <= 0 || ly <= 0 || zMax < zMin) {
+    covEl('cov-summary').textContent = 'Enter a valid area: sizes > 0 and Z max ≥ Z min.';
+    return;
+  }
+  const nx = Math.max(1, Math.round(lx / step)), ny = Math.max(1, Math.round(ly / step));
+  const heights = [];
+  for (let z = zMin; z <= zMax + 1e-6; z += 0.25) heights.push(+z.toFixed(3));
+  if (heights[heights.length - 1] < zMax - 1e-6) heights.push(zMax);
+  if (nx * ny * heights.length > 250000) {
+    covEl('cov-summary').textContent = 'Too many points: increase the step.';
+    return;
+  }
+  const model = coverageModel(bsList);
+  const cells = [];
+  for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) cells.push([x0 + (i + 0.5) * lx / nx, y0 + (j + 0.5) * ly / ny]);
+  const rows = heights.map(z => {
+    const counts = new Uint8Array(cells.length);
+    let n2 = 0, n3 = 0, n4 = 0, sz = 0, sxy = 0, ns = 0;
+    cells.forEach(([x, y], c) => {
+      const rays = stationRays(model, [x, y, z]);
+      counts[c] = rays.length;
+      if (rays.length < 2) return;
+      n2++; if (rays.length >= 3) n3++; if (rays.length >= 4) n4++;
+      // information of the rays (each pins the point across its direction, error ∝ distance)
+      const M = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+      for (const [ux, uy, uz, d] of rays) {
+        const u = [ux, uy, uz], w = 1 / (d * d);
+        for (let a = 0; a < 3; a++) for (let b = 0; b < 3; b++) M[3 * a + b] += ((a === b) - u[a] * u[b]) * w;
+      }
+      const det = M[0] * (M[4] * M[8] - M[5] * M[7]) - M[1] * (M[3] * M[8] - M[5] * M[6]) + M[2] * (M[3] * M[7] - M[4] * M[6]);
+      if (!(det > 1e-12)) return;
+      const ixx = (M[4] * M[8] - M[5] * M[7]) / det, iyy = (M[0] * M[8] - M[2] * M[6]) / det, izz = (M[0] * M[4] - M[1] * M[3]) / det;
+      sz += izz; sxy += ixx + iyy; ns++;           // variances [mm²] for 1 mrad of angle noise
+    });
+    const k = cells.length;
+    return { z, counts, p2: 100 * n2 / k, p3: 100 * n3 / k, p4: 100 * n4 / k,
+             sz: ns ? Math.sqrt(sz / ns) : null, sxy: ns ? Math.sqrt(sxy / ns / 2) : null };
+  });
+  covData = { x0, y0, lx, ly, nx, ny, cells, rows, step: Math.min(lx / nx, ly / ny) };
+  covEl('cov-out').hidden = false;
+  const slider = covEl('cov-h');
+  slider.max = rows.length - 1;
+  if (+slider.value > rows.length - 1) slider.value = 0;
+  covRenderTable();
+  covSummary();
+  covDraw();
+}
+function covSummary() {
+  const { rows } = covData, pct = v => v >= 99.95 ? '100' : v.toFixed(0);
+  const full = rows.filter(r => r.p2 >= 99.95);
+  let band = '';
+  if (full.length === rows.length) band = `<b class="ok">whole area seen by ≥ 2 stations at every height (Z ${rows[0].z.toFixed(2)}–${rows[rows.length - 1].z.toFixed(2)} m)</b>`;
+  else if (full.length) {
+    const ranges = [];                                  // consecutive heights -> "a–b"
+    rows.forEach((r, i) => {
+      if (r.p2 < 99.95) return;
+      const last = ranges[ranges.length - 1];
+      if (last && last.i === i - 1) { last.to = r.z; last.i = i; } else ranges.push({ from: r.z, to: r.z, i });
+    });
+    band = `<b class="warn">whole area seen by ≥ 2 stations only at Z ${ranges.map(g => g.from === g.to
+      ? g.from.toFixed(2) : `${g.from.toFixed(2)}–${g.to.toFixed(2)}`).join(', ')} m</b>`;
+  }
+  else band = '<b class="bad">no height has the whole area seen by 2 stations</b>';
+  const worst = rows.reduce((a, r) => (r.p2 < a.p2 ? r : a), rows[0]);
+  const low3 = rows.reduce((a, r) => (r.p3 < a.p3 ? r : a), rows[0]);
+  covEl('cov-summary').innerHTML = `${band}<br>Weakest: Z ${worst.z.toFixed(2)} m → ${pct(worst.p2)} % with ≥ 2 · `
+    + `fewest ≥ 3: Z ${low3.z.toFixed(2)} m → ${pct(low3.p3)} %<br>`
+    + `<span style="color:#888">${bsList.length} stations · area ${covData.lx} × ${covData.ly} m from (${covData.x0}, ${covData.y0}) · range ${parseFloat(fovRangeInp.value) || 5.2} m · min elevation ${covElevInp.value}°</span>`;
+}
+function covRenderTable() {
+  const sel = +covEl('cov-h').value, cls = v => v >= 99.95 ? '#4fd17a' : v >= 90 ? '#ffcc44' : '#ff5a5a';
+  covEl('cov-table').innerHTML = '<tr><th>Z m</th><th>≥2</th><th>≥3</th><th>4</th><th title="Height error for 1 mrad of angle noise">σZ mm</th><th title="Horizontal error for 1 mrad of angle noise">σXY mm</th></tr>'
+    + covData.rows.map((r, i) => `<tr data-i="${i}" class="${i === sel && covEl('cov-view').value === 'slice' ? 'sel' : ''}"><td>${r.z.toFixed(2)}</td>`
+      + `<td style="color:${cls(r.p2)}">${r.p2.toFixed(0)} %</td><td style="color:${cls(r.p3)}">${r.p3.toFixed(0)} %</td><td>${r.p4.toFixed(0)} %</td>`
+      + `<td>${r.sz != null ? r.sz.toFixed(1) : '—'}</td><td>${r.sxy != null ? r.sxy.toFixed(1) : '—'}</td></tr>`).join('');
+}
+function covDraw() {
+  covClear3d();
+  if (!covData || appMode !== 'sandbox') return;
+  const { x0, y0, lx, ly, cells, rows } = covData, view = covEl('cov-view').value;
+  const zMin = rows[0].z, zMax = rows[rows.length - 1].z;
+  // the flight volume
+  const box = new THREE.BoxGeometry(lx, Math.max(zMax - zMin, 0.01), ly);
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color: 0x8adcf0, transparent: true, opacity: 0.7 }));
+  box.dispose();
+  edges.position.copy(tv(x0 + lx / 2, y0 + ly / 2, (zMin + zMax) / 2));
+  scene.add(edges); covObjs.push(edges);
+  covEl('cov-h-row').style.display = view === 'slice' ? '' : 'none';
+  const r = rows[+covEl('cov-h').value] || rows[0];
+  covEl('cov-h-val').textContent = `Z ${r.z.toFixed(2)} m`;
+  if (view === 'off') return;
+  const counts = view === 'slice' ? r.counts
+    : cells.map((_, c) => Math.min(...rows.map(row => row.counts[c])));
+  const z = view === 'slice' ? r.z : zMin;
+  const tile = covData.step * 0.94;
+  const mesh = new THREE.InstancedMesh(new THREE.PlaneGeometry(tile, tile),
+    new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false }), cells.length);
+  const m = new THREE.Matrix4().makeRotationX(-Math.PI / 2), color = new THREE.Color();
+  cells.forEach(([x, y], c) => {
+    m.setPosition(tv(x, y, z + 0.003));
+    mesh.setMatrixAt(c, m);
+    mesh.setColorAt(c, color.set(covColor(counts[c])));
+  });
+  scene.add(mesh); covObjs.push(mesh);
+}
+covEl('cov-run').addEventListener('click', covRun);
+covEl('cov-view').addEventListener('change', () => { if (covData) { covRenderTable(); covDraw(); } });
+covEl('cov-h').addEventListener('input', () => { if (covData) { covRenderTable(); covDraw(); } });
+covEl('cov-table').addEventListener('click', e => {
+  const tr = e.target.closest('tr[data-i]');
+  if (!tr) return;
+  covEl('cov-h').value = tr.dataset.i; covEl('cov-view').value = 'slice';
+  covRenderTable(); covDraw();
+});
+
+// ─── Layouts: stations + room + FOV + flight area, saved by name (and the one being edited) ───
+const LAYOUT_INPUTS = ['rm-w', 'rm-d', 'rm-h', 'rm-x', 'rm-y', 'rm-color', 'bg-color', 'rm-opacity', 'rm-show',
+  'fov-h', 'fov-v', 'fov-range', 'area-x0', 'area-y0', 'room-x', 'room-y', 'room-z-min', 'room-z-max', 'grid-step', 'cov-elev', 'min-spacing'];
+let layoutAutosaveTimer = null, layoutRestoring = false;
+function layoutSnapshot() {
+  const inputs = {};
+  LAYOUT_INPUTS.forEach(id => { const e = document.getElementById(id); inputs[id] = e.type === 'checkbox' ? e.checked : e.value; });
+  return { version: 1, saved: new Date().toISOString(),
+           stations: bsList.map(({ name, x, y, z, tilt, dir, roll }) => ({ name, x, y, z, tilt, dir, roll })), inputs };
+}
+function layoutApply(snap) {
+  if (!snap || !Array.isArray(snap.stations)) throw new Error('not a layout file');
+  layoutRestoring = true;
+  if (selectedBs >= 0) deselectBs();
+  bsList.length = 0;
+  snap.stations.forEach(st => bsList.push({ id: uid++, name: String(st.name ?? `BS${bsList.length}`),
+    x: +st.x || 0, y: +st.y || 0, z: +st.z || 0, tilt: +st.tilt || 0, dir: +st.dir || 0, roll: +st.roll || 0 }));
+  Object.entries(snap.inputs || {}).forEach(([id, v]) => {
+    const e = LAYOUT_INPUTS.includes(id) && document.getElementById(id);
+    if (!e) return;
+    if (e.type === 'checkbox') e.checked = !!v; else e.value = v;
+  });
+  drawRoom(); renderList(); rebuild();
+  layoutRestoring = false;
+  if (covActive) covRun();
+  layoutAutosave();
+}
+function layoutAutosave() {
+  if (layoutRestoring) return;
+  clearTimeout(layoutAutosaveTimer);
+  layoutAutosaveTimer = setTimeout(() => {
+    try { localStorage.setItem('lh2.layout.current', JSON.stringify(layoutSnapshot())); } catch (_e) { /* storage blocked */ }
+  }, 400);
+}
+function layoutStore() {
+  try { return JSON.parse(localStorage.getItem('lh2.layouts') || '{}') || {}; } catch (_e) { return {}; }
+}
+function layoutMsg(text) { covEl('lay-msg').textContent = text; }
+function layoutRefreshList(select) {
+  const store = layoutStore(), names = Object.keys(store).sort((a, b) => a.localeCompare(b));
+  covEl('lay-list').innerHTML = names.length
+    ? names.map(n => `<option value="${misEsc(n)}">${misEsc(n)} · ${store[n].stations.length} stations · ${(store[n].saved || '').slice(0, 10)}</option>`).join('')
+    : '<option value="">no saved layouts</option>';
+  if (select && names.includes(select)) covEl('lay-list').value = select;
+}
+covEl('lay-save').addEventListener('click', () => {
+  const name = covEl('lay-name').value.trim();
+  if (!name) { layoutMsg('Type a name first.'); return; }
+  const store = layoutStore();
+  const existed = name in store;
+  store[name] = layoutSnapshot();
+  try { localStorage.setItem('lh2.layouts', JSON.stringify(store)); }
+  catch (_e) { layoutMsg('✘ Could not save (storage blocked): use Export file.'); return; }
+  layoutRefreshList(name);
+  layoutMsg(`✔ ${existed ? 'Updated' : 'Saved'} "${name}" (${bsList.length} stations, room, FOV, flight area).`);
+});
+covEl('lay-load').addEventListener('click', () => {
+  const name = covEl('lay-list').value, snap = layoutStore()[name];
+  if (!snap) return;
+  layoutApply(snap);
+  covEl('lay-name').value = name;
+  layoutMsg(`✔ Loaded "${name}".`);
+});
+covEl('lay-del').addEventListener('click', () => {
+  const name = covEl('lay-list').value, store = layoutStore();
+  if (!(name in store) || !confirm(`Delete the saved layout "${name}"?`)) return;
+  delete store[name];
+  try { localStorage.setItem('lh2.layouts', JSON.stringify(store)); } catch (_e) { /* storage blocked */ }
+  layoutRefreshList();
+  layoutMsg(`Deleted "${name}".`);
+});
+covEl('lay-export').addEventListener('click', () => {
+  const name = covEl('lay-name').value.trim() || 'layout';
+  trkDownload(new Blob([JSON.stringify({ name, ...layoutSnapshot() }, null, 1)], { type: 'application/json' }),
+    `lighthouse_layout_${name.replace(/[^\w.-]+/g, '_')}.json`);
+});
+covEl('lay-import').addEventListener('click', () => covEl('lay-file').click());
+covEl('lay-file').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    const snap = JSON.parse(await file.text());
+    layoutApply(snap);
+    covEl('lay-name').value = snap.name || file.name.replace(/\.json$/i, '');
+    layoutMsg(`✔ Imported ${file.name}: press Save to keep it in the list.`);
+  } catch (err) { layoutMsg('✘ ' + file.name + ': ' + err.message); }
+});
+['rm-w', 'rm-d', 'rm-h', 'rm-x', 'rm-y', 'rm-color', 'bg-color', 'rm-opacity', 'rm-show'].forEach(id =>
+  document.getElementById(id).addEventListener('change', layoutAutosave));
+layoutRefreshList();
 
 // ─── Measurement Tool Logic ───────────────────────────────────────────────────
 let measuringActive = false;
@@ -3472,6 +3773,8 @@ function rebuild() {
   clearCoverageOverlay();
   drawBasestations();
   generateCode();
+  covSchedule();
+  layoutAutosave();
 }
 renderList();
 rebuild();
@@ -4268,6 +4571,7 @@ function setMode(mode) {
   if (mode === 'calib') {
     deselectBs();
     clearCoverageOverlay();
+    covClear3d();
     showSection('calib');
   } else if (panelEl.dataset.sec === 'calib') {
     showSection('bs');
@@ -4276,6 +4580,7 @@ function setMode(mode) {
   droneMarker.visible = droneLabel.visible = odometry;
   droneTrailLine.visible = mode === 'sandbox';
   renderVis();
+  if (mode === 'sandbox' && covData) covDraw();
   rebuild();  // sandbox stations are drawn only in the sandbox
   calDraw3d();
   fitView(mode === 'calib' ? calibPoints() : sandboxPoints());
@@ -4285,6 +4590,10 @@ function setMode(mode) {
 document.querySelectorAll('.mode-switch button').forEach(b => b.addEventListener('click', () => {
   if (b.dataset.mode !== appMode) setMode(b.dataset.mode);
 }));
+try {
+  const current = JSON.parse(localStorage.getItem('lh2.layout.current') || 'null');
+  if (current) layoutApply(current);
+} catch (_e) { /* storage blocked or an old / broken entry: keep the defaults */ }
 setMode(appMode);
 </script>
 </body>
