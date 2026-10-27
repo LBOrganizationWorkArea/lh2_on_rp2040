@@ -125,6 +125,20 @@ body[data-mode=calib] #cal-hud { display: block; }
 #odo-hold.show { display: block; }
 #odo-hold .odo-row .val { font-size: 44px; }
 #odo-hold-sub { font-size: 12px; color: #aab; font-variant-numeric: tabular-nums; }
+#vis { display: none; pointer-events: auto; background: rgba(20,20,20,0.72); border: 1px solid #2c5968; border-radius: 8px;
+  padding: 8px 12px; font-size: 12px; color: #ccc; }
+#vis.show { display: block; }
+#vis-title { font-size: 11px; letter-spacing: 2px; color: #688; margin-bottom: 4px; }
+.vis-grid { display: grid; grid-template-columns: auto 64px auto; grid-template-rows: auto 64px auto; gap: 4px 8px; align-items: center; }
+.vis-cell b { color: #fff; } .vis-cell .vn { font-weight: bold; }
+.vchips { display: flex; gap: 2px; margin-top: 2px; }
+.vchip { min-width: 18px; padding: 0 2px; border-radius: 3px; font-size: 10px; font-weight: bold; color: #111; text-align: center; }
+.vis-nose { text-align: center; color: #ff6a3d; font-weight: bold; align-self: end; }
+.vis-board { position: relative; width: 64px; height: 64px; background: #1d6b3a; border: 1px solid #3c9; border-radius: 3px; }
+.vis-board i { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: #555; border: 1px solid #111; }
+.vis-board span { position: absolute; left: 0; right: 0; top: 24px; text-align: center; font-size: 10px; color: #bfe; }
+#vis-bs { margin-top: 6px; display: flex; gap: 8px; justify-content: space-between; font-variant-numeric: tabular-nums; }
+body[data-mode=calib] #vis { display: none; }
 h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
 .hint { font-size: 12px; color: #9a9a9a; line-height: 1.5; }
 .bs-card {
@@ -386,6 +400,14 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     <div class="hint">One connection for the whole editor: the Calib tab uses the same drone IP and bridge.</div>
     <label class="row" style="gap:6px;cursor:pointer;" title="Mission Planner-style HUD of the flight controller (UDP bridge link only)">
       <input id="hud-show" type="checkbox" checked> Show HUD</label>
+    <label class="row" style="gap:6px;cursor:pointer;" title="Panel with how well each of the 4 sensors is seen by each station (UDP bridge link only)">
+      <input id="vis-show" type="checkbox" checked> Show sensor view</label>
+    <div class="row" title="Each lighthouse position is drawn as a dot that fades and is removed after this many seconds">
+      <div class="lbl" style="width:62px;">Trail</div>
+      <input id="trail-s" type="number" value="60" min="2" max="300" step="5" style="width:70px;">
+      <div class="lbl">s</div>
+      <button id="trail-clear" type="button">Clear</button>
+    </div>
   </div>
   <div id="fc-params-card" class="bs-card">
     <div class="grp-lbl">EXTNAV PARAMETERS · ARDUPILOT</div>
@@ -826,6 +848,22 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   </div>
   <div id="tracking-status">Disconnected</div>
 </div>
+<div id="vis" title="How well each sensor of the 4 × 4 cm board is seen, seen from above with the nose up. Chips = stations (4 = BS4, 10 = BS10, 0 = BS0, 1 = BS1): green ≥ 80 % fresh rays over the last 2 s, yellow ≥ 40 %, red less, grey not seen. A sensor needs 2 stations (n LH) to get a position.">
+  <div id="vis-title">SENSOR VIEW · LIGHTHOUSE</div>
+  <div class="vis-grid">
+    <div class="vis-cell" id="vis-s3"><b>S3</b> <span class="vn"></span><div class="vchips"></div></div>
+    <div class="vis-nose">▲ nose</div>
+    <div class="vis-cell" id="vis-s0"><b>S0</b> <span class="vn"></span><div class="vchips"></div></div>
+    <div></div>
+    <div class="vis-board"><i id="vis-d3" style="left:4px;top:4px"></i><i id="vis-d0" style="right:4px;top:4px"></i>
+      <i id="vis-d2" style="left:4px;bottom:4px"></i><i id="vis-d1" style="right:4px;bottom:4px"></i><span>4 cm</span></div>
+    <div></div>
+    <div class="vis-cell" id="vis-s2"><b>S2</b> <span class="vn"></span><div class="vchips"></div></div>
+    <div></div>
+    <div class="vis-cell" id="vis-s1"><b>S1</b> <span class="vn"></span><div class="vchips"></div></div>
+  </div>
+  <div id="vis-bs"></div>
+</div>
 <div id="cal-hud"></div>
 </div>
 
@@ -1127,32 +1165,120 @@ function addLabel(txt, x, y, z, col) {
   return o;
 }
 
-const droneMarker = new THREE.Mesh(
-  new THREE.OctahedronGeometry(0.09),
-  new THREE.MeshBasicMaterial({ color: 0xffb347 })
-);
+// The 4 x 4 cm sensor board (main.c BOARD_XY, seen from above, BOARD_NOSE_DEG 180 = the nose points from S1
+// toward S0): S0 front-right, S1 rear-right, S2 rear-left, S3 front-left. Drone frame X forward, Y left [m].
+const BOARD_SENSORS_FLU = [[0.02, -0.02], [-0.02, -0.02], [-0.02, 0.02], [0.02, 0.02]];
+const VIS_STATION_NAMES = ['BS4', 'BS10', 'BS0', 'BS1'];   // firmware station index -> name (as CAL_BS_NAMES)
+const VIS_GOOD = 80, VIS_FAIR = 40;                          // % fresh rays: green / yellow / red
+
+// 3D quadcopter (X frame, ~30 cm motor to motor), built in the drone's own frame: X forward, Y left, Z up.
+// The outer group turns world Z-up into three.js Y-up (as tv()); the body takes yaw (lighthouse), pitch and
+// roll (flight controller ATTITUDE).
+const droneMarker = new THREE.Group();
+droneMarker.rotation.x = -Math.PI / 2;
+const droneBody = new THREE.Group();
+droneMarker.add(droneBody);
+const droneProps = [];
+const droneSensorDots = [];
+{
+  const mat = (color, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.6, metalness: 0.2, ...extra });
+  const frame = mat(0x2b2f36), motorMat = mat(0x8a8f99, { metalness: 0.6 });
+  droneBody.add(new THREE.Mesh(new THREE.BoxGeometry(0.11, 0.07, 0.035), frame));
+  const arm = 0.11;                                   // centre -> motor
+  for (const a of [45, -45]) {
+    const bar = new THREE.Mesh(new THREE.BoxGeometry(2 * arm, 0.014, 0.01), frame);
+    bar.rotation.z = a * Math.PI / 180; droneBody.add(bar);
+  }
+  for (const a of [45, -45, 135, -135]) {             // front-left, front-right, rear-left, rear-right
+    const x = arm * Math.cos(a * Math.PI / 180), y = arm * Math.sin(a * Math.PI / 180);
+    const motor = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.025, 16), motorMat);
+    motor.rotation.x = Math.PI / 2; motor.position.set(x, y, 0.01); droneBody.add(motor);
+    const front = Math.abs(a) < 90;
+    const prop = new THREE.Mesh(new THREE.CircleGeometry(0.065, 32),
+      new THREE.MeshBasicMaterial({ color: front ? 0xff6a3d : 0x6fb5ee, transparent: true, opacity: 0.35,
+                                    side: THREE.DoubleSide, depthWrite: false }));
+    prop.position.set(x, y, 0.026); droneBody.add(prop);
+    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.012, 0.002), mat(front ? 0xff6a3d : 0x6fb5ee));
+    blade.position.set(x, y, 0.027); blade.userData.dir = a > 0 === front ? 1 : -1; droneBody.add(blade);
+    droneProps.push(blade);
+  }
+  const nose = new THREE.Mesh(new THREE.ConeGeometry(0.018, 0.05, 16), mat(0xff3b30));
+  nose.rotation.z = -Math.PI / 2; nose.position.set(0.08, 0, 0); droneBody.add(nose);
+  // the 4 x 4 cm sensor board on top; dots coloured by how well each sensor is seen (vis panel)
+  const board = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.004), mat(0x1d6b3a));
+  board.position.set(0, 0, 0.02); droneBody.add(board);
+  for (const [x, y] of BOARD_SENSORS_FLU) {
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.006, 12, 8), new THREE.MeshBasicMaterial({ color: 0x777777 }));
+    dot.position.set(x, y, 0.025); droneBody.add(dot); droneSensorDots.push(dot);
+  }
+}
 droneMarker.visible = false;
 scene.add(droneMarker);
 const droneLabel = addLabel('DRONE', 0, 0, 0, '#ffb347');
 droneLabel.visible = false;
-const droneTrailPoints = [];
-const droneTrailLine = new THREE.Line(
-  new THREE.BufferGeometry(),
-  new THREE.LineBasicMaterial({ color: 0xffb347, transparent: true, opacity: 0.7 })
-);
+
+// Trail: one dot per ODOMETRY sample, fading with age and removed after "trail" seconds (Drone tab).
+const TRAIL_MAX = 8000;
+const droneTrail = [];                                 // { p: three.js point, t: ms }
+const trailGeom = new THREE.BufferGeometry();
+trailGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(TRAIL_MAX * 3), 3).setUsage(THREE.DynamicDrawUsage));
+trailGeom.setAttribute('color', new THREE.BufferAttribute(new Float32Array(TRAIL_MAX * 4), 4).setUsage(THREE.DynamicDrawUsage));
+trailGeom.setDrawRange(0, 0);
+const trailDotTex = (() => {
+  const c = document.createElement('canvas'); c.width = c.height = 32;
+  const g = c.getContext('2d'); g.fillStyle = '#fff'; g.beginPath(); g.arc(16, 16, 14, 0, 2 * Math.PI); g.fill();
+  return new THREE.CanvasTexture(c);
+})();
+const droneTrailLine = new THREE.Points(trailGeom, new THREE.PointsMaterial({
+  size: 0.04, map: trailDotTex, vertexColors: true, transparent: true, alphaTest: 0.02, depthWrite: false }));
+droneTrailLine.frustumCulled = false;
 scene.add(droneTrailLine);
+const trailSecondsEl = document.getElementById('trail-s');
+try { const v = +localStorage.getItem('lh2.trail'); if (v) trailSecondsEl.value = v; } catch (_e) { /* storage blocked */ }
+trailSecondsEl.addEventListener('change', () => {
+  trailSecondsEl.value = Math.min(300, Math.max(2, +trailSecondsEl.value || 60));
+  try { localStorage.setItem('lh2.trail', trailSecondsEl.value); } catch (_e) { /* storage blocked */ }
+});
+document.getElementById('trail-clear').addEventListener('click', () => { droneTrail.length = 0; });
+
+function updateTrail() {                               // every frame: drop old dots, fade the rest
+  const now = Date.now(), keepMs = (+trailSecondsEl.value || 60) * 1000;
+  let drop = 0;
+  while (drop < droneTrail.length && now - droneTrail[drop].t > keepMs) drop++;
+  if (drop) droneTrail.splice(0, drop);
+  if (droneTrail.length > TRAIL_MAX) droneTrail.splice(0, droneTrail.length - TRAIL_MAX);
+  const pos = trailGeom.attributes.position.array, col = trailGeom.attributes.color.array;
+  droneTrail.forEach((d, i) => {
+    const age = (now - d.t) / keepMs;                  // 0 = new, 1 = about to go
+    pos[3 * i] = d.p.x; pos[3 * i + 1] = d.p.y; pos[3 * i + 2] = d.p.z;
+    col[4 * i] = 1.0; col[4 * i + 1] = 0.70 + 0.2 * age; col[4 * i + 2] = 0.28 + 0.5 * age;
+    col[4 * i + 3] = 0.95 - 0.8 * age;
+  });
+  trailGeom.setDrawRange(0, droneTrail.length);
+  trailGeom.attributes.position.needsUpdate = trailGeom.attributes.color.needsUpdate = true;
+}
+
+function updateDroneAttitude() {                       // yaw: lighthouse; roll / pitch: flight controller
+  const yaw = lastOdomPos && lastOdomPos.yaw != null ? lastOdomPos.yaw : 0;
+  const fresh = hudData && Date.now() - hudAt < 3000;
+  const roll = fresh && Number.isFinite(hudData.roll) ? hudData.roll : 0;
+  const pitch = fresh && Number.isFinite(hudData.pitch) ? hudData.pitch : 0;
+  const d2r = Math.PI / 180;
+  // ArduPilot: roll + = right side down, pitch + = nose up (FRD); in X-forward / Y-left / Z-up that is
+  // +roll about X and -pitch about Y, applied after the yaw about Z.
+  droneBody.rotation.set(roll * d2r, -pitch * d2r, yaw * d2r, 'ZYX');
+  const spin = fresh && hudData.armed ? 0.9 : 0;
+  for (const b of droneProps) b.rotation.z += spin * b.userData.dir;
+}
 
 function updateDronePosition(position) {
   const point = tv(position.x, position.y, position.z);
   droneMarker.position.copy(point);
   droneMarker.visible = appMode === 'sandbox';
-  droneLabel.position.copy(point).add(new THREE.Vector3(0, 0.14, 0));
+  droneLabel.position.copy(point).add(new THREE.Vector3(0, 0.2, 0));
   droneLabel.visible = appMode === 'sandbox';
 
-  droneTrailPoints.push(point.clone());
-  if (droneTrailPoints.length > 600) droneTrailPoints.shift();
-  droneTrailLine.geometry.dispose();
-  droneTrailLine.geometry = new THREE.BufferGeometry().setFromPoints(droneTrailPoints);
+  droneTrail.push({ p: point.clone(), t: Date.now() });
 
   lastOdomAt = Date.now();
   lastOdomPos = position;
@@ -1182,6 +1308,48 @@ function updateHud(fc) {
   hudVisible();
   drawHud();
   updateOdoFc();
+}
+
+// ─── Sensor view: how well each of the 4 sensors is seen by each station (bridge state.vis) ───
+const visPanel = document.getElementById('vis');
+const visShow = document.getElementById('vis-show');
+let visData = null, visAt = 0;
+try { visShow.checked = localStorage.getItem('lh2.vis') !== '0'; } catch (_e) { /* storage blocked */ }
+visShow.addEventListener('change', () => {
+  try { localStorage.setItem('lh2.vis', visShow.checked ? '1' : '0'); } catch (_e) { /* storage blocked */ }
+  renderVis();
+});
+const visColor = pct => pct == null ? '#3a3a3a' : pct >= VIS_GOOD ? '#4fd17a' : pct >= VIS_FAIR ? '#ffcc44' : pct > 0 ? '#ff5a5a' : '#3a3a3a';
+const visStationsSeeing = row => row.filter(p => p >= VIS_FAIR).length;
+function updateVis(vis) {
+  if (vis) { visData = vis; visAt = Date.now(); }
+  else if (Date.now() - visAt > 3000) visData = null;
+  renderVis();
+}
+function renderVis() {
+  const on = visShow.checked && !!visData && appMode === 'sandbox';
+  visPanel.classList.toggle('show', on);
+  droneSensorDots.forEach((dot, s) => dot.material.color.set(visData
+    ? (n => n >= 2 ? '#4fd17a' : n === 1 ? '#ffcc44' : '#ff5a5a')(visStationsSeeing(visData.fresh[s])) : '#777777'));
+  if (!on) return;
+  const v = visData, names = Array.from({ length: v.n_bs }, (_, i) => VIS_STATION_NAMES[i] || `BS${i}`);
+  for (let s = 0; s < 4; s++) {
+    const n = visStationsSeeing(v.fresh[s]);
+    const cell = document.getElementById(`vis-s${s}`);
+    cell.querySelector('.vn').textContent = `${n} LH`;
+    cell.querySelector('.vn').style.color = n >= 2 ? '#4fd17a' : n === 1 ? '#ffcc44' : '#ff5a5a';
+    cell.querySelector('.vchips').innerHTML = names.map((name, bs) => {
+      const pct = v.fresh[s][bs], age = v.age_ms[s][bs];
+      const tip = `S${s} · ${name}: ${pct} % fresh rays (≤ ${v.fresh_ms} ms) over ${v.window_s} s` + (age != null ? `, median age ${age} ms` : ', not seen');
+      return `<span class="vchip" style="background:${visColor(pct)}" title="${tip}">${name.replace('BS', '')}</span>`;
+    }).join('');
+    document.getElementById(`vis-d${s}`).style.background = n >= 2 ? '#4fd17a' : n === 1 ? '#ffcc44' : '#ff5a5a';
+  }
+  const per = names.map((name, bs) => {                 // sensors each station sees well
+    const k = [0, 1, 2, 3].filter(s => v.fresh[s][bs] >= VIS_FAIR).length;
+    return `<span style="color:${k >= 3 ? '#4fd17a' : k ? '#ffcc44' : '#777'}" title="${name} sees ${k} of the 4 sensors">${name} ${k}/4</span>`;
+  });
+  document.getElementById('vis-bs').innerHTML = per.join(' ');
 }
 
 // ─── Battery, flight mode and position-hold accuracy, under X / Y / Z ───
@@ -2639,6 +2807,8 @@ function disconnectTracking() {
   trackingStatus.textContent = 'Disconnected';
   hudData = null;
   hudVisible();
+  visData = null;
+  renderVis();
   updateOdoFc();
   updateHold(null);
   updateMission(null);
@@ -2683,6 +2853,7 @@ trackConnectButton.addEventListener('click', () => {
           if (!trackingPolling) return;
           relayConnected = true;
           updateHud(state.fc);
+          updateVis(state.vis);
           updateMission(state.mission);
           updateTrack(state.track);
           updateLogTimer(state.logtimer);
@@ -3314,6 +3485,8 @@ window.addEventListener('resize', onResize);
 function animate() {
   requestAnimationFrame(animate);
   controls.update();
+  updateTrail();
+  updateDroneAttitude();
   const socketConnected = trackingSocket && trackingSocket.readyState === WebSocket.OPEN;
   if ((trackingPolling && relayConnected) || socketConnected) {
     const status = lastOdomAt && Date.now() - lastOdomAt > 2000
@@ -4102,6 +4275,7 @@ function setMode(mode) {
   const odometry = mode === 'sandbox' && !!lastOdomPos;
   droneMarker.visible = droneLabel.visible = odometry;
   droneTrailLine.visible = mode === 'sandbox';
+  renderVis();
   rebuild();  // sandbox stations are drawn only in the sandbox
   calDraw3d();
   fitView(mode === 'calib' ? calibPoints() : sandboxPoints());

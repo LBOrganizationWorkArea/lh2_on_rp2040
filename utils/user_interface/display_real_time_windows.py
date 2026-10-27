@@ -332,6 +332,7 @@ class BridgeState:
         self.odometry_at = 0.0
         self.history = []           # (time, x, y, z) of the last 2 s, to compare with the late EKF
         self.visibility = None      # (time, [sensors seen per station]) from the TUNNEL angle snapshots
+        self.vis_history = []       # (time, valid_mask, ages_ms, n_bs) of the last VIS_WINDOW_S, for the editor
         self.target_host = ""
         self.target_port = 14550
 
@@ -354,10 +355,38 @@ class BridgeState:
                 self.history.pop(0)
             return self.sequence
 
-    def set_visibility(self, valid_mask, n_bs):
+    VIS_WINDOW_S = 2.0      # sensor view quality is judged over this many seconds of snapshots
+    VIS_FRESH_MS = 100      # a ray older than this is not fresh (the solver drops older rays)
+
+    def set_visibility(self, valid_mask, n_bs, ages_ms=None):
         counts = [sum(1 for sensor in range(4) if valid_mask >> (sensor * n_bs + bs) & 1) for bs in range(n_bs)]
+        now = time.monotonic()
         with self.lock:
-            self.visibility = (time.monotonic(), counts)
+            self.visibility = (now, counts)
+            self.vis_history.append((now, valid_mask, ages_ms, n_bs))
+            while self.vis_history and now - self.vis_history[0][0] > self.VIS_WINDOW_S:
+                self.vis_history.pop(0)
+
+    def visibility_snapshot(self):
+        """Per sensor and station: % of the last VIS_WINDOW_S snapshots with a fresh ray, and the
+        median ray age [ms] (None: never seen). None without recent TUNNEL snapshots."""
+        with self.lock:
+            history = list(self.vis_history)
+        if not history or time.monotonic() - history[-1][0] > self.VIS_WINDOW_S:
+            return None
+        n_bs = history[-1][3]
+        history = [h for h in history if h[3] == n_bs]
+        fresh, age = [], []
+        for sensor in range(4):
+            fresh.append([]), age.append([])
+            for bs in range(n_bs):
+                index = sensor * n_bs + bs
+                seen = [h[2][index] if h[2] else 0 for h in history if h[1] >> index & 1]
+                ok = sum(1 for a in seen if a <= self.VIS_FRESH_MS)
+                fresh[-1].append(round(100 * ok / len(history)))
+                age[-1].append(sorted(seen)[len(seen) // 2] if seen else None)
+        return {"n_bs": n_bs, "fresh": fresh, "age_ms": age, "samples": len(history),
+                "window_s": self.VIS_WINDOW_S, "fresh_ms": self.VIS_FRESH_MS}
 
     def stations_seeing(self, min_sensors=3, max_age=1.0):
         """How many stations see at least `min_sensors` of the four sensors right now (None: no data)."""
@@ -2638,7 +2667,7 @@ def udp_receiver(state, capture, ootx, fc, listen_host, listen_port, track=None)
                             capture.feed(payload)
                             snap = lh2cap.parse_lh2_tunnel(payload) if lh2cap else None
                             if snap:
-                                state.set_visibility(snap["valid_mask"], snap.get("n_bs", 2))
+                                state.set_visibility(snap["valid_mask"], snap.get("n_bs", 2), snap.get("ages_ms"))
                     continue
 
                 if kind != "ODOMETRY":
@@ -2879,7 +2908,7 @@ def make_handler(state, capture, ootx, fc, mission, track, logtimer):
                 return
 
             state.set_target(host, port)
-            self._json(dict(state.snapshot(), fc=fc.snapshot(), mission=mission.snapshot(), track=track.status(),
+            self._json(dict(state.snapshot(), vis=state.visibility_snapshot(), fc=fc.snapshot(), mission=mission.snapshot(), track=track.status(),
                             logtimer=logtimer.snapshot()))
 
         def log_message(self, _format, *_args):
