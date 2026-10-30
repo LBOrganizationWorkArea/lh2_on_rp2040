@@ -12,7 +12,8 @@
 #include "../angle_decoder/angle_decoder.h"  /* NUM_SENSORS, NUM_BS */
 #include "../ootx/ootx.h"                    /* ootx_station_t */
 
-void mavlink_init(void);
+/* UART0 at MAV_BAUD with interrupt-driven RX; returns the baud rate actually set. */
+uint32_t mavlink_init(void);
 /* ODOMETRY in MAV_FRAME_LOCAL_FRD: position [m] and yaw [rad, clockwise about down] with its
  * variance [rad^2] (roll/pitch are left to the flight controller's IMU). */
 void mavlink_send_odometry(uint64_t usec, float x, float y, float z, float yaw, float yaw_var);
@@ -28,8 +29,10 @@ void mavlink_send_lh2_angles(uint64_t usec,
  * frame) in MAVLink TUNNEL, payload "LO" v2 (see mavlink.c). */
 void mavlink_send_lh2_ootx(int bs, const ootx_station_t *station);
 
-/* RX — call every main-loop iteration to drain UART FIFO */
+/* RX — call every main-loop iteration to parse what the UART interrupt has buffered */
 void mavlink_rx_update(void);
+/* Bytes lost because the RX buffer was full (should stay 0) */
+uint32_t mavlink_rx_dropped(void);
 
 /* Returns true once EKF_STATUS_REPORT from the FC shows healthy flags */
 bool mavlink_is_ekf_healthy(void);

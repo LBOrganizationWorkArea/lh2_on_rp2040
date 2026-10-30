@@ -844,7 +844,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
   </div>
   <div class="sec" id="sec-track">
     <div class="sec-title">TRACK · FLIGHT LOG &amp; ACCURACY</div>
-    <div class="hint">Records every lighthouse position (10 Hz) with the EKF position, attitude, battery, mode and the
+    <div class="hint">Records every lighthouse position (each ODOMETRY) with the EKF position, attitude, battery, mode and the
       mission target. Typical study: <b>Record</b>, take off, switch to GUIDED with a one-point mission and a long hold
       (Mission → Hold, e.g. 120 s), then <b>Stop</b> and look at how the samples spread around the point.</div>
     <div class="bs-card">
@@ -2395,7 +2395,7 @@ function trkMetrics(st, kind) {   // {key, label, value, raw, better ('low' | 'h
       'Voltage at the start and end of the studied part. Compare sessions at similar voltages: a weak battery hovers worse.'),
   ];
   if (kind === 'path') return [
-    M('n', 'Samples', st.n, `${st.n} in ${st.dur.toFixed(0)} s`, null, '', 'Lighthouse positions used (10 per second).'),
+    M('n', 'Samples', st.n, `${st.n} in ${st.dur.toFixed(0)} s`, null, '', 'Lighthouse positions used (one per ODOMETRY: 30 per second with the 30 Hz firmware, 10 with older ones).'),
     M('planned', 'Planned / flown length', st.planned, `${st.planned.toFixed(2)} m / ${st.flown.toFixed(2)} m`, null, '',
       'Length of the straight lines between the points, and of the path the drone really flew (longer = it wobbled or overshot).'),
     M('speed', 'Mean speed along the path', st.speed, `${(100 * st.speed).toFixed(0)} cm/s`, null, '', 'Planned length divided by the mission time (holds included).'),
@@ -2412,7 +2412,7 @@ function trkMetrics(st, kind) {   // {key, label, value, raw, better ('low' | 'h
     ...common,
   ];
   return [
-    M('n', 'Samples', st.n, `${st.n} in ${st.dur.toFixed(0)} s (${st.rate.toFixed(1)} Hz)`, null, '', 'Lighthouse positions used (10 per second).'),
+    M('n', 'Samples', st.n, `${st.n} in ${st.dur.toFixed(0)} s (${st.rate.toFixed(1)} Hz)`, null, '', 'Lighthouse positions used (one per ODOMETRY: 30 per second with the 30 Hz firmware, 10 with older ones).'),
     M('cep50', 'CEP50 (half the samples within)', st.cep50, trkCm(st.cep50), 'low', trkCls(st.cep50, 0.05, 0.10),
       'Radius of the circle around the target that holds half of the samples. The typical distance from the point.'),
     M('r95', 'R95 (95 % within)', st.r95, trkCm(st.r95), 'low', trkCls(st.r95, 0.10, 0.20),

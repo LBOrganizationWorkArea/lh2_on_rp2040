@@ -30,7 +30,7 @@ The system decodes Valve Lighthouse v2 sweep pulses from 4 TS4231 sensors on an 
 TS4231 sensors → PIO+DMA capture (core 1)
               → LFSR decode → angle EMA (core 0)
               → triangulation (solve3d)
-              → MAVLink ODOMETRY @ 10 Hz → Pixhawk TELEM2
+              → MAVLink ODOMETRY @ 30 Hz, 921600 baud → Pixhawk TELEM2
 ```
 
 ## Version control

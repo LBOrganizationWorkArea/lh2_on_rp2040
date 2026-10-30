@@ -29,6 +29,11 @@
  *   P,<sensor>,<x>,<y>,<z>              3D point (from every calibrated station seeing it)
  *   C,<n>,<cx>,<cy>,<cz>                centroid (also sent as ODOMETRY)
  *   STAT,pairs/s,BS4=..,BS10=..,...     decoded angle pairs per station, each second
+ *        ,unpaired,BS4=..,...           sweeps dropped because the other beam of the pair was missing
+ *   RX,cap/dec/fix/nopoly/lfsr/lost,S0=a/b/c/d/e/f,...,cfg,S0=ok,...
+ *                                       per sensor and second: light pulses captured, decoded,
+ *                                       decoded with corrected bits, no polynomial, LFSR search
+ *                                       failed, lost (core 1 too slow); TS4231 configuration
  *
  * Hardware pins (data, env):
  *   S0 10/11   S1 12/13   S2 18/19   S3 20/21
@@ -75,8 +80,13 @@
 // Timing
 // ---------------------------------------------------------------------------
 
-/** Diagnostic print interval [µs] — 10 Hz */
+/** Diagnostic print / TUNNEL interval [µs] — 10 Hz */
 #define PRINT_INTERVAL_US  100000ULL
+/** ODOMETRY interval [µs] — 30 Hz, sent only with a new position. EKF3 drops an ExtNav sample
+ *  stamped less than 20 ms after the previous one (extNavIntervalMin_ms), so the stamps of two
+ *  samples sent must also be at least ODOM_MIN_GAP_US apart. */
+#define ODOM_INTERVAL_US   33333ULL
+#define ODOM_MIN_GAP_US    25000ULL
 
 // ---------------------------------------------------------------------------
 // LFSR count → plane angle [deg] = A * count + B
@@ -415,6 +425,8 @@ static void core1_entry(void)
 
 static void core1_entry(void)
 {
+    /* Only our stations' polynomials are searched (8 of 32): less work per capture. */
+    db_lh2_set_polynomial_mask(angle_decoder_poly_mask());
     /* All four inits run here so every PIO IRQ is armed on core 1. */
     db_lh2_init(&g_lh2[0], 0, LH2_0_DATA_PIN, LH2_0_ENV_PIN);
     db_lh2_init(&g_lh2[1], 1, LH2_1_DATA_PIN, LH2_1_ENV_PIN);
@@ -505,8 +517,9 @@ int main(void)
     stdio_flush();
     printf("BOOT: LH2 firmware started\n");
     stdio_flush();
-    mavlink_init();          /* UART0 GPIO 0/1 @ 115200 → Pixhawk TELEM2 */
-    printf("DBG2: MAVLink initialized\n");
+    const uint32_t mav_baud = mavlink_init();   /* UART0 GPIO 0/1 → Pixhawk TELEM2 */
+    printf("DBG2: MAVLink initialized at %lu baud (flight controller: SERIALx_BAUD = %lu)\n",
+           (unsigned long)mav_baud, (unsigned long)((mav_baud + 500u) / 1000u));
     stdio_flush();
     mavlink_request_ekf_stream();  /* ask FC to stream EKF_STATUS_REPORT @ 1 Hz */
     printf("=== LH2 Crossing-Beams 3D Solver (dual-core) ===\n");
@@ -540,6 +553,9 @@ int main(void)
     uint64_t last_yaw_us = 0;
     uint64_t jump_since_us = 0;      /* first solve of a centre jump > JUMP_GATE_M, 0 = none */
     uint64_t last_meas_us = 0;       /* capture time the accepted centre refers to (ODOMETRY stamp) */
+    uint64_t last_odom_us = 0;       /* when the last ODOMETRY was sent */
+    uint64_t sent_meas_us = 0;       /* the stamp it carried */
+    uint32_t sent_pairs = 0;         /* decoded angle pairs (all stations) when it was sent */
     float    last_sensor_xyz[NUM_SENSORS][3] = {{0.0f}};
     bool     last_sensor_valid[NUM_SENSORS] = {false};
     uint64_t last_sensor_update_us[NUM_SENSORS] = {0};
@@ -552,14 +568,46 @@ int main(void)
             /* Decoder health, once a second: angle pairs decoded per station in the last second
              * (all sensors). ~50 per sensor per station is a full rate; a station far below
              * the others is hard to decode (blocked, too far, or core 1 overloaded). */
-            static uint32_t last_pairs[NUM_BS];
+            static uint32_t last_pairs[NUM_BS], last_unpaired[NUM_BS];
             printf("STAT,pairs/s");
             for (int b = 0; b < NUM_BS; b++) {
                 uint32_t pairs = angle_decoder_pairs(b);
                 printf(",%s=%lu", BS_NAME[b], (unsigned long)(pairs - last_pairs[b]));
                 last_pairs[b] = pairs;
             }
+            printf(",unpaired");
+            for (int b = 0; b < NUM_BS; b++) {
+                uint32_t unpaired = angle_decoder_unpaired(b);
+                printf(",%s=%lu", BS_NAME[b], (unsigned long)(unpaired - last_unpaired[b]));
+                last_unpaired[b] = unpaired;
+            }
+            printf(",rx_lost=%lu\n", (unsigned long)mavlink_rx_dropped());
+#ifndef SYNTHETIC_CAPTURE
+            /* Receive health per sensor in the last second: light pulses captured, decoded,
+             * of which with 1-2 corrected bits, no polynomial, LFSR search failed, lost (core 1
+             * too slow), and the TS4231 configuration read back at boot. */
+            static db_lh2_stats_t last_rx[NUM_SENSORS];
+            printf("RX,cap/dec/fix/nopoly/lfsr/lost");
+            for (int s = 0; s < NUM_SENSORS; s++) {
+                db_lh2_stats_t rx;
+                db_lh2_get_stats((uint8_t)s, &rx);
+                printf(",S%d=%lu/%lu/%lu/%lu/%lu/%lu", s,
+                       (unsigned long)(rx.captures - last_rx[s].captures),
+                       (unsigned long)(rx.decoded - last_rx[s].decoded),
+                       (unsigned long)(rx.corrected - last_rx[s].corrected),
+                       (unsigned long)(rx.no_poly - last_rx[s].no_poly),
+                       (unsigned long)(rx.lfsr_fail - last_rx[s].lfsr_fail),
+                       (unsigned long)(rx.overflows - last_rx[s].overflows));
+                last_rx[s] = rx;
+            }
+            printf(",cfg");
+            for (int s = 0; s < NUM_SENSORS; s++) {
+                uint16_t cfg = db_lh2_config_readback((uint8_t)s);
+                if (cfg == 0x392B) printf(",S%d=ok", s);
+                else printf(",S%d=0x%04X", s, cfg);
+            }
             printf("\n");
+#endif
             stdio_flush();
             last_debug_us = now_us;
         }
@@ -637,18 +685,10 @@ int main(void)
                 }
                 if (accept) {
                     jump_since_us = 0;
-                    /* The filtered angles describe the moments their sweeps were captured: stamp the
-                     * position with their mean, so the flight controller knows how old it is. */
-                    uint64_t meas_sum = 0; uint32_t meas_n = 0;
-                    for (int s = 0; s < NUM_SENSORS; s++) {
-                        for (int b = 0; b < NUM_BS; b++) {
-                            const lh2_angles_t *a = &g_angles[s][b];
-                            if (a->valid && a->meas_us && now_us - a->last_update_us <= FRESHNESS_US) {
-                                meas_sum += a->meas_us; meas_n++;
-                            }
-                        }
-                    }
-                    last_meas_us = meas_n ? meas_sum / meas_n : now_us;
+                    /* The solver carried every ray to now_us (capture clock): that is the moment
+                     * this position describes, and the ODOMETRY stamp. (It was the mean capture
+                     * time of all rays up to 500 ms old: it lagged and jumped back and forth.) */
+                    last_meas_us = now_us;
                     for (int s = 0; s < NUM_SENSORS; s++) {
                         if (!ok[s]) continue;
                         for (int k = 0; k < 3; k++) last_sensor_xyz[s][k] = xyz[s][k];
@@ -668,7 +708,37 @@ int main(void)
             }
         }
 
-        /* ── 10 Hz: odometry + EKF home-set (once) + diagnostic prints ──────── */
+        /* ── 30 Hz: ODOMETRY, only with a position solved since new sweeps arrived ── */
+        uint32_t pairs_now = 0;
+        for (int b = 0; b < NUM_BS; b++) pairs_now += angle_decoder_pairs(b);
+        if (last_yaw_us != 0 && (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) &&
+            now_us - last_odom_us >= ODOM_INTERVAL_US && pairs_now != sent_pairs &&
+            last_meas_us > sent_meas_us && last_meas_us - sent_meas_us >= ODOM_MIN_GAP_US) {
+            /* World frame is right-handed Z-up (X -> the 1 m mark, Y left); LOCAL_FRD is
+             * X forward, Y right, Z down: flip Y and Z. Flipping Z alone mirrors the
+             * lateral axis and position hold runs away sideways. With compass yaw ArduPilot
+             * reads these as north / east, so the frame is turned by the heading of +X
+             * (BS_WORLD_HEADING_DEG); a wrong heading makes position hold circle the spot. */
+            const float fwd = last_cx, right = -last_cy;
+            /* Yaw goes the same way: clockwise (FRD) = -world, then + the +X heading. A yaw
+             * older than YAW_STALE_US is still sent, flagged as unknown by a large variance. */
+            const float yaw_ned = -last_yaw + BS_WORLD_HEADING_DEG * (float)M_PI / 180.0f;
+            const bool  yaw_fresh = now_us - last_yaw_us < YAW_STALE_US;
+            /* Stamp in the Pico's own clock, never TIMESYNC-corrected: ArduPilot's jitter correction
+             * (JitterCorrection, max lag 500 ms) learns the clock offset by itself, and a
+             * TIMESYNC lock arriving mid-flight would move the stamps ~6 s back at once, which
+             * it reads as samples 500 ms old for ~100 samples (flight log 2026-10-23: TIMESYNC
+             * never locked and the steady offset was harmless, lag 55-70 ms). */
+            mavlink_send_odometry(last_meas_us,
+                                  fwd * s_heading_cos - right * s_heading_sin,
+                                  fwd * s_heading_sin + right * s_heading_cos, -last_cz,
+                                  yaw_ned, yaw_fresh ? last_yaw_var : YAW_VAR_UNKNOWN);
+            last_odom_us = now_us;
+            sent_meas_us = last_meas_us;
+            sent_pairs = pairs_now;
+        }
+
+        /* ── 10 Hz: TUNNEL, OOTX, EKF home-set (once) + diagnostic prints ───── */
         if (now_us - last_print_us < PRINT_INTERVAL_US) {
             continue;
         }
@@ -720,24 +790,9 @@ int main(void)
             }
         }
 
-        /* Send ODOMETRY at 10 Hz with timestamp corrected to FC timebase. */
+        /* Yaw for the USB console (ODOMETRY itself goes out at 30 Hz above). */
         if (last_cx != 0.0f || last_cy != 0.0f || last_cz != 0.0f) {
-            /* World frame is right-handed Z-up (X -> the 1 m mark, Y left); LOCAL_FRD is
-             * X forward, Y right, Z down: flip Y and Z. Flipping Z alone mirrors the
-             * lateral axis and position hold runs away sideways. With compass yaw ArduPilot
-             * reads these as north / east, so the frame is turned by the heading of +X
-             * (BS_WORLD_HEADING_DEG); a wrong heading makes position hold circle the spot. */
-            const float fwd = last_cx, right = -last_cy;
-            /* Yaw goes the same way: clockwise (FRD) = -world, then + the +X heading. A yaw
-             * older than YAW_STALE_US is still sent, flagged as unknown by a large variance. */
-            const float yaw_ned = -last_yaw + BS_WORLD_HEADING_DEG * (float)M_PI / 180.0f;
-            const bool  yaw_fresh = last_yaw_us != 0 && now_us - last_yaw_us < YAW_STALE_US;
-            if (last_yaw_us != 0) {
-                mavlink_send_odometry(mavlink_timesync_corrected_us(last_meas_us ? last_meas_us : now_us),
-                                      fwd * s_heading_cos - right * s_heading_sin,
-                                      fwd * s_heading_sin + right * s_heading_cos, -last_cz,
-                                      yaw_ned, yaw_fresh ? last_yaw_var : YAW_VAR_UNKNOWN);
-            }
+            const bool yaw_fresh = last_yaw_us != 0 && now_us - last_yaw_us < YAW_STALE_US;
             printf("YAW,%.1f,%d\n", (double)_rad2deg(last_yaw), yaw_fresh ? 1 : 0);
         }
 

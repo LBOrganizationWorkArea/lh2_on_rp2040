@@ -809,13 +809,13 @@ TRACKS_DIR = os.path.join(DATA_DIR, "tracks")
 
 
 class TrackRecorder:
-    """Flight path log for hover / accuracy studies: one row per lighthouse ODOMETRY (10 Hz) with the
+    """Flight path log for hover / accuracy studies: one row per lighthouse ODOMETRY (10-30 Hz) with the
     EKF position (when a new LOCAL_POSITION_NED arrived), attitude, battery, mode and the mission
     target. Saved as JSON in TRACKS_DIR (rewritten every few seconds, so a crash loses little)."""
 
     COLUMNS = ["t", "x", "y", "z", "yaw", "ex", "ey", "ez", "roll", "pitch", "volt",
                "mode", "armed", "mission", "leg", "tx", "ty", "tz", "hold"]
-    MAX_ROWS = 100000             # ~2.7 h at 10 Hz
+    MAX_ROWS = 300000             # ~2.7 h at 30 Hz
     SAVE_EVERY_S = 5.0
 
     def __init__(self, fc, mission):

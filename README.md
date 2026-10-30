@@ -2,7 +2,7 @@
 
 Indoor drone positioning with Valve **Lighthouse v2** base stations. A Raspberry Pi Pico 2 (RP2350) on
 the drone reads 4 TS4231 light sensors. It decodes the sweeps of up to **4 base stations** and
-triangulates its own position, then sends it to the Pixhawk as MAVLink `ODOMETRY` at 10 Hz. ArduPilot
+triangulates its own position, then sends it to the Pixhawk as MAVLink `ODOMETRY` at 30 Hz. ArduPilot
 flies indoors on it as if it were GPS.
 
 The capture layer comes from [DotBots/lh2_on_rp2040](https://github.com/DotBots/lh2_on_rp2040). The
@@ -19,7 +19,7 @@ calibration (OOTX). Everything is driven from one desktop app, **LightHouse Stud
                        on-board OOTX decoding (factory calibration of each station)
         │ UART (MAVLink v2)
         ▼
- Pixhawk / ArduPilot ── ODOMETRY @ 10 Hz ──► EKF (position)
+ Pixhawk / ArduPilot ── ODOMETRY @ 30 Hz ──► EKF (position)
         │ Wi-Fi telemetry (MavESP8266 / DroneBridge, UDP 14550)
         ▼
  LightHouse Studio (Windows) ── base-station editor · calibration wizard · live tracking
@@ -263,7 +263,7 @@ changed in the tab: the bridge allows 0.15–2.5 m for the minimum, 0.3–3 m fo
 ### Track: flight log and hover accuracy
 
 The **Track** tab records the flight and measures how well the drone holds a point.
-**Record** saves one row per lighthouse position (10 Hz) with:
+**Record** saves one row per lighthouse position (one per ODOMETRY, 30 Hz) with:
 
 - the EKF position (`LOCAL_POSITION_NED` turned into room coordinates);
 - roll / pitch, battery voltage, flight mode and armed state;
@@ -433,7 +433,7 @@ frame is read once every bit is known and the CRC32 matches. In simulation it de
 
 | Channel | Message | Content |
 |---|---|---|
-| UART → Pixhawk | `ODOMETRY` (#331), 10 Hz | Position, `frame_id = MAV_FRAME_LOCAL_FRD` (20), `child_frame_id = MAV_FRAME_BODY_FRD` (12); ArduPilot discards any other frame. Z is sent down-positive. Timestamp in the FC's timebase. |
+| UART → Pixhawk (921600 baud: `SERIALx_BAUD = 921`) | `ODOMETRY` (#331), 30 Hz, only new positions | Position, `frame_id = MAV_FRAME_LOCAL_FRD` (20), `child_frame_id = MAV_FRAME_BODY_FRD` (12); ArduPilot discards any other frame. Z is sent down-positive. Timestamp in the FC's timebase. |
 | UART → Pixhawk | `TUNNEL` type `0x4C48`, payload `"LH"` v3 | Raw angle snapshot for calibration: int16 angles (1/16384 rad), ages, 16-bit valid mask, index = sensor × 4 + station |
 | UART → Pixhawk | `TUNNEL` type `0x4C48`, payload `"LO"` v2 | OOTX state of one station every 0.5 s (round robin): valid flag, frames OK, bits, missed turns, coverage %, the 43-byte frame |
 | USB serial (115200) | `A,` / `C,` / `STAT,` / `OOTX,` lines | Angles, position, decoded pairs per second per station, OOTX applied. Send `o` to stream the raw `O,` lines and `x` to stop them. |
@@ -505,8 +505,9 @@ result.
   ([TS4231 breakout](https://github.com/DotBots/TS4231-breakout-board)). The layout used by the
   solver is `utils/calibration/wand_sensors.json` (S0 upper-left, S1 upper-right, S2 lower-right,
   S3 lower-left, component side up).
-- Pixhawk running ArduPilot: Pico UART to **TELEM2**.
-  ExtNav parameters measured on this system: `VISO_TYPE = 1`, `EK3_SRC1_POSXY = 6`, `EK3_SRC1_POSZ = 6`,
+- Pixhawk running ArduPilot: Pico UART to **TELEM2**, `SERIAL2_PROTOCOL = 2`, **`SERIAL2_BAUD = 921`**
+  (the firmware talks at 921600 baud; firmware older than the 30 Hz ODOMETRY used 115200).
+  ExtNav parameters measured on this system (at 10 Hz / 115200; re-measure `VISO_DELAY_MS` at 30 Hz): `VISO_TYPE = 1`, `EK3_SRC1_POSXY = 6`, `EK3_SRC1_POSZ = 6`,
   `EK3_SRC1_YAW = 6` (yaw from the four sensors, no compass), `VISO_DELAY_MS = 60`, `VISO_POS_M_NSE = 0.1`,
   `VISO_YAW_M_NSE = 0.35`.
 - Wi-Fi telemetry radio (MavESP8266 or DroneBridge ESP32) for the ground station.

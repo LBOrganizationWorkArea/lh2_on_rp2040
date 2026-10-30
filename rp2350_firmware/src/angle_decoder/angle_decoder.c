@@ -31,6 +31,7 @@
 static uint64_t s_last_lfsr_log_us[NUM_SENSORS][LH2_BASESTATION_COUNT][LH2_SWEEP_COUNT];
 static bool     s_ootx_stream = false;
 static uint32_t s_pairs[NUM_BS];  ///< angle pairs decoded per station (decoder health, STAT line)
+static uint32_t s_unpaired[NUM_BS];  ///< sweeps dropped: the other sweep was from an older turn
 
 // ---------------------------------------------------------------------------
 // Private helpers
@@ -98,13 +99,16 @@ static void _finalize_angles(lh2_angles_t *slot,
     float a0 = slot->raw_sweep[0];
     float a1 = slot->raw_sweep[1];
 
-    /* Swap guard: if |a0 - a1| > 90° the two sweeps were interchanged.
+    /* Swap guard: if |a0 - a1| > 120° the two sweeps were interchanged.
      * db_lh2's sweep slot is whichever slot was free first, not which laser
      * plane hit, so re-apply each plane's own calibration to the swapped
      * counts. Correcting only the B offset (diff = 2*(B0 - B1) - diff) leaves
      * an (A0 - A1) * lfsr error of ~1° horizontal / 6-10° vertical.
+     * Real pairs have |a0 - a1| = 2*asin(tan(el)*tan 30°) <= 111° up to the 55° edge of the field
+     * of view, swapped ones 240° minus that (>= 129°): 120° splits them (90° swapped real pairs
+     * above 51° elevation, e.g. near the ceiling with stations looking down).
      */
-    if (fabsf(a0 - a1) > 90.0f) {
+    if (fabsf(a0 - a1) > 120.0f) {
         a0 = cal->A0 * (float)slot->raw_lfsr[1] + cal->B0;
         a1 = cal->A1 * (float)slot->raw_lfsr[0] + cal->B1;
     }
@@ -265,6 +269,17 @@ void angle_decoder_update(db_lh2_t        lh2[NUM_SENSORS],
                     raw_angle = c->A1 * (float)lfsr + c->B1;
                 }
 
+                /* The other sweep waiting for this one is from an older turn: not its pair. */
+                const int other = 1 - sweep;
+                if (ang->has_sweep[other]) {
+                    uint64_t gap = capture_us > ang->sweep_us[other] ? capture_us - ang->sweep_us[other]
+                                                                     : ang->sweep_us[other] - capture_us;
+                    if (gap > PAIR_MAX_GAP_US) {
+                        ang->has_sweep[other] = false;
+                        s_unpaired[bs_idx]++;
+                    }
+                }
+
                 ang->raw_sweep[sweep] = raw_angle;
                 ang->raw_lfsr[sweep]  = lfsr;
                 ang->sweep_us[sweep]  = capture_us;
@@ -308,4 +323,20 @@ bool angle_decoder_is_fresh(const lh2_angles_t out[NUM_SENSORS][NUM_BS],
 uint32_t angle_decoder_pairs(int bs)
 {
     return (bs >= 0 && bs < NUM_BS) ? s_pairs[bs] : 0u;
+}
+
+uint32_t angle_decoder_unpaired(int bs)
+{
+    return (bs >= 0 && bs < NUM_BS) ? s_unpaired[bs] : 0u;
+}
+
+uint32_t angle_decoder_poly_mask(void)
+{
+    uint32_t mask = 0;
+    for (int physical = 0; physical < LH2_BASESTATION_COUNT; physical++) {
+        if (_PHYSICAL_TO_INDEX[physical] >= 0) {
+            mask |= 3u << (2 * physical);   /* both polynomials of the station */
+        }
+    }
+    return mask;
 }

@@ -24,6 +24,7 @@
 #include "pico/time.h"
 #include "hardware/dma.h"
 #include "hardware/pio.h"
+#include "hardware/sync.h"
 
 //=========================== defines =========================================
 
@@ -92,6 +93,9 @@ static lh2_vars_t _lh2_vars[TS4231_SENSOR_QTY];  ///< local data of the LH2 driv
 
 static pio_vars_t _pio_vars = { 0 };  ///< stores the status of the one-off configurations of the pio programs
 
+static volatile db_lh2_stats_t _lh2_stats[TS4231_SENSOR_QTY];  ///< receive counters, read by core 0 (db_lh2_get_stats)
+static uint16_t _lh2_config_readback[TS4231_SENSOR_QTY];      ///< what each TS4231 answered to its configuration
+
 //=========================== prototypes =======================================
 
 // these functions are called in the order written to perform the LH2 localization
@@ -100,8 +104,10 @@ static pio_vars_t _pio_vars = { 0 };  ///< stores the status of the one-off conf
  *
  * @param[in]   gpio_d  pointer to gpio data
  * @param[in]   gpio_e  pointer to gpio event
+ *
+ * @return the configuration word read back from the TS4231 (0x392B when it took the configuration)
  */
-void _initialize_ts4231(const uint8_t gpio_d, const uint8_t gpio_e);
+uint16_t _initialize_ts4231(const uint8_t gpio_d, const uint8_t gpio_e);
 
 /**
  * @brief Configure the DMA to automatically retrieve data from the PIO TS4231 capture. And send it to the ring buffer
@@ -116,8 +122,10 @@ void _init_dma_pio_capture(uint8_t sensor);
  * @param[in]   cb          pointer to ring buffer structure
  * @param[in]   data        pointer to the data array to save in the ring buffer
  * @param[in]   timestamp   timestamp of when the LH2 measurement was taken. (taken with timer_hf_now())
+ *
+ * @return false if the buffer was full and the oldest capture was overwritten
  */
-void _add_to_ts4231_ring_buffer(lh2_ring_buffer_t *cb, uint8_t *data, absolute_time_t timestamp);
+bool _add_to_ts4231_ring_buffer(lh2_ring_buffer_t *cb, uint8_t *data, absolute_time_t timestamp);
 
 /**
  * @brief retreive the oldest element from the ring buffer for spi captures
@@ -163,7 +171,7 @@ void pio_irq_handler_3(void);
 
 void db_lh2_init(db_lh2_t *lh2, uint8_t sensor, const uint8_t gpio_d, const uint8_t gpio_e) {
     // Initialize the TS4231 on power-up - this is only necessary when power-cycling
-    _initialize_ts4231(gpio_d, gpio_e);
+    _lh2_config_readback[sensor] = _initialize_ts4231(gpio_d, gpio_e);
 
     // Setup the LH2 local variables
     memset(_lh2_vars[sensor].spi_rx_buffer, 0, TS4231_CAPTURE_BUFFER_SIZE);
@@ -255,6 +263,23 @@ void db_lh2_init(db_lh2_t *lh2, uint8_t sensor, const uint8_t gpio_d, const uint
     ts4231_capture_program_init(pio, sm, offset, gpio_d);
 }
 
+void db_lh2_get_stats(uint8_t sensor, db_lh2_stats_t *out) {
+    if (sensor >= TS4231_SENSOR_QTY) {
+        memset(out, 0, sizeof(*out));
+        return;
+    }
+    out->captures  = _lh2_stats[sensor].captures;
+    out->overflows = _lh2_stats[sensor].overflows;
+    out->no_poly   = _lh2_stats[sensor].no_poly;
+    out->lfsr_fail = _lh2_stats[sensor].lfsr_fail;
+    out->decoded   = _lh2_stats[sensor].decoded;
+    out->corrected = _lh2_stats[sensor].corrected;
+}
+
+uint16_t db_lh2_config_readback(uint8_t sensor) {
+    return sensor < TS4231_SENSOR_QTY ? _lh2_config_readback[sensor] : 0;
+}
+
 void db_lh2_start(void) {
 
     // NRF_PPI->TASKS_CHG[PPI_SPI_GROUP].EN = 1;
@@ -283,15 +308,20 @@ void db_lh2_process_location(db_lh2_t *lh2) {
                                                                     // I don't know why, the SPI buffer is clearly 64bytes long.
                                                                     // should ask fil about this
 
-    // stop the interruptions while you're reading the data.
+    // stop the interruptions while you're reading the data: the capture IRQ runs on this core and
+    // writes the same ring buffer (when full it overwrites the slot being read).
     absolute_time_t temp_timestamp = nil_time;  // default timestamp
-    if (!_get_from_ts4231_ring_buffer(&_lh2_vars[sensor].data, temp_spi_bits, &temp_timestamp)) {
+    uint32_t        irq_state      = save_and_disable_interrupts();
+    bool            got            = _get_from_ts4231_ring_buffer(&_lh2_vars[sensor].data, temp_spi_bits, &temp_timestamp);
+    restore_interrupts(irq_state);
+    if (!got) {
         return;
     }
 
 // Check if Qualysis Mocap data is interfering with the SPI capture
 #if defined(LH2_MOCAP_FILTER)
     if (_check_mocap_interference(temp_spi_bits, TS4231_CAPTURE_BUFFER_SIZE)) {
+        _lh2_stats[sensor].no_poly++;
         return;  // if a qualysis pulse caused a false spi trigger, leave the function.
     }
 #endif
@@ -301,11 +331,21 @@ void db_lh2_process_location(db_lh2_t *lh2) {
     uint64_t temp_bits_sweep = _demodulate_light(temp_spi_bits);
 
     // figure out which polynomial the data belongs  to
-    int8_t temp_bit_offset = 0;  // default offset
-    uint8_t temp_selected_polynomial = _determine_polynomial(temp_bits_sweep, &temp_bit_offset);
+    int8_t  temp_bit_offset = 0;  // default offset
+    uint8_t temp_bit_errors = 0;
+    uint8_t temp_selected_polynomial = _determine_polynomial(temp_bits_sweep, &temp_bit_offset, &temp_bit_errors);
+#if !defined(LH2_DEMOD_RUNS)
+    // The grid demodulator lost it: the original one sometimes reads short pulses better. Its
+    // misreads shift the following bits, so it keeps its exact-match search (no tolerated errors).
+    if (temp_selected_polynomial == LH2_POLYNOMIAL_ERROR_INDICATOR) {
+        temp_bits_sweep          = _demodulate_light_runs(temp_spi_bits);
+        temp_selected_polynomial = _determine_polynomial_original(temp_bits_sweep, &temp_bit_offset, &temp_bit_errors);
+    }
+#endif
 
     // If there was an error with the polynomial, leave without updating anything
     if (temp_selected_polynomial == LH2_POLYNOMIAL_ERROR_INDICATOR) {
+        _lh2_stats[sensor].no_poly++;
         return;
     }
 
@@ -320,12 +360,15 @@ void db_lh2_process_location(db_lh2_t *lh2) {
     //*********************************************************************************//
 
     // Select the valid bits of the lfsr by applying the offset (he first few bits might be invalid, as detected by _determine_polynomial())
-    uint32_t temp_lfsr_bits = temp_bits_sweep >> (47 - temp_bit_offset);
+    // (masked: the shift leaves the bits before the seed on top, and the dynamic checkpoint saved
+    // from it never matched the 17-bit search state)
+    uint32_t temp_lfsr_bits = (uint32_t)(temp_bits_sweep >> (47 - temp_bit_offset)) & 0x0001FFFF;
 
     // Sanity check, make sure you don't start the LFSR search with a bit-sequence full of zeros.
     if (temp_lfsr_bits == 0x000000) {
         // Mark the data as wrong and keep going
         lh2->data_ready[sweep][basestation] = DB_LH2_NO_NEW_DATA;
+        _lh2_stats[sensor].no_poly++;
         return;
     }
 
@@ -341,7 +384,12 @@ void db_lh2_process_location(db_lh2_t *lh2) {
     } else {
         // Mark the data as wrong and keep going
         lh2->data_ready[sweep][basestation] = DB_LH2_NO_NEW_DATA;
+        _lh2_stats[sensor].lfsr_fail++;
         return;
+    }
+    _lh2_stats[sensor].decoded++;
+    if (temp_bit_errors) {
+        _lh2_stats[sensor].corrected++;
     }
 
     // Undo the bit offset introduced above, to get the LFSR position of the first bit that hit the sensor.
@@ -365,7 +413,7 @@ void db_lh2_process_location(db_lh2_t *lh2) {
 
 //=========================== private ==========================================
 
-void _initialize_ts4231(const uint8_t gpio_d, const uint8_t gpio_e) {
+uint16_t _initialize_ts4231(const uint8_t gpio_d, const uint8_t gpio_e) {
 
     // Filip's code define these pins as inputs, and then changes them quickly to outputs. Not sure why, but it works.
     gpio_init(gpio_d);
@@ -449,10 +497,12 @@ void _initialize_ts4231(const uint8_t gpio_d, const uint8_t gpio_e) {
     sleep_us(10);
     gpio_put(gpio_e, 0);
     sleep_us(10);
-    // Use the Envelope pin to output a clock while the data arrives.
+    // Use the Envelope pin to output a clock while the data arrives, MSB first.
+    uint16_t readback = 0;
     for (uint8_t i = 0; i < 14; i++) {
         gpio_put(gpio_e, 1);
         sleep_us(10);
+        readback = (uint16_t)((readback << 1) | (gpio_get(gpio_d) & 0x01));
         gpio_put(gpio_e, 0);
         sleep_us(10);
     }
@@ -476,6 +526,7 @@ void _initialize_ts4231(const uint8_t gpio_d, const uint8_t gpio_e) {
     gpio_set_dir(gpio_e, GPIO_IN);
 
     sleep_us(50000);
+    return readback;
 }
 
 void _init_dma_pio_capture(uint8_t sensor) {
@@ -505,7 +556,7 @@ void _init_dma_pio_capture(uint8_t sensor) {
     );
 }
 
-void _add_to_ts4231_ring_buffer(lh2_ring_buffer_t *cb, uint8_t *data, absolute_time_t timestamp) {
+bool _add_to_ts4231_ring_buffer(lh2_ring_buffer_t *cb, uint8_t *data, absolute_time_t timestamp) {
 
     memcpy(cb->buffer[cb->writeIndex], data, TS4231_CAPTURE_BUFFER_SIZE);
     cb->timestamps[cb->writeIndex] = timestamp;
@@ -513,10 +564,11 @@ void _add_to_ts4231_ring_buffer(lh2_ring_buffer_t *cb, uint8_t *data, absolute_t
 
     if (cb->count < LH2_BUFFER_SIZE) {
         cb->count++;
-    } else {
-        // Overwrite oldest data, adjust readIndex
-        cb->readIndex = (cb->readIndex + 1) % LH2_BUFFER_SIZE;
+        return true;
     }
+    // Overwrite oldest data, adjust readIndex
+    cb->readIndex = (cb->readIndex + 1) % LH2_BUFFER_SIZE;
+    return false;
 }
 
 bool _get_from_ts4231_ring_buffer(lh2_ring_buffer_t *cb, uint8_t *data, absolute_time_t *timestamp) {
@@ -549,7 +601,7 @@ uint8_t _select_sweep(db_lh2_t *lh2, uint8_t polynomial, absolute_time_t timesta
 
     // check that current data stored is not too old.
     for (size_t sweep = 0; sweep < 2; sweep++) {
-        if (absolute_time_diff_us(lh2->timestamps[0][basestation], now) > LH2_MAX_DATA_VALID_TIME_US) {
+        if (absolute_time_diff_us(lh2->timestamps[sweep][basestation], now) > LH2_MAX_DATA_VALID_TIME_US) {
             // Remove data that is too old.
             lh2->raw_data[sweep][basestation].bits_sweep          = 0;
             lh2->raw_data[sweep][basestation].selected_polynomial = LH2_POLYNOMIAL_ERROR_INDICATOR;
@@ -643,8 +695,15 @@ void _pio_irq_handler_generic(uint8_t sensor) {
 
     // Read the current time.
     absolute_time_t timestamp = get_absolute_time();
+    // The PIO raised the IRQ after pushing its last byte: let the DMA move it before the copy (bounded).
+    for (int i = 0; i < 64 && dma_channel_is_busy(_lh2_vars[sensor].dma_channel); i++) {
+        tight_loop_contents();
+    }
     // Add new reading to the ring buffer
-    _add_to_ts4231_ring_buffer(&_lh2_vars[sensor].data, _lh2_vars[sensor].spi_rx_buffer, timestamp);
+    _lh2_stats[sensor].captures++;
+    if (!_add_to_ts4231_ring_buffer(&_lh2_vars[sensor].data, _lh2_vars[sensor].spi_rx_buffer, timestamp)) {
+        _lh2_stats[sensor].overflows++;
+    }
     pio_sm_clear_fifos(pio, sm);  // Purge the PIO FIFO from any straggling bits
     // reset the DMA channel
     dma_channel_set_trans_count(_lh2_vars[sensor].dma_channel, 64, false);

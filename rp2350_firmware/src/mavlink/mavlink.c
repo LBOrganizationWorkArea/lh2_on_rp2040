@@ -64,11 +64,12 @@
 #include "pico/stdlib.h"
 #include "hardware/uart.h"
 #include "hardware/gpio.h"
+#include "hardware/irq.h"
 
 /* ---- Configuration -------------------------------------------------------- */
 
 #define MAV_UART         uart0
-#define MAV_BAUD         115200u
+#define MAV_BAUD         921600u   /* SERIALx_BAUD = 921 on the flight controller */
 #define MAV_TX_PIN       0u
 #define MAV_RX_PIN       1u
 
@@ -372,13 +373,43 @@ static void _send_cmd_long(uint16_t cmd, float p1, float p2)
     uart_write_blocking(MAV_UART, f, TOTAL);
 }
 
+/* ---- RX ring: the UART interrupt empties the 32-byte hardware FIFO into it, so nothing is lost
+ * while the main loop is busy (a blocking TX burst, USB prints); mavlink_rx_update() parses it. */
+
+#define RX_RING_SIZE 1024u                    /* power of two */
+static volatile uint8_t  s_rx_ring[RX_RING_SIZE];
+static volatile uint16_t s_rx_head = 0u;      /* written by the interrupt */
+static volatile uint16_t s_rx_tail = 0u;      /* written by mavlink_rx_update() */
+static volatile uint32_t s_rx_dropped = 0u;   /* bytes lost because the ring was full */
+
+static void _uart_rx_irq(void)
+{
+    while (uart_is_readable(MAV_UART)) {
+        const uint8_t c = (uint8_t)uart_getc(MAV_UART);
+        const uint16_t next = (uint16_t)((s_rx_head + 1u) & (RX_RING_SIZE - 1u));
+        if (next == s_rx_tail) { s_rx_dropped++; continue; }
+        s_rx_ring[s_rx_head] = c;
+        s_rx_head = next;
+    }
+}
+
 /* ---- Public API ----------------------------------------------------------- */
 
-void mavlink_init(void)
+uint32_t mavlink_init(void)
 {
-    uart_init(MAV_UART, MAV_BAUD);
+    const uint32_t baud = uart_init(MAV_UART, MAV_BAUD);
     gpio_set_function(MAV_TX_PIN, GPIO_FUNC_UART);
     gpio_set_function(MAV_RX_PIN, GPIO_FUNC_UART);
+    /* RX by interrupt, on the core that calls this (core 0, like the parser). */
+    irq_set_exclusive_handler(UART0_IRQ, _uart_rx_irq);
+    irq_set_enabled(UART0_IRQ, true);
+    uart_set_irqs_enabled(MAV_UART, true, false);
+    return baud;
+}
+
+uint32_t mavlink_rx_dropped(void)
+{
+    return s_rx_dropped;
 }
 
 void mavlink_send_odometry(uint64_t usec, float x, float y, float z, float yaw, float yaw_var)
@@ -552,8 +583,11 @@ void mavlink_send_lh2_ootx(int bs, const ootx_station_t *station)
 
 void mavlink_rx_update(void)
 {
-    while (uart_is_readable(MAV_UART))
-        _rx_feed(uart_getc(MAV_UART));
+    while (s_rx_tail != s_rx_head) {
+        const uint8_t c = s_rx_ring[s_rx_tail];
+        s_rx_tail = (uint16_t)((s_rx_tail + 1u) & (RX_RING_SIZE - 1u));
+        _rx_feed(c);
+    }
 }
 
 bool mavlink_is_ekf_healthy(void)
