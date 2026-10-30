@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <math.h>
 
 #include "lh2.h"
 #include "lh2_decoder.h"
@@ -23,8 +24,10 @@
 //=========================== defines =========================================
 
 #define FUZZY_CHIP                             0xFF  ///< not sure what this is about
-#define POLYNOMIAL_BIT_ERROR_INITIAL_THRESHOLD 0     ///< tolerate no errors in received data
-// #define POLYNOMIAL_BIT_ERROR_INITIAL_THRESHOLD 4                             ///< initial threshold of polynomial error
+// Define LH2_DEMOD_RUNS to go back to the original demodulator (every run of samples thresholded
+// on its own length) instead of the half-bit grid one (_demodulate_light_grid).
+#define GRID_MAX_EDGES 200  ///< edges kept from one capture (512 samples, ~2.67 per half bit)
+#define GRID_SLOTS     200  ///< half-bit slots in one capture (512 / 2.67 = 192)
 #define HASH_TABLE_BITS 6                             ///< How many bits will be used for the hashtable for the _end_buffers
 #define HASH_TABLE_MASK ((1 << HASH_TABLE_BITS) - 1)  ///< Mask selecting the HAS_TABLE_BITS least significant bits
 
@@ -32,6 +35,8 @@
 typedef uint32_t lfsr_17bits_t;
 
 //=========================== variables ========================================
+
+static uint32_t _poly_mask = 0xFFFFFFFF;  ///< polynomials searched by _determine_polynomial (bit n = polynomial n)
 
 //=========================== prototypes =======================================
 
@@ -41,6 +46,8 @@ typedef uint32_t lfsr_17bits_t;
  * @return chipsH: 64-bits of demodulated data
  */
 uint64_t _demodulate_light(uint8_t *sample_buffer);
+uint64_t _demodulate_light_runs(uint8_t *sample_buffer);
+#define TS4231_SAMPLES 512  ///< samples in one capture (64 bytes, MSB first)
 
 /**
  * @brief from a 17-bit sequence and a polynomial, generate up to 64-17=47 bits as if the LFSR specified by poly were run forwards for numbits cycles, all little endian
@@ -61,7 +68,8 @@ uint64_t _poly_check(uint32_t poly, uint32_t bits, uint8_t numbits);
  *
  * @return polynomial, indicating which polynomial was found, or FF for error (polynomial not found).
  */
-uint8_t _determine_polynomial(uint64_t chipsH1, int8_t *start_val);
+uint8_t _determine_polynomial(uint64_t chipsH1, int8_t *start_val, uint8_t *bit_errors);
+uint8_t _determine_polynomial_original(uint64_t chipsH1, int8_t *start_val, uint8_t *bit_errors);
 
 /**
  * @brief counts the number of 1s in a 64-bit
@@ -85,7 +93,123 @@ uint32_t _lfsr_index_search(_lfsr_checkpoint_t *checkpoint, uint8_t index, uint3
 
 //=========================== public ===========================================
 
-uint64_t _demodulate_light(uint8_t *sample_buffer) {  // bad input variable name!!
+void db_lh2_set_polynomial_mask(uint32_t mask) {
+    _poly_mask = mask ? mask : 0xFFFFFFFF;
+}
+
+/**
+ * Bit errors tolerated in the bits that confirm a 17-bit seed. The seed itself must be exact: it is
+ * what the LFSR position is read from, and a wrong seed makes the whole prediction diverge, so a
+ * tolerated error never shifts the angle. The more bits confirm the seed, the more errors are
+ * allowed: noise passes for one of 8 polynomials at one of the tried offsets with a chance below
+ * 2e-4 per capture, about what the original 19 exact bits allowed.
+ */
+static int32_t _bit_error_threshold(int32_t bits_checked) {
+#if defined(LH2_MOCAP_FILTER)
+    (void)bits_checked;
+    return 0;  // harsher filter when we expect MoCap interference
+#else
+    if (bits_checked >= 36) {
+        return 4;
+    }
+    if (bits_checked >= 30) {
+        return 2;
+    }
+    if (bits_checked >= 24) {
+        return 1;
+    }
+    return 0;
+#endif
+}
+
+#define POLY_FIRST_OFFSET 8   ///< first bits after the envelope edge are skipped (unreliable)
+#define POLY_MAX_ERRORS   4   ///< most errors _bit_error_threshold() ever allows
+#define POLY_MIN_CHECK    19  ///< fewest bits that must confirm a seed (exactly, below 24: as the original)
+
+/**
+ * Biphase-mark demodulation on a half-bit grid. The data line toggles at every bit boundary and,
+ * for a 1, also in the middle of the bit: 6 MHz bits sampled at 32 MHz put every edge on a grid of
+ * 32 / 12 = 2.67 samples. The grid phase is fitted once to all the edges (circular mean, separately
+ * for rising and falling edges so a duty-cycle distortion of the comparator cancels), then each
+ * edge is put in its nearest slot. A late or early edge only lands in a neighbouring slot: a 1-2 bit
+ * error that the polynomial check tolerates, where thresholding each run on its own length shifts
+ * every following bit (a slip) once one run is misread.
+ */
+static uint64_t _demodulate_light_grid(const uint8_t *samples) {
+    // cos / sin of the 16 phases an edge can have: 6 * (n - 0.5) mod 16, in 1/16 of a half bit
+    static const float cos16[16] = { 1.0f, 0.92388f, 0.70711f, 0.38268f, 0.0f, -0.38268f, -0.70711f, -0.92388f,
+                                     -1.0f, -0.92388f, -0.70711f, -0.38268f, 0.0f, 0.38268f, 0.70711f, 0.92388f };
+    static const float sin16[16] = { 0.0f, 0.38268f, 0.70711f, 0.92388f, 1.0f, 0.92388f, 0.70711f, 0.38268f,
+                                     0.0f, -0.38268f, -0.70711f, -0.92388f, -1.0f, -0.92388f, -0.70711f, -0.38268f };
+    int16_t edge_x[GRID_MAX_EDGES];  // 6 * edge time [samples]: the edge is between samples n-1 and n
+    uint8_t edge_up[GRID_MAX_EDGES];
+    int     n_edges = 0;
+    int     level   = (samples[0] >> 7) & 0x01;
+    for (int n = 1; n < TS4231_SAMPLES && n_edges < GRID_MAX_EDGES; n++) {
+        int v = (samples[n >> 3] >> (7 - (n & 7))) & 0x01;
+        if (v != level) {
+            edge_x[n_edges]  = (int16_t)(6 * n - 3);
+            edge_up[n_edges] = (uint8_t)v;
+            n_edges++;
+            level = v;
+        }
+    }
+    if (n_edges < 8) {
+        return 0;  // no data
+    }
+
+    // grid phase of the rising and of the falling edges [1/16 half bit]
+    float c[2] = { 0.0f, 0.0f }, s[2] = { 0.0f, 0.0f };
+    for (int i = 0; i < n_edges; i++) {
+        c[edge_up[i]] += cos16[edge_x[i] & 15];
+        s[edge_up[i]] += sin16[edge_x[i] & 15];
+    }
+    float phase[2];
+    for (int p = 0; p < 2; p++) {
+        phase[p] = atan2f(s[p], c[p]) * (16.0f / (2.0f * (float)M_PI));
+    }
+    float d = phase[0] - phase[1];  // falling minus rising: a small duty-cycle shift, unwrap it
+    d -= 16.0f * floorf((d + 8.0f) / 16.0f);
+    phase[0] = phase[1] + d;
+
+    // edges per slot (two edges in one slot = a glitch, they cancel)
+    uint8_t slot_edges[GRID_SLOTS] = { 0 };
+    int     first_slot = GRID_SLOTS;
+    for (int i = 0; i < n_edges; i++) {
+        int slot = (int)floorf(((float)edge_x[i] - phase[edge_up[i]]) / 16.0f + 0.5f);
+        if (slot < 0 || slot >= GRID_SLOTS) {
+            continue;
+        }
+        slot_edges[slot] ^= 1;
+        if (slot < first_slot) {
+            first_slot = slot;
+        }
+    }
+    // bit boundaries are the slot parity with an edge in (almost) every slot
+    int count[2] = { 0, 0 };
+    for (int slot = 0; slot < GRID_SLOTS; slot++) {
+        count[slot & 1] += slot_edges[slot];
+    }
+    int boundary = count[1] > count[0] ? 1 : 0;
+    int b0       = first_slot + ((first_slot & 1) != boundary);  // first boundary from the first edge
+
+    uint64_t bits = 0;
+    for (int k = 0; k < 64; k++) {
+        int mid = b0 + 2 * k + 1;
+        bits    = (bits << 1) | (uint64_t)(mid < GRID_SLOTS && slot_edges[mid]);
+    }
+    return bits;
+}
+
+uint64_t _demodulate_light(uint8_t *sample_buffer) {
+#if defined(LH2_DEMOD_RUNS)
+    return _demodulate_light_runs(sample_buffer);
+#else
+    return _demodulate_light_grid(sample_buffer);
+#endif
+}
+
+uint64_t _demodulate_light_runs(uint8_t *sample_buffer) {  // bad input variable name!!
     // TODO: rename sample_buffer
     // TODO: make it a void and have chips be a modified pointer thingie
     // FIXME: there is an edge case where I throw away an initial "1" and do not count it in the bit-shift offset, resulting in an incorrect error of 1 in the LFSR location
@@ -369,7 +493,69 @@ uint64_t _poly_check(uint32_t poly, uint32_t bits, uint8_t numbits) {
     return bits_out;
 }
 
-uint8_t _determine_polynomial(uint64_t chipsH1, int8_t *start_val) {
+/**
+ * Polynomial search tolerant to isolated bit errors. For each offset of the 17-bit seed (from
+ * POLY_FIRST_OFFSET on: an error in the seed just moves it further), each polynomial of our
+ * stations predicts the following bits; the match is the longest run of predicted bits, from the
+ * seed on, with no more errors than _bit_error_threshold() allows for its length (the end of a
+ * capture may be past the light pulse). The longest match wins.
+ */
+uint8_t _determine_polynomial(uint64_t chipsH1, int8_t *start_val, uint8_t *bit_errors) {
+#if defined(LH2_DEMOD_RUNS)
+    return _determine_polynomial_original(chipsH1, start_val, bit_errors);
+#else
+    if (chipsH1 == 0x00) {
+        return LH2_POLYNOMIAL_ERROR_INDICATOR;
+    }
+    for (int start = POLY_FIRST_OFFSET; start <= 64 - 17 - POLY_MIN_CHECK; start++) {
+        uint32_t seed = (uint32_t)(chipsH1 >> (64 - 17 - start)) & 0x1FFFF;
+        if (seed == 0) {
+            continue;  // not a valid LFSR state
+        }
+        int      avail  = 64 - 17 - start;              // bits after the seed
+        uint64_t actual = chipsH1 << (start + 17);       // those bits, MSB first
+        int      best_len = 0, best_err = 0;
+        uint8_t  best_poly = LH2_POLYNOMIAL_ERROR_INDICATOR;
+        for (uint8_t i = 0; i < LH2_POLYNOMIAL_COUNT; i++) {
+            if (!((_poly_mask >> i) & 1)) {
+                continue;  // not one of our stations
+            }
+            // run the LFSR forward, marking where it disagrees; past POLY_MAX_ERRORS no longer
+            // prefix can match (noise gets there in ~10 bits)
+            uint32_t state   = seed;
+            uint64_t errors  = 0;
+            int      checked = 0, err_count = 0;
+            for (; checked < avail; checked++) {
+                uint32_t b = __builtin_popcount(state & _polynomials[i]) & 0x01;
+                state      = ((state << 1) | b) & 0x0001FFFF;
+                if (b != ((actual >> (63 - checked)) & 0x01)) {
+                    if (++err_count > POLY_MAX_ERRORS) {
+                        break;
+                    }
+                    errors |= 1ULL << (63 - checked);
+                }
+            }
+            for (int len = checked; len >= POLY_MIN_CHECK && len > best_len; len--) {
+                int err = __builtin_popcountll(errors & (~0ULL << (64 - len)));
+                if (err <= _bit_error_threshold(len)) {
+                    best_len  = len;
+                    best_err  = err;
+                    best_poly = i;
+                    break;
+                }
+            }
+        }
+        if (best_poly != LH2_POLYNOMIAL_ERROR_INDICATOR) {
+            *start_val  = (int8_t)start;
+            *bit_errors = (uint8_t)best_err;
+            return best_poly;
+        }
+    }
+    return LH2_POLYNOMIAL_ERROR_INDICATOR;
+#endif
+}
+
+uint8_t _determine_polynomial_original(uint64_t chipsH1, int8_t *start_val, uint8_t *bit_errors) {
     // check which polynomial the bit sequence is part of
     // TODO: make function a void and modify memory directly
     // TODO: rename chipsH1 to something relevant... like bits?
@@ -389,12 +575,7 @@ uint8_t _determine_polynomial(uint64_t chipsH1, int8_t *start_val) {
     uint8_t  min_weight_idx                       = LH2_POLYNOMIAL_ERROR_INDICATOR;
     uint64_t min_weight                           = LH2_POLYNOMIAL_ERROR_INDICATOR;
     uint64_t bits_to_compare                      = 0;
-    int32_t  threshold                            = POLYNOMIAL_BIT_ERROR_INITIAL_THRESHOLD;
-
-#if defined(LH2_MOCAP_FILTER)
-    // tighten threshold if we expect MoCap interference
-    threshold = 0;
-#endif
+    int32_t  threshold                            = 0;
 
     // try polynomial vs. first buffer bits
     // this search takes 17-bit sequences and runs them forwards through the polynomial LFSRs.
@@ -414,6 +595,9 @@ uint8_t _determine_polynomial(uint64_t chipsH1, int8_t *start_val) {
         min_weight     = LH2_POLYNOMIAL_ERROR_INDICATOR;
         // Check against all the known polynomials
         for (uint8_t i = 0; i < LH2_POLYNOMIAL_COUNT; i++) {
+            if (!((_poly_mask >> i) & 1)) {
+                continue;  // not one of our stations
+            }
             bits_from_poly[i] = (((_poly_check(_polynomials[i], bit_buffer1, bits_N_for_comp)) << (64 - 17 - (*start_val) - bits_N_for_comp)) | (chipsH1 & (0xFFFFFFFFFFFFFFFF << (64 - (*start_val)))));
             weights[i]        = __builtin_popcount(bits_from_poly[i] ^ bits_to_compare);
             // Keep track of the minimum weight value and which polinimial generated it.
@@ -426,16 +610,12 @@ uint8_t _determine_polynomial(uint64_t chipsH1, int8_t *start_val) {
         // If you found a sufficiently good value, then return which polinomial generated it
         if (min_weight <= (uint64_t)threshold) {
             selected_poly = min_weight_idx;
+            *bit_errors   = (uint8_t)min_weight;
             break;
             // match failed, try again removing bits from the end
         } else if (*start_val > 8) {
             *start_val      = 8;
             bits_N_for_comp = bits_N_for_comp - 9;
-            if (threshold > 2) {
-                threshold = threshold - 1;
-            } else if (threshold == 2) {  // keep threshold at ones, but you're probably screwed with an unlucky bit error
-                threshold = 2;
-            }
         } else {
             *start_val = *start_val + 1;
             bits_N_for_comp -= 1;
@@ -640,6 +820,8 @@ uint32_t _lfsr_index_search(_lfsr_checkpoint_t *checkpoint, uint8_t index, uint3
         if (count_final < 0) {
             // wrap around the number
             count_final += 131071;  // 2^17 -1 (the full lenght of the sequence)
+        } else if (count_final >= 131071) {
+            count_final -= 131071;  // the same state, reached from a dynamic checkpoint past the end
         }
         // Turn result back to unsigned before returning
         return (uint32_t)count_final;

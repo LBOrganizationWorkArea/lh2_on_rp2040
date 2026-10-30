@@ -44,6 +44,9 @@
 #define ANGLE_GATE_N    3
 #define EMA_RESET_US    100000ULL
 #define TAN_30      0.57735027f  ///< tan(30°) — used in elevation reconstruction
+/** The two sweeps of a pair must be at most this far apart: the same or the next half of a rotor
+ * turn (periods 18.5-20 ms). An older one (its beam was lost for a while) is dropped, not paired. */
+#define PAIR_MAX_GAP_US 20000ULL
 #define FRESHNESS_US 500000ULL   ///< Maximum age before an angle is considered stale [µs]
 
 // ---------------------------------------------------------------------------
@@ -155,5 +158,17 @@ bool angle_decoder_is_fresh(const lh2_angles_t out[NUM_SENSORS][NUM_BS],
  *         decoder health line printed by main (STAT,...).
  */
 uint32_t angle_decoder_pairs(int bs);
+
+/**
+ * @brief  Sweeps of base station @p bs dropped since boot because the other sweep of the pair
+ *         was older than PAIR_MAX_GAP_US (one of the two beams is not received).
+ */
+uint32_t angle_decoder_unpaired(int bs);
+
+/**
+ * @brief  Bit mask of the polynomials of the stations in use (bit n = polynomial n), for
+ *         db_lh2_set_polynomial_mask().
+ */
+uint32_t angle_decoder_poly_mask(void);
 
 #endif /* ANGLE_DECODER_H */

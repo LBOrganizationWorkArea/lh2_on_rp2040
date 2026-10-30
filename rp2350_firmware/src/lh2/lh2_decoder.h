@@ -21,8 +21,11 @@
 
 #define LH2_POLYNOMIAL_ERROR_INDICATOR  0xFF        ///< indicate the polynomial index is invalid
 #define LH2_LFSR_SEARCH_ERROR_INDICATOR 0xFFFFFFFF  ///< indicate the polynomial index is invalid
-// Un-comment the following line if you want to enable the Anti-Mocap fiter		
-#define LH2_MOCAP_FILTER 1   ///< Defined when the LH2 needs to coexits with a Qualysis Mocap system. It enables harsher anti-outlier filters
+// Un-comment the following line if you want to enable the Anti-Mocap fiter
+// It drops every capture with 24 constant samples in its first 8 us, i.e. every light pulse
+// shorter than that: far from a station only the core of the beam is above the TS4231 threshold
+// and the pulses get short, so the filter cost range. Only for rooms with a Qualisys mocap.
+// #define LH2_MOCAP_FILTER 1   ///< Defined when the LH2 needs to coexits with a Qualysis Mocap system. It enables harsher anti-outlier filters
 
 
 // Dynamic checkpoints for the lsfr index search
@@ -40,6 +43,12 @@ typedef struct {
 uint64_t _demodulate_light(uint8_t *sample_buffer);
 
 /**
+ * @brief the original demodulator (each run of samples thresholded on its length), used when the
+ *        half-bit grid one (_demodulate_light) finds no polynomial
+ */
+uint64_t _demodulate_light_runs(uint8_t *sample_buffer);
+
+/**
  * @brief from a 17-bit sequence and a polynomial, generate up to 64-17=47 bits as if the LFSR specified by poly were run forwards for numbits cycles, all little endian
  *
  * @param[in] poly:     17-bit polynomial
@@ -55,10 +64,16 @@ uint64_t _poly_check(uint32_t poly, uint32_t bits, uint8_t numbits);
  *
  * @param[in] chipsH1: input sequences of bits from demodulation
  * @param[in] start_val: number of bits between the envelope falling edge and the beginning of the sequence where valid data has been found
+ * @param[out] bit_errors: bit errors found in the bits that confirmed the polynomial (0 = clean match)
  *
  * @return polynomial, indicating which polynomial was found, or FF for error (polynomial not found).
  */
-uint8_t _determine_polynomial(uint64_t chipsH1, int8_t *start_val);
+uint8_t _determine_polynomial(uint64_t chipsH1, int8_t *start_val, uint8_t *bit_errors);
+
+/**
+ * @brief the original polynomial search: exact match, the seed at offset 8 or 9, trimmed at the end
+ */
+uint8_t _determine_polynomial_original(uint64_t chipsH1, int8_t *start_val, uint8_t *bit_errors);
 
 /**
  * @brief counts the number of 1s in a 64-bit

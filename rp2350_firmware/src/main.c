@@ -29,6 +29,11 @@
  *   P,<sensor>,<x>,<y>,<z>              3D point (from every calibrated station seeing it)
  *   C,<n>,<cx>,<cy>,<cz>                centroid (also sent as ODOMETRY)
  *   STAT,pairs/s,BS4=..,BS10=..,...     decoded angle pairs per station, each second
+ *        ,unpaired,BS4=..,...           sweeps dropped because the other beam of the pair was missing
+ *   RX,cap/dec/fix/nopoly/lfsr/lost,S0=a/b/c/d/e/f,...,cfg,S0=ok,...
+ *                                       per sensor and second: light pulses captured, decoded,
+ *                                       decoded with corrected bits, no polynomial, LFSR search
+ *                                       failed, lost (core 1 too slow); TS4231 configuration
  *
  * Hardware pins (data, env):
  *   S0 10/11   S1 12/13   S2 18/19   S3 20/21
@@ -420,6 +425,8 @@ static void core1_entry(void)
 
 static void core1_entry(void)
 {
+    /* Only our stations' polynomials are searched (8 of 32): less work per capture. */
+    db_lh2_set_polynomial_mask(angle_decoder_poly_mask());
     /* All four inits run here so every PIO IRQ is armed on core 1. */
     db_lh2_init(&g_lh2[0], 0, LH2_0_DATA_PIN, LH2_0_ENV_PIN);
     db_lh2_init(&g_lh2[1], 1, LH2_1_DATA_PIN, LH2_1_ENV_PIN);
@@ -561,14 +568,46 @@ int main(void)
             /* Decoder health, once a second: angle pairs decoded per station in the last second
              * (all sensors). ~50 per sensor per station is a full rate; a station far below
              * the others is hard to decode (blocked, too far, or core 1 overloaded). */
-            static uint32_t last_pairs[NUM_BS];
+            static uint32_t last_pairs[NUM_BS], last_unpaired[NUM_BS];
             printf("STAT,pairs/s");
             for (int b = 0; b < NUM_BS; b++) {
                 uint32_t pairs = angle_decoder_pairs(b);
                 printf(",%s=%lu", BS_NAME[b], (unsigned long)(pairs - last_pairs[b]));
                 last_pairs[b] = pairs;
             }
+            printf(",unpaired");
+            for (int b = 0; b < NUM_BS; b++) {
+                uint32_t unpaired = angle_decoder_unpaired(b);
+                printf(",%s=%lu", BS_NAME[b], (unsigned long)(unpaired - last_unpaired[b]));
+                last_unpaired[b] = unpaired;
+            }
             printf(",rx_lost=%lu\n", (unsigned long)mavlink_rx_dropped());
+#ifndef SYNTHETIC_CAPTURE
+            /* Receive health per sensor in the last second: light pulses captured, decoded,
+             * of which with 1-2 corrected bits, no polynomial, LFSR search failed, lost (core 1
+             * too slow), and the TS4231 configuration read back at boot. */
+            static db_lh2_stats_t last_rx[NUM_SENSORS];
+            printf("RX,cap/dec/fix/nopoly/lfsr/lost");
+            for (int s = 0; s < NUM_SENSORS; s++) {
+                db_lh2_stats_t rx;
+                db_lh2_get_stats((uint8_t)s, &rx);
+                printf(",S%d=%lu/%lu/%lu/%lu/%lu/%lu", s,
+                       (unsigned long)(rx.captures - last_rx[s].captures),
+                       (unsigned long)(rx.decoded - last_rx[s].decoded),
+                       (unsigned long)(rx.corrected - last_rx[s].corrected),
+                       (unsigned long)(rx.no_poly - last_rx[s].no_poly),
+                       (unsigned long)(rx.lfsr_fail - last_rx[s].lfsr_fail),
+                       (unsigned long)(rx.overflows - last_rx[s].overflows));
+                last_rx[s] = rx;
+            }
+            printf(",cfg");
+            for (int s = 0; s < NUM_SENSORS; s++) {
+                uint16_t cfg = db_lh2_config_readback((uint8_t)s);
+                if (cfg == 0x392B) printf(",S%d=ok", s);
+                else printf(",S%d=0x%04X", s, cfg);
+            }
+            printf("\n");
+#endif
             stdio_flush();
             last_debug_us = now_us;
         }

@@ -60,6 +60,16 @@ typedef struct {
     uint8_t                   sensor;                                              ///< Which TS4231 sensor is associated with this data structure (valid values [0-3]).
 } db_lh2_t;
 
+/// Receive counters of one sensor since boot (diagnostics: light that arrives vs. light that is decoded)
+typedef struct {
+    uint32_t captures;   ///< light pulses captured (envelope fell, 16 us sampled)
+    uint32_t overflows;  ///< captures lost because core 1 did not empty the ring buffer in time
+    uint32_t no_poly;    ///< captures that matched no polynomial of a known station (noise, too few clean bits)
+    uint32_t lfsr_fail;  ///< polynomial found but the LFSR position search failed
+    uint32_t decoded;    ///< sweeps decoded (polynomial + LFSR position)
+    uint32_t corrected;  ///< ... of which accepted with 1-2 bit errors in the check bits
+} db_lh2_stats_t;
+
 //=========================== public ===========================================
 
 /**
@@ -78,6 +88,24 @@ void db_lh2_init(db_lh2_t *lh2, uint8_t sensor, const uint8_t gpio_d, const uint
  * @param[in]   lh2 pointer to the lh2 instance
  */
 void db_lh2_process_location(db_lh2_t *lh2);
+
+/**
+ * @brief Only look for these polynomials (bit n = polynomial n; default: all 32).
+ *        Fewer candidates = less work per capture and fewer chances for noise to match.
+ *
+ * @param[in]   mask    bit mask of the polynomials to search
+ */
+void db_lh2_set_polynomial_mask(uint32_t mask);
+
+/**
+ * @brief Copy the receive counters of a sensor (see db_lh2_stats_t)
+ */
+void db_lh2_get_stats(uint8_t sensor, db_lh2_stats_t *out);
+
+/**
+ * @brief Configuration word the TS4231 answered at init (0x392B = configured as asked)
+ */
+uint16_t db_lh2_config_readback(uint8_t sensor);
 
 /**
  * @brief Start the LH2 frame acquisition
