@@ -46,4 +46,10 @@ void mavlink_request_ekf_stream(void);
 /* Return local_us corrected to FC timebase [µs]; unmodified until first sync. */
 uint64_t mavlink_timesync_corrected_us(uint64_t local_us);
 
+/* Skybrush SHOW mode without a GPS (call every loop, rate-limited inside): GPS_INPUT at 5 Hz with
+ * no fix and a made-up GPS time (the show only starts if the GPS week is non-zero, its countdown
+ * runs on the drone's own clock) and, while `origin` is true, SET_GPS_GLOBAL_ORIGIN every 5 s.
+ * GPS_INPUT is used only with GPS_TYPE = 14 on the flight controller. */
+void mavlink_send_show_time_and_origin(uint64_t now_us, bool origin);
+
 #endif /* MAVLINK_H */
