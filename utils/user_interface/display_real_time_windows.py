@@ -1571,6 +1571,53 @@ class MissionRunner:
 
     YAW_TOL_DEG = 10.0            # a point with a yaw is reached when the heading is this close too
 
+    def _turn_to(self, x, y, z, yaw, what):
+        """Turn on the spot (GUIDED target at the room point x, y, z with the new yaw) until the heading is
+        within YAW_TOL_DEG, with the usual guards. False: the mission ended (pilot, checks, timeout)."""
+        st = self.fc.status()
+        if st["yaw"] is not None and abs(_wrap_deg(st["yaw"] - yaw)) <= self.YAW_TOL_DEG:
+            return True
+        delta = abs(_wrap_deg(st["yaw"] - yaw)) if st["yaw"] is not None else 180.0
+        timeout = 6.0 + delta / 15.0               # ArduPilot turns at ~30-90 deg/s in GUIDED
+        with self.lock:
+            self.status_.update(phase="turn", target=[x, y, z], turn_to=round(ned_yaw_to_room(yaw), 1))
+        self._log(f"{what}: turning on the spot to {ned_yaw_to_room(yaw):.0f} deg (room), {delta:.0f} deg")
+        started = sent = time.monotonic()
+        self._goto(x, y, z, yaw)
+        failing_since = None
+        while True:
+            if self.stop_event.wait(0.1):
+                return False
+            now = time.monotonic()
+            st = self.fc.status()
+            if st["mode"] != "GUIDED" or not st["armed"]:
+                self._finish("aborted", f"{what} turn: pilot took over (mode {st['mode']})")
+                return False
+            checks = self.checks()
+            failing = [checks[n]["detail"] for n in ("lighthouse", "agree", "fc") if not checks[n]["ok"]]
+            if failing:
+                failing_since = failing_since or now
+                if now - failing_since >= self.PERSIST_S:
+                    self._hold_here()
+                    self._finish("aborted", f"{what} turn stopped, holding position: {'; '.join(failing)}")
+                    return False
+            else:
+                failing_since = None
+            off = abs(_wrap_deg(st["yaw"] - yaw)) if st["yaw"] is not None else None
+            with self.lock:
+                self.status_["distance"] = None
+                self.status_["yaw_off"] = None if off is None else round(off, 1)
+            if off is not None and off <= self.YAW_TOL_DEG:
+                return True
+            if now - started > timeout:
+                self._hold_here()
+                self._finish("aborted", f"{what}: turn not done in {timeout:.0f} s ({off:.0f} deg off) — holding position"
+                             if off is not None else f"{what}: no heading from the flight controller — holding position")
+                return False
+            if now - sent > 1.0:
+                self._goto(x, y, z, yaw)
+                sent = now
+
     def _run(self, points, speed, tolerance, settle, pass_through=False, launch=None, land=None, yaws=None,
              frame="absolute"):
         """Take off if asked (INIZIO), then fly the points. pass_through: every point but the last only
@@ -1603,18 +1650,26 @@ class MissionRunner:
             self._log(f"start: {len(points)} points at {speed:.2f} m/s, yaw {ned_yaw_to_room(yaw):.0f} deg (room)"
                       + (", turning at some points" if any(t is not None for t in targets) else ", held")
                       + (", passing through the points" if pass_through else ""))
+            pos, _ = self.state.latest()
+            here = (pos["x"], pos["y"], pos["z"])     # where the drone holds while it turns
             for leg, (x, y, z) in enumerate(points):
                 last = leg == len(points) - 1
                 leg_tol = tolerance if last or not pass_through else max(tolerance, self.PASS_RADIUS)
                 leg_settle = settle if last or not pass_through else 0.0
                 turn = targets[leg] is not None
-                if turn:
-                    yaw = targets[leg]                    # held from here on, also for the landing
                 check_yaw = turn and (last or not pass_through)
                 with self.lock:
                     self.status_["leg"] = leg
                     self.status_["hold_left"] = None
+                if turn:
+                    # Turn first, holding where it is, then fly there with the new heading. Points
+                    # flown through (curves) turn on the way instead, without stopping.
+                    if check_yaw and not self._turn_to(*here, targets[leg], f"point {leg + 1}"):
+                        return
+                    yaw = targets[leg]                    # held from here on, also for the landing
+                with self.lock:
                     self.status_["target"] = [x, y, z]
+                    self.status_["phase"] = "points"
                 pos, _ = self.state.latest()
                 distance = math.dist((pos["x"], pos["y"], pos["z"]), (x, y, z))
                 timeout = 8.0 + 2.0 * distance / speed + (8.0 if turn else 0.0)
@@ -1668,6 +1723,7 @@ class MissionRunner:
                         self.fc.set_speed(speed)
                         sent = now
                 self._log(f"point {leg + 1} reached")
+                here = (x, y, z)
             if land:
                 spot, name = self._landing_spot(land, points[-1])
                 if spot is None:

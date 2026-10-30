@@ -726,7 +726,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
           <option value="relative">relative to where the drone is (dX, dY, dZ)</option>
           <option value="absolute">room coordinates (X, Y, Z)</option>
         </select></div>
-      <table id="mis-table"><thead><tr><th>#</th><th id="mis-hx">X m</th><th id="mis-hy">Y m</th><th id="mis-hz">Z m</th><th id="mis-hyaw" title="Heading at the point, counter-clockwise from +X like the Yaw of the ODOMETRY panel (0 = nose toward the 1 m mark). Relative points: turn from the heading at the start (+ = counter-clockwise). Empty = keep the heading it has.">Yaw °</th><th></th></tr></thead><tbody></tbody></table>
+      <table id="mis-table"><thead><tr><th>#</th><th id="mis-hx">X m</th><th id="mis-hy">Y m</th><th id="mis-hz">Z m</th><th id="mis-hyaw" title="Heading at the point, counter-clockwise from +X like the Yaw of the ODOMETRY panel (0 = nose toward the 1 m mark). Relative points: turn from the heading at the start (+ = counter-clockwise). Empty = keep the heading it has. The drone turns on the spot first, then flies to the point (points flown through turn on the way).">Yaw °</th><th></th></tr></thead><tbody></tbody></table>
       <div class="row" style="flex-wrap:wrap;gap:6px;">
         <button id="mis-add" type="button">+ Point</button>
         <button id="mis-add-drone" type="button" title="Add where the drone is now">+ Drone position</button>
@@ -2034,6 +2034,8 @@ function misRefresh() {
   else if (misRunning() && s.phase === 'return') st.textContent = `Flying to ${s.land_name || 'home'}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
   else if (misRunning() && s.phase === 'descend') st.textContent = `Descending slowly above ${s.land_name || 'home'}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
   else if (misRunning() && s.phase === 'land') st.textContent = 'LAND: touching down…';
+  else if (misRunning() && s.phase === 'turn') st.textContent = `Point ${s.leg + 1}/${s.points.length}: turning on the spot to ${s.turn_to}°`
+    + (s.yaw_off != null ? ` · ${s.yaw_off.toFixed(0)}° to go` : '');
   else if (misRunning() && s.phase === 'takeoff') st.textContent = 'Taking off' + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to climb` : '');
   else if (misRunning()) st.textContent = `Running · point ${s.leg + 1}/${s.points.length}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm ${s.hold_left != null ? 'away' : 'to go'}` : '')
     + (s.hold_left != null ? ` · holding, ${s.hold_left.toFixed(0)} s left` : '');
