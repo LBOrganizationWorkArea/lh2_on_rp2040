@@ -50,6 +50,10 @@ All `db_lh2_init()` calls must run on **core 1** — they arm PIO IRQs on the ex
 - **Pairing** (`angle_decoder.c`): the two sweeps of a pair must be ≤ `PAIR_MAX_GAP_US` (20 ms) apart, else the older is dropped (`unpaired` in STAT). Swap guard at |a0 − a1| > 120° (real pairs ≤ 111° up to the 55° field-of-view edge, swapped ≥ 129°).
 - **USB `RX` line** each second, per sensor: `captured/decoded/fixed/nopoly/lfsr/lost` and the TS4231 configuration read back at boot (`cfg,S0=ok` = 0x392B). Far from a station: captures arriving but not decoded = decoder; no captures = light / sensor.
 
+## Skybrush SHOW mode without a GPS (branch `feat/skybrush-gps-time`)
+
+Skybrush's ArduCopter fork (CMCopter-4.6 / 4.7) only arms for the show if `AP::gps().time_week() > 0` (`is_prepared_to_take_off()`), even with `SHOW_SYNC_MODE = 0` (countdown on the drone's own clock). With `SKYBRUSH_GPS_TIME` (main.c, default 1) the Pico sends `GPS_INPUT` at 5 Hz with no fix (`fix_type = 1`, everything ignored, made-up week 2400 + uptime) and `SET_GPS_GLOBAL_ORIGIN` (45.0 / 9.0 / 100 m, the bridge's `FAKE_ORIGIN`) every 5 s until 30 s after the EKF is healthy. `GPS_INPUT` is used only with `GPS_TYPE = 14` on the flight controller; the EKF ignores a no-fix GPS. In Live: environment **Outdoor**, origin 45.0 / 9.0, orientation = `BS_WORLD_HEADING_DEG`, AHL (the Server uploads a MAVLink show only with a geodetic coordinate system; the show frame has Y left of X like the room).
+
 ## TIMESYNC
 
 We do **not** send outgoing TIMESYNC requests. The offset EMA is seeded from the FC's own broadcasts (incoming `tc1=0` frames). See `_dispatch_timesync()` in `mavlink/mavlink.c`.

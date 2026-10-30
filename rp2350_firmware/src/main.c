@@ -80,6 +80,13 @@
 // Timing
 // ---------------------------------------------------------------------------
 
+/** 1: send a made-up GPS time (GPS_INPUT, no fix) and EKF origin for Skybrush's SHOW mode.
+ *  Harmless without GPS_TYPE = 14 on the flight controller (GPS_INPUT is then ignored). */
+#ifndef SKYBRUSH_GPS_TIME
+#define SKYBRUSH_GPS_TIME 1
+#endif
+#define SHOW_ORIGIN_FOR_US 30000000ULL   /**< EKF origin sent until 30 s after the EKF is healthy */
+
 /** Diagnostic print / TUNNEL interval [µs] — 10 Hz */
 #define PRINT_INTERVAL_US  100000ULL
 /** ODOMETRY interval [µs] — 30 Hz, sent only with a new position. EKF3 drops an ExtNav sample
@@ -624,6 +631,18 @@ int main(void)
         /* Drain UART RX every iteration — EKF_STATUS_REPORT arrives at 1 Hz
          * (34-byte frames) so calling this at full loop rate keeps the FIFO empty. */
         mavlink_rx_update();
+
+#if SKYBRUSH_GPS_TIME
+        /* Skybrush SHOW mode needs a GPS week and an EKF origin: made-up ones (mavlink.c). The
+         * origin until 30 s after the EKF is healthy (set by then; with ExtNav ArduPilot would
+         * accept it again in flight, the same value, but there is no need). */
+        {
+            static uint64_t ekf_healthy_since_us = 0;
+            if (!ekf_healthy_since_us && mavlink_is_ekf_healthy()) ekf_healthy_since_us = now_us;
+            mavlink_send_show_time_and_origin(now_us, !ekf_healthy_since_us
+                                              || now_us - ekf_healthy_since_us < SHOW_ORIGIN_FOR_US);
+        }
+#endif
 
         /* Decode whatever core 1 has produced since last pass. */
         if (g_capture_ready) {

@@ -114,6 +114,25 @@
 
 #define MSGID_TIMESYNC       111u
 #define CRC_EXTRA_TIMESYNC   34u
+
+/* GPS_INPUT (msg #232) and SET_GPS_GLOBAL_ORIGIN (msg #48), for Skybrush's SHOW mode without a GPS */
+#define MSGID_GPS_INPUT           232u
+#define CRC_EXTRA_GPS_INPUT       151u
+#define GPS_INPUT_LEN             65u
+#define GPS_INPUT_IGNORE_ALL      0xFFu        /* alt, hdop, vdop, velocities, accuracies */
+#define GPS_FIX_TYPE_NO_FIX       1u
+#define GPS_INPUT_INTERVAL_US     200000ULL    /* 5 Hz: AP_GPS times out without it */
+#define SHOW_GPS_WEEK             2400u        /* made up: only "non-zero" matters */
+#define GPS_WEEK_MS               604800000ULL
+#define MSGID_SET_GPS_ORIGIN      48u
+#define CRC_EXTRA_SET_GPS_ORIGIN  41u
+#define SET_GPS_ORIGIN_LEN        21u
+#define ORIGIN_INTERVAL_US        5000000ULL
+/* Same made-up EKF origin as the bridge (display_real_time_windows.py FAKE_ORIGIN): Skybrush Live
+ * places the show here */
+#define FAKE_ORIGIN_LAT_E7        450000000
+#define FAKE_ORIGIN_LON_E7        90000000
+#define FAKE_ORIGIN_ALT_MM        100000
 #define TIMESYNC_PL_LEN      16u          /* tc1(int64) + ts1(int64) */
 #define TIMESYNC_FRAME_LEN   28u          /* 10 hdr + 16 payload + 2 CRC */
 #define TIMESYNC_RTT_MAX_NS  50000000LL   /* discard samples with RTT > 50 ms */
@@ -337,6 +356,36 @@ static void _rx_feed(uint8_t b)
         s_rx.state = RXS_IDLE;
         break;
     }
+}
+
+/* ---- Generic frame (sysid / compid of the Pico, no signing) --------------- */
+
+static void _send_frame(uint32_t msgid, uint8_t crc_extra, const uint8_t *payload, uint8_t len)
+{
+    uint8_t f[10u + 255u + 2u];
+    f[0] = MAV_STX;
+    f[1] = len;
+    f[2] = 0u;                                  /* incompat flags */
+    f[3] = 0u;                                  /* compat flags */
+    f[4] = s_seq++;
+    f[5] = MAV_SYSID;
+    f[6] = MAV_COMPID;
+    f[7] = (uint8_t)(msgid & 0xFFu);
+    f[8] = (uint8_t)((msgid >> 8u) & 0xFFu);
+    f[9] = (uint8_t)((msgid >> 16u) & 0xFFu);
+    memcpy(&f[10], payload, len);
+    uint16_t crc = 0xFFFFu;
+    for (int i = 1; i < 10 + len; i++) crc = crc_accumulate(f[i], crc);
+    crc = crc_accumulate(crc_extra, crc);
+    f[10 + len] = (uint8_t)(crc & 0xFFu);
+    f[11 + len] = (uint8_t)(crc >> 8u);
+    uart_write_blocking(MAV_UART, f, 12u + len);
+}
+
+static void write_u32_le(uint8_t *dst, uint32_t v)
+{
+    for (int i = 0; i < 4; i++, v >>= 8u)
+        dst[i] = (uint8_t)(v & 0xFFu);
 }
 
 /* ---- COMMAND_LONG helper -------------------------------------------------- */
@@ -607,6 +656,41 @@ void mavlink_request_ekf_stream(void)
     _send_cmd_long(MAV_CMD_MSG_INTV, 193.0f, 1000000.0f);
 }
 
+
+void mavlink_send_show_time_and_origin(uint64_t now_us, bool origin)
+{
+    static uint64_t last_gps_us = 0, last_origin_us = 0;
+
+    if (last_gps_us == 0 || now_us - last_gps_us >= GPS_INPUT_INTERVAL_US) {
+        /* GPS_INPUT wire order: time_usec, time_week_ms, lat, lon, alt, hdop, vdop, vn, ve, vd,
+         * speed / horiz / vert accuracy, ignore_flags, time_week, gps_id, fix_type,
+         * satellites_visible, yaw (extension). Everything but the time is ignored or zero. */
+        uint8_t p[GPS_INPUT_LEN];
+        memset(p, 0, sizeof(p));
+        uint64_t ms = now_us / 1000ULL;
+        write_u64_le(&p[0], now_us);
+        write_u32_le(&p[8], (uint32_t)(ms % GPS_WEEK_MS));
+        write_u16_le(&p[56], GPS_INPUT_IGNORE_ALL);
+        write_u16_le(&p[58], (uint16_t)(SHOW_GPS_WEEK + ms / GPS_WEEK_MS));
+        p[60] = 0u;                             /* gps_id: the first GPS */
+        p[61] = GPS_FIX_TYPE_NO_FIX;            /* no position: the EKF never uses it */
+        _send_frame(MSGID_GPS_INPUT, CRC_EXTRA_GPS_INPUT, p, GPS_INPUT_LEN);
+        last_gps_us = now_us;
+    }
+
+    if (origin && (last_origin_us == 0 || now_us - last_origin_us >= ORIGIN_INTERVAL_US)) {
+        /* SET_GPS_GLOBAL_ORIGIN wire order: latitude, longitude, altitude [mm], target_system,
+         * time_usec (extension) */
+        uint8_t p[SET_GPS_ORIGIN_LEN];
+        memset(p, 0, sizeof(p));
+        write_u32_le(&p[0], (uint32_t)FAKE_ORIGIN_LAT_E7);
+        write_u32_le(&p[4], (uint32_t)FAKE_ORIGIN_LON_E7);
+        write_u32_le(&p[8], (uint32_t)FAKE_ORIGIN_ALT_MM);
+        p[12] = 1u;                             /* target_system: the flight controller */
+        _send_frame(MSGID_SET_GPS_ORIGIN, CRC_EXTRA_SET_GPS_ORIGIN, p, SET_GPS_ORIGIN_LEN);
+        last_origin_us = now_us;
+    }
+}
 
 uint64_t mavlink_timesync_corrected_us(uint64_t local_us)
 {
