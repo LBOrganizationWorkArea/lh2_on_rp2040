@@ -76,6 +76,7 @@ body[data-mode=calib] #cal-hud { display: block; }
 #mis-table th { color: #8aa; font-weight: normal; text-align: left; padding: 2px 3px; }
 #mis-table td { padding: 2px 3px; }
 #mis-table input { width: 64px; }
+#mis-table input.yaw { width: 52px; }
 #mis-table tr.bad input { border-color: #c44; color: #ff8a8a; }
 #mis-table tr.cur td:first-child { color: #ffcc44; font-weight: bold; }
 #mis-table button { padding: 2px 7px; }
@@ -725,7 +726,7 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
           <option value="relative">relative to where the drone is (dX, dY, dZ)</option>
           <option value="absolute">room coordinates (X, Y, Z)</option>
         </select></div>
-      <table id="mis-table"><thead><tr><th>#</th><th id="mis-hx">X m</th><th id="mis-hy">Y m</th><th id="mis-hz">Z m</th><th></th></tr></thead><tbody></tbody></table>
+      <table id="mis-table"><thead><tr><th>#</th><th id="mis-hx">X m</th><th id="mis-hy">Y m</th><th id="mis-hz">Z m</th><th id="mis-hyaw" title="Heading at the point, counter-clockwise from +X like the Yaw of the ODOMETRY panel (0 = nose toward the 1 m mark). Relative points: turn from the heading at the start (+ = counter-clockwise). Empty = keep the heading it has.">Yaw °</th><th></th></tr></thead><tbody></tbody></table>
       <div class="row" style="flex-wrap:wrap;gap:6px;">
         <button id="mis-add" type="button">+ Point</button>
         <button id="mis-add-drone" type="button" title="Add where the drone is now">+ Drone position</button>
@@ -1787,10 +1788,19 @@ function misTakeoff() {
 const misOnGround = () => !!(misStatus && misStatus.checks && misStatus.checks.armed && !misStatus.checks.armed.ok);
 function misAbsolute() {
   if (misRunning()) return misStatus.points;
-  if (misFrame === 'absolute') return misPoints;
+  if (misFrame === 'absolute') return misPoints.map(p => p.slice(0, 3));
   if (!misLive()) return null;
   const up = misOnGround() ? misTakeoff().climb : 0;
   return misPoints.map(p => [lastOdomPos.x + p[0], lastOdomPos.y + p[1], lastOdomPos.z + up + p[2]]);
+}
+const misYaw = p => (p.length > 3 && p[3] != null && isFinite(p[3]) ? p[3] : null);
+const wrapDeg = a => ((a + 180) % 360 + 360) % 360 - 180;
+/** Room heading [deg] at each point (null = keep), for the 3D arrows; null when unknown. */
+function misAbsYaws() {
+  if (misRunning()) return misStatus.yaws || null;
+  if (misFrame === 'absolute') return misPoints.map(misYaw);
+  const y0 = misLive() && lastOdomPos.yaw != null ? lastOdomPos.yaw : null;
+  return y0 == null ? null : misPoints.map(p => (misYaw(p) == null ? null : wrapDeg(y0 + misYaw(p))));
 }
 const misRunning = () => misStatus && misStatus.state === 'running';
 function misBad(p) {                                   // why a room point would be refused, or ''
@@ -1808,18 +1818,23 @@ function misRenderTable() {
   const rel = misFrame === 'relative';
   document.getElementById('mis-frame').value = misFrame;
   ['x', 'y', 'z'].forEach(a => { document.getElementById('mis-h' + a).textContent = (rel ? 'd' : '') + a.toUpperCase() + ' m'; });
+  document.getElementById('mis-hyaw').textContent = rel ? 'dYaw °' : 'Yaw °';
   misBody.innerHTML = misPoints.map((p, i) => {
     const bad = abs ? misBad(abs[i]) : '';
     return `<tr class="${bad ? 'bad' : ''} ${i === cur ? 'cur' : ''}" title="${misEsc(bad)}"><td>${i + 1}</td>` +
       [0, 1, 2].map(k => `<td><input type="number" step="0.05" data-i="${i}" data-k="${k}" value="${p[k]}" ${misRunning() ? 'disabled' : ''}></td>`).join('') +
+      `<td><input class="yaw" type="number" step="15" placeholder="—" data-i="${i}" data-k="3" value="${misYaw(p) ?? ''}" ${misRunning() ? 'disabled' : ''}></td>` +
       `<td><button data-del="${i}" ${misRunning() ? 'disabled' : ''}>✕</button></td></tr>`;
-  }).join('') || '<tr><td colspan="5" style="color:#888;">No points yet.</td></tr>';
+  }).join('') || '<tr><td colspan="6" style="color:#888;">No points yet.</td></tr>';
   misDraw();
 }
 misBody.addEventListener('change', e => {
   const t = e.target;
   if (t.dataset.i == null) return;
-  misPoints[+t.dataset.i][+t.dataset.k] = Math.round(parseFloat(t.value) * 100) / 100;
+  const pt = misPoints[+t.dataset.i], v = parseFloat(t.value);
+  if (+t.dataset.k === 3) {                             // heading: empty = keep the one it has
+    if (isFinite(v)) pt[3] = Math.round(wrapDeg(v) * 10) / 10; else pt.length = 3;
+  } else pt[+t.dataset.k] = Math.round(v * 100) / 100;
   misSave(); misRenderTable(); misRefresh();
 });
 misBody.addEventListener('click', e => {
@@ -1835,7 +1850,9 @@ function misHere() {                                    // drone position, else 
 document.getElementById('mis-frame').addEventListener('change', e => {
   if (misLive()) {                                      // keep the same figure: convert the list around the drone
     const here = [lastOdomPos.x, lastOdomPos.y, lastOdomPos.z], sign = e.target.value === 'absolute' ? 1 : -1;
-    misPoints = misPoints.map(p => p.map((v, k) => r2(v + sign * here[k])));
+    const yaw0 = lastOdomPos.yaw ?? 0;                   // headings: turn <-> room heading, around the drone's
+    misPoints = misPoints.map(p => [...p.slice(0, 3).map((v, k) => r2(v + sign * here[k])),
+      ...(misYaw(p) == null ? [] : [Math.round(wrapDeg(p[3] + sign * yaw0) * 10) / 10])]);
   }
   misFrame = e.target.value; misSave(); misRenderTable(); misRefresh();
 });
@@ -1845,7 +1862,8 @@ document.getElementById('mis-add').addEventListener('click', () => {
 });
 document.getElementById('mis-add-drone').addEventListener('click', () => {
   if (!lastOdomPos || Date.now() - lastOdomAt > 2000) { document.getElementById('mis-status').textContent = 'No live drone position.'; return; }
-  misPoints.push(misFrame === 'relative' ? [0, 0, 0] : [r2(lastOdomPos.x), r2(lastOdomPos.y), r2(lastOdomPos.z)]);
+  const yawNow = lastOdomPos.yaw != null ? [Math.round(lastOdomPos.yaw)] : [];
+  misPoints.push(misFrame === 'relative' ? [0, 0, 0] : [r2(lastOdomPos.x), r2(lastOdomPos.y), r2(lastOdomPos.z), ...yawNow]);
   misSave(); misRenderTable(); misRefresh();
 });
 /** A figure as offsets [dx, dy, dz] from the start, starting and ending there. */
@@ -1923,8 +1941,16 @@ function misDraw() {
     const o = misGroup.children.pop();
     if (o.element) o.element.remove();
     if (o.geometry) o.geometry.dispose();
+    if (o.type === 'ArrowHelper') o.dispose();
   }
   const cur = misRunning() ? misStatus.leg : -1, pts = misAbsolute() || [];
+  const yaws = misAbsYaws();
+  if (yaws) pts.forEach((p, i) => {                     // heading arrows where the point turns the drone
+    if (yaws[i] == null) return;
+    const a = yaws[i] * Math.PI / 180;
+    misGroup.add(new THREE.ArrowHelper(tv(Math.cos(a), Math.sin(a), 0).normalize(), tv(...p), 0.25,
+      i === cur ? 0xffcc44 : 0xff6a3d, 0.08, 0.05));
+  });
   if (pts.length > 1) {
     const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts.map(p => tv(...p))),
       new THREE.LineBasicMaterial({ color: 0x4fd1ff }));

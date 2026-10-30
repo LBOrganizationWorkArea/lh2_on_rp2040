@@ -805,6 +805,39 @@ def ned_to_world(north, east, down):
     return north * c + east * s, north * s - east * c, -down
 
 
+def _wrap_deg(a):
+    return (a + 180.0) % 360.0 - 180.0
+
+
+def room_yaw_to_ned(yaw):
+    """Room yaw (counter-clockwise from +X, as the editor shows it) [deg] -> the EKF's yaw
+    (clockwise from its north) [deg]: the same turn as the position (see the ODOMETRY decoding)."""
+    return _wrap_deg(math.degrees(math.atan2(WORLD_HEADING[1], WORLD_HEADING[0])) - yaw)
+
+
+def ned_yaw_to_room(yaw):
+    """Inverse of room_yaw_to_ned."""
+    return _wrap_deg(math.degrees(math.atan2(WORLD_HEADING[1], WORLD_HEADING[0])) - yaw)
+
+
+def parse_points(raw):
+    """Mission points [x, y, z] or [x, y, z, yaw] -> (positions, yaws); a yaw of None (or a
+    3-value point) keeps the heading the drone already holds."""
+    points, yaws = [], []
+    for p in raw or []:
+        if not isinstance(p, (list, tuple)) or len(p) not in (3, 4):
+            raise ValueError("give the points as [x, y, z] or [x, y, z, yaw]")
+        xyz = [float(v) for v in p[:3]]
+        yaw = float(p[3]) if len(p) == 4 and p[3] is not None and p[3] != "" else None
+        if not all(math.isfinite(v) for v in xyz) or (yaw is not None and not math.isfinite(yaw)):
+            raise ValueError("a point is not a number")
+        points.append(xyz)
+        yaws.append(yaw)
+    if not points:
+        raise ValueError("give at least one point as [x, y, z]")
+    return points, yaws
+
+
 TRACKS_DIR = os.path.join(DATA_DIR, "tracks")
 
 
@@ -993,9 +1026,8 @@ class MissionRunner:
     def set_auto(self, config):
         """Arm (config dict) or disarm (None) the auto-start on GUIDED."""
         if config is not None:
-            points = [[float(v) for v in p] for p in config.get("points", [])]
-            if not points or any(len(p) != 3 or not all(math.isfinite(v) for v in p) for p in points):
-                raise ValueError("give at least one point as [x, y, z]")
+            parse_points(config.get("points"))           # refuse a bad list now, not at GUIDED
+            points = config.get("points")
             config = {"frame": "relative" if config.get("frame") == "relative" else "absolute", "points": points,
                       "pass_through": bool(config.get("pass_through")), "land": config.get("land") or None,
                       "speed": float(config.get("speed", 0.3)), "tolerance": float(config.get("tolerance", 0.10)),
@@ -1134,9 +1166,7 @@ class MissionRunner:
         with self.lock:
             if self.status_["state"] == "running":
                 raise ValueError("a mission is already running")
-        points = [[float(v) for v in p] for p in points]
-        if not points or any(len(p) != 3 or not all(math.isfinite(v) for v in p) for p in points):
-            raise ValueError("give at least one point as [x, y, z]")
+        points, yaws = parse_points(points)
         if len(points) > 50:
             raise ValueError("at most 50 points")
         pos, age = self.state.latest()
@@ -1172,12 +1202,12 @@ class MissionRunner:
             self.status_.update(state="running", points=planned, leg=None if launch else 0, distance=None, log=[],
                                 area=station_area(self.limits["margin"]), phase="countdown" if launch else "points",
                                 countdown=None, start_z=pos["z"], target=None, hold_left=None, takeoff_sent=False,
-                                launch_home=None, land_to=None, land_name=None)
+                                launch_home=None, land_to=None, land_name=None, yaws=None)
         self.stop_event.clear()
         if land:
             land = self._landing_spec(land, planned)
-        self.thread = threading.Thread(target=self._run, args=(planned, speed, tolerance, settle, bool(pass_through), launch, land),
-                                       daemon=True)
+        self.thread = threading.Thread(target=self._run, args=(planned, speed, tolerance, settle, bool(pass_through), launch, land,
+                                                                yaws, frame), daemon=True)
         self.thread.start()
 
     def _on_ground(self):
@@ -1539,9 +1569,15 @@ class MissionRunner:
             return None
         return ned_to_world(*(h - o for h, o in zip(home, off)))
 
-    def _run(self, points, speed, tolerance, settle, pass_through=False, launch=None, land=None):
+    YAW_TOL_DEG = 10.0            # a point with a yaw is reached when the heading is this close too
+
+    def _run(self, points, speed, tolerance, settle, pass_through=False, launch=None, land=None, yaws=None,
+             frame="absolute"):
         """Take off if asked (INIZIO), then fly the points. pass_through: every point but the last only
-        has to be passed within PASS_RADIUS (no hold), so curves of many points are flown without stopping."""
+        has to be passed within PASS_RADIUS (no hold), so curves of many points are flown without stopping.
+        yaws: per point, room yaw [deg] (frame "relative": turn from the heading at the start, + =
+        counter-clockwise) or None = keep the heading held so far."""
+        yaws = yaws or [None] * len(points)
         try:
             if launch:
                 if not self._launch(launch["climb"], launch["hover"]):
@@ -1559,20 +1595,31 @@ class MissionRunner:
             with self.lock:
                 self.status_.update(points=points, leg=0, phase="points")
             yaw = self.fc.status()["yaw"] or 0.0      # keep the heading the drone has now
-            self._log(f"start: {len(points)} points at {speed:.2f} m/s, yaw held at {yaw:.0f} deg"
+            start_yaw = yaw
+            targets = [None if a is None else room_yaw_to_ned(a) if frame == "absolute" else _wrap_deg(start_yaw - a)
+                       for a in yaws]
+            with self.lock:
+                self.status_["yaws"] = [None if t is None else round(ned_yaw_to_room(t), 1) for t in targets]
+            self._log(f"start: {len(points)} points at {speed:.2f} m/s, yaw {ned_yaw_to_room(yaw):.0f} deg (room)"
+                      + (", turning at some points" if any(t is not None for t in targets) else ", held")
                       + (", passing through the points" if pass_through else ""))
             for leg, (x, y, z) in enumerate(points):
                 last = leg == len(points) - 1
                 leg_tol = tolerance if last or not pass_through else max(tolerance, self.PASS_RADIUS)
                 leg_settle = settle if last or not pass_through else 0.0
+                turn = targets[leg] is not None
+                if turn:
+                    yaw = targets[leg]                    # held from here on, also for the landing
+                check_yaw = turn and (last or not pass_through)
                 with self.lock:
                     self.status_["leg"] = leg
                     self.status_["hold_left"] = None
                     self.status_["target"] = [x, y, z]
                 pos, _ = self.state.latest()
                 distance = math.dist((pos["x"], pos["y"], pos["z"]), (x, y, z))
-                timeout = 8.0 + 2.0 * distance / speed
-                self._log(f"point {leg + 1}/{len(points)}: ({x:.2f}, {y:.2f}, {z:.2f}), {distance:.2f} m away")
+                timeout = 8.0 + 2.0 * distance / speed + (8.0 if turn else 0.0)
+                self._log(f"point {leg + 1}/{len(points)}: ({x:.2f}, {y:.2f}, {z:.2f}), {distance:.2f} m away"
+                          + (f", yaw {ned_yaw_to_room(yaw):.0f} deg (room)" if turn else ""))
                 started = sent = time.monotonic()
                 self._goto(x, y, z, yaw)
                 self.fc.set_speed(speed)              # after the target: it would reset a speed sent before
@@ -1601,7 +1648,8 @@ class MissionRunner:
                         self.status_["distance"] = d
                     # Arrived = first time within the radius; the hold then runs for leg_settle seconds
                     # whatever small excursions the drone makes (a long hold is the hover being studied).
-                    if inside_since is None and d <= leg_tol:
+                    yaw_ok = not check_yaw or st["yaw"] is None or abs(_wrap_deg(st["yaw"] - yaw)) <= self.YAW_TOL_DEG
+                    if inside_since is None and d <= leg_tol and yaw_ok:
                         inside_since = now
                         if leg_settle >= 5:
                             self._log(f"point {leg + 1}: arrived, holding {leg_settle:.0f} s")
@@ -1612,7 +1660,8 @@ class MissionRunner:
                             break
                     elif now - started > timeout:
                         self._hold_here()
-                        self._finish("aborted", f"point {leg + 1} not reached in {timeout:.0f} s ({100 * d:.0f} cm away): holding position")
+                        off_yaw = f", heading {abs(_wrap_deg(st['yaw'] - yaw)):.0f} deg off" if check_yaw and st["yaw"] is not None else ""
+                        self._finish("aborted", f"point {leg + 1} not reached in {timeout:.0f} s ({100 * d:.0f} cm away{off_yaw}): holding position")
                         return
                     if now - sent > 1.0:              # repeat the target and speed: a lost packet is harmless
                         self._goto(x, y, z, yaw)
