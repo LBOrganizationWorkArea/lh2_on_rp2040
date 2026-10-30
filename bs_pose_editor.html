@@ -801,14 +801,34 @@ h1 { font-size: 14px; color: #fff; letter-spacing: 1px; }
     </div>
     <div class="bs-card">
       <div class="grp-lbl">LANDING · AT THE END</div>
-      <label class="row" style="gap:6px;cursor:pointer;" title="After the last point: back above home at the current height, slow descent, then LAND (ArduPilot touches down and disarms). Only when the mission ends normally.">
-        <input id="mis-land" type="checkbox"> Return home and land at the end</label>
-      <div class="row" title="Speed of the slow GUIDED descent above home, down to 30 cm over it; the last 30 cm are flown by LAND at LAND_SPEED (Drone tab)">
+      <label class="row" style="gap:6px;cursor:pointer;" title="After the last point: fly at the current height above the landing spot, slow descent, then LAND (ArduPilot touches down and disarms). Only when the mission ends normally.">
+        <input id="mis-land" type="checkbox"> Land at the end</label>
+      <div class="row">
+        <div class="lbl" style="width:150px;">where</div>
+        <select id="mis-land-at" style="flex:1;min-width:0;background:#141414;border:1px solid #444;border-radius:3px;color:#fff;padding:4px;">
+          <option value="home">back home (where it took off)</option>
+          <option value="last">at the last point (straight down)</option>
+          <option value="point">at a point X, Y</option>
+        </select>
+      </div>
+      <div class="row" id="mis-land-pt" title="Landing point in room coordinates (X, Y of the ODOMETRY panel), also for a relative figure">
+        <div class="lbl" style="width:150px;">point X, Y</div>
+        <input id="mis-land-x" type="number" step="0.05" value="0"><input id="mis-land-y" type="number" step="0.05" value="0"><div class="lbl">m</div>
+      </div>
+      <div class="row" title="The Z the drone reads (ODOMETRY panel) when it stands on the ground at the landing spot. Empty: the same as where it took off. Too low is safe (LAND finishes the descent), too high stops the slow descent above the ground.">
+        <div class="lbl" style="width:150px;">ground there, Z</div>
+        <input id="mis-land-gz" type="number" step="0.05" placeholder="as take-off"><div class="lbl">m</div>
+      </div>
+      <button id="mis-land-here" type="button" title="Put the drone on the landing spot, click: X, Y and the ground Z are taken from it (then carry it to the take-off spot)">📍 Landing spot = where the drone stands now</button>
+      <div class="row" title="Speed of the slow GUIDED descent above the landing spot, down to 30 cm over the ground; the last 30 cm are flown by LAND at LAND_SPEED (Drone tab)">
         <div class="lbl" style="width:150px;">descent speed</div><input id="mis-land-v" type="number" value="0.2" min="0.05" max="0.5" step="0.05"><div class="lbl">m/s</div></div>
       <div class="hint">Home = where INIZIO took off (the stand), or ArduPilot's home when the mission was started in the air.
-        Sequence: return at the current height (mission speed) → descent at the speed above to 30 cm over home →
-        <b>LAND</b> for the touch-down at <code>LAND_SPEED</code> (set 30 cm/s in the Drone tab for the gentlest).
-        A mode change on the radio takes over at any moment; a stopped mission never lands by itself.</div>
+        Sequence: to the landing spot at the current height (mission speed) → descent at the speed above to 30 cm over
+        the ground there → <b>LAND</b> for the touch-down at <code>LAND_SPEED</code> (set 30 cm/s in the Drone tab for the gentlest).
+        Landing elsewhere on a lower floor (e.g. from the stand to the floor): set the ground Z there, or the slow
+        descent stops at the stand's height + 30 cm and LAND does the rest more slowly. If the lighthouse is lost in the
+        descent (close to the floor) it lands at once. A mode change on the radio takes over at any moment;
+        a stopped mission never lands by itself.</div>
     </div>
     <div class="bs-card">
       <div class="grp-lbl">READY?</div>
@@ -1734,8 +1754,30 @@ const misLive = () => lastOdomPos && Date.now() - lastOdomAt < 2000;
 /** Room points to check and draw: the running mission, else the list (relative: around the drone now). */
 function misLand() {
   if (!document.getElementById('mis-land').checked) return null;
-  const v = parseFloat(document.getElementById('mis-land-v').value);
-  return { descent: isFinite(v) ? v : 0.2 };
+  const num = id => parseFloat(document.getElementById(id).value);
+  const at = document.getElementById('mis-land-at').value, v = num('mis-land-v'), gz = num('mis-land-gz');
+  return { descent: isFinite(v) ? v : 0.2, at, ground_z: isFinite(gz) ? gz : null,
+           ...(at === 'point' ? { x: num('mis-land-x'), y: num('mis-land-y') } : {}) };
+}
+/** Landing spot [x, y, ground Z] for the 3D preview (on the ground before INIZIO), else null. */
+function misLandSpot(pts) {
+  const l = misLand();
+  if (!l || !pts.length || !misLive()) return null;
+  const h = lastOdomPos, L = pts[pts.length - 1], g = l.ground_z ?? h.z;
+  if (l.at === 'last') return [L[0], L[1], g];
+  if (l.at === 'point') return isFinite(l.x) && isFinite(l.y) ? [l.x, l.y, g] : null;
+  return [h.x, h.y, g];
+}
+function misLandUi() {
+  const on = document.getElementById('mis-land').checked, at = document.getElementById('mis-land-at').value;
+  document.getElementById('mis-land-pt').style.display = on && at === 'point' ? '' : 'none';
+  document.getElementById('mis-land-here').style.display = on && at === 'point' ? '' : 'none';
+  ['mis-land-at', 'mis-land-gz', 'mis-land-v'].forEach(id => { document.getElementById(id).disabled = !on; });
+  try {
+    localStorage.setItem('lh2.mission.land', JSON.stringify({ on, at, x: document.getElementById('mis-land-x').value,
+      y: document.getElementById('mis-land-y').value, gz: document.getElementById('mis-land-gz').value,
+      v: document.getElementById('mis-land-v').value }));
+  } catch (_e) { /* storage blocked */ }
 }
 function misTakeoff() {
   const v = id => parseFloat(document.getElementById(id).value);
@@ -1910,13 +1952,17 @@ function misDraw() {
     d.style.color = '#ffa040';
     const o = new CSS2DObject(d); o.position.copy(tv(lastOdomPos.x, lastOdomPos.y, lastOdomPos.z + to.climb / 2)); misGroup.add(o);
   }
-  if (misLand() && misOnGround() && misLive() && !misRunning() && pts.length) {   // return home and land
-    const L = pts[pts.length - 1], h = lastOdomPos;
-    const back = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(...L), tv(h.x, h.y, L[2]), tv(h.x, h.y, h.z)]),
+  const spot = misOnGround() && !misRunning() ? misLandSpot(pts) : null;
+  if (spot) {                                           // to the landing spot and land
+    const L = pts[pts.length - 1];
+    const back = new THREE.Line(new THREE.BufferGeometry().setFromPoints([tv(...L), tv(spot[0], spot[1], L[2]), tv(...spot)]),
       new THREE.LineDashedMaterial({ color: 0x5adf7a, dashSize: 0.06, gapSize: 0.04 }));
     back.computeLineDistances(); misGroup.add(back);
-    const d = document.createElement('div'); d.className = 'label3d'; d.textContent = 'return + land'; d.style.color = '#5adf7a';
-    const o = new CSS2DObject(d); o.position.copy(tv(h.x, h.y, (L[2] + h.z) / 2)); misGroup.add(o);
+    const pad = new THREE.Mesh(new THREE.RingGeometry(0.1, 0.14, 32), new THREE.MeshBasicMaterial({ color: 0x5adf7a, side: THREE.DoubleSide }));
+    pad.rotation.x = -Math.PI / 2; pad.position.copy(tv(spot[0], spot[1], spot[2] + 0.005)); misGroup.add(pad);
+    const d = document.createElement('div'); d.className = 'label3d'; d.style.color = '#5adf7a';
+    d.textContent = document.getElementById('mis-land-at').value === 'home' ? 'return + land' : 'land here';
+    const o = new CSS2DObject(d); o.position.copy(tv(spot[0], spot[1], (L[2] + spot[2]) / 2)); misGroup.add(o);
   }
   const a = misStatus && misStatus.area;
   if (a && pts.length) {
@@ -1959,8 +2005,8 @@ function misRefresh() {
   const st = document.getElementById('mis-status');
   if (misRunning() && s.phase === 'countdown') st.textContent = `TAKE-OFF IN ${s.countdown ?? ''} s — Stop cancels`;
   else if (misRunning() && s.phase === 'arming') st.textContent = 'GUIDED, arming…';
-  else if (misRunning() && s.phase === 'return') st.textContent = 'Returning home' + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
-  else if (misRunning() && s.phase === 'descend') st.textContent = 'Descending slowly above home' + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
+  else if (misRunning() && s.phase === 'return') st.textContent = `Flying to ${s.land_name || 'home'}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
+  else if (misRunning() && s.phase === 'descend') st.textContent = `Descending slowly above ${s.land_name || 'home'}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to go` : '');
   else if (misRunning() && s.phase === 'land') st.textContent = 'LAND: touching down…';
   else if (misRunning() && s.phase === 'takeoff') st.textContent = 'Taking off' + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm to climb` : '');
   else if (misRunning()) st.textContent = `Running · point ${s.leg + 1}/${s.points.length}` + (s.distance != null ? ` · ${(100 * s.distance).toFixed(0)} cm ${s.hold_left != null ? 'away' : 'to go'}` : '')
@@ -2061,7 +2107,24 @@ function misCountdownBeep(s) {                          // a beep per countdown 
   }
   misBeepKey = key;
 }
-['mis-to-climb', 'mis-to-hover', 'mis-land', 'mis-land-v'].forEach(id => document.getElementById(id).addEventListener('change', () => { misSendAuto(); misRenderTable(); misRefresh(); }));
+try {
+  const saved = JSON.parse(localStorage.getItem('lh2.mission.land') || 'null');
+  if (saved) {
+    document.getElementById('mis-land').checked = !!saved.on;
+    document.getElementById('mis-land-at').value = ['home', 'last', 'point'].includes(saved.at) ? saved.at : 'home';
+    ['x', 'y', 'gz', 'v'].forEach(k => { if (saved[k] != null && saved[k] !== '') document.getElementById(`mis-land-${k}`).value = saved[k]; });
+  }
+} catch (_e) { /* storage blocked or an old entry */ }
+misLandUi();
+document.getElementById('mis-land-here').addEventListener('click', () => {
+  if (!misLive()) { document.getElementById('mis-status').textContent = 'No live drone position.'; return; }
+  document.getElementById('mis-land-x').value = lastOdomPos.x.toFixed(2);
+  document.getElementById('mis-land-y').value = lastOdomPos.y.toFixed(2);
+  document.getElementById('mis-land-gz').value = lastOdomPos.z.toFixed(2);
+  misLandUi(); misSendAuto(); misRenderTable(); misRefresh();
+});
+['mis-to-climb', 'mis-to-hover', 'mis-land', 'mis-land-v', 'mis-land-at', 'mis-land-x', 'mis-land-y', 'mis-land-gz'].forEach(id =>
+  document.getElementById(id).addEventListener('change', () => { misLandUi(); misSendAuto(); misRenderTable(); misRefresh(); }));
 document.getElementById('mis-stop').addEventListener('click', () => misCall('stop'));
 misRenderTable();
 

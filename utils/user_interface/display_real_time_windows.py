@@ -1127,8 +1127,10 @@ class MissionRunner:
         """Fly `points`: room coordinates, or (frame "relative") offsets from where the drone is now.
         takeoff {"climb": m, "hover": s}: INIZIO from the ground — countdown, GUIDED, arm, climb,
         hover, then the points (relative ones from the hover point).
-        land {"descent": m/s}: after the last point return home at the current height, descend slowly
-        and land (home = the INIZIO start point, else ArduPilot's home)."""
+        land {"descent": m/s, "at": "home" | "last" | "point", "x", "y" (room, for "point"), "ground_z"}:
+        after the last point fly at the current height above the landing spot, descend slowly and land.
+        home = the INIZIO start point (else ArduPilot's home); "last" = under the last point. ground_z:
+        room Z of the floor there (default: the ground the drone took off from)."""
         with self.lock:
             if self.status_["state"] == "running":
                 raise ValueError("a mission is already running")
@@ -1161,6 +1163,8 @@ class MissionRunner:
         failed = [c["detail"] for c in checks.values() if not c["ok"]]
         if failed:
             raise ValueError("not ready: " + "; ".join(failed))
+        if land:
+            self._landing_spec(land, planned)              # refuse a bad landing spot before starting
         speed = min(self.MAX_SPEED, max(0.1, float(speed)))
         tolerance = min(0.5, max(0.03, float(tolerance)))
         settle = min(self.MAX_HOLD_S, max(0.0, float(settle)))
@@ -1168,10 +1172,10 @@ class MissionRunner:
             self.status_.update(state="running", points=planned, leg=None if launch else 0, distance=None, log=[],
                                 area=station_area(self.limits["margin"]), phase="countdown" if launch else "points",
                                 countdown=None, start_z=pos["z"], target=None, hold_left=None, takeoff_sent=False,
-                                launch_home=None)
+                                launch_home=None, land_to=None, land_name=None)
         self.stop_event.clear()
         if land:
-            land = {"descent": min(0.5, max(0.05, float(land.get("descent", 0.2))))}
+            land = self._landing_spec(land, planned)
         self.thread = threading.Thread(target=self._run, args=(planned, speed, tolerance, settle, bool(pass_through), launch, land),
                                        daemon=True)
         self.thread.start()
@@ -1400,8 +1404,10 @@ class MissionRunner:
 
     LAND_ABOVE_M = 0.30           # the slow GUIDED descent ends this high above home; LAND does the rest
 
-    def _fly_to(self, x, y, z, yaw, tol, timeout, what, horizontal=False):
-        """GUIDED target with the usual guards until within `tol` (horizontal only if asked). False: ended."""
+    def _fly_to(self, x, y, z, yaw, tol, timeout, what, horizontal=False, land_on_loss=False):
+        """GUIDED target with the usual guards until within `tol` (horizontal only if asked). False: ended.
+        land_on_loss (the last descent): a failing check returns True, so the caller lands at once
+        instead of hovering low without a position."""
         started = sent = time.monotonic()
         self._goto(x, y, z, yaw)
         failing_since = None
@@ -1418,6 +1424,9 @@ class MissionRunner:
             if failing:
                 failing_since = failing_since or now
                 if now - failing_since >= self.PERSIST_S:
+                    if land_on_loss:
+                        self._log(f"{what}: {'; '.join(failing)} — landing here (LAND)")
+                        return True
                     self._hold_here()
                     self._finish("aborted", f"{what} stopped, hovering: {'; '.join(failing)}")
                     return False
@@ -1437,27 +1446,61 @@ class MissionRunner:
                 self._goto(x, y, z, yaw)
                 sent = now
 
-    def _return_and_land(self, home, speed, descent, yaw):
-        """Back above `home` (room point) at the current height, slow descent to LAND_ABOVE_M over it,
-        then LAND (ArduPilot lands and disarms)."""
+    def _landing_spec(self, land, planned):
+        """Checked landing request (see start): {"descent", "at", "x", "y", "ground_z" or None}."""
+        at = land.get("at") or "home"
+        if at not in ("home", "last", "point"):
+            raise ValueError(f"unknown landing spot '{at}'")
+        out = {"descent": min(0.5, max(0.05, float(land.get("descent", 0.2)))), "at": at, "x": None, "y": None,
+               "ground_z": None}
+        if land.get("ground_z") is not None:
+            out["ground_z"] = float(land["ground_z"])
+            if not math.isfinite(out["ground_z"]):
+                raise ValueError("landing ground Z is not a number")
+        if at == "point":
+            out["x"], out["y"] = float(land.get("x")), float(land.get("y"))
+            if not (math.isfinite(out["x"]) and math.isfinite(out["y"])):
+                raise ValueError("give the landing point as X, Y")
+            bad = self.validate([[out["x"], out["y"], planned[-1][2]]])   # flown at the last point's height
+            if bad:
+                raise ValueError("landing point: " + "; ".join(bad))
+        if out["ground_z"] is not None and out["ground_z"] + self.LAND_ABOVE_M > planned[-1][2]:
+            raise ValueError(f"landing ground Z {out['ground_z']:.2f} m is not below the last point (Z {planned[-1][2]:.2f} m)")
+        return out
+
+    def _landing_spot(self, land, last):
+        """(x, y, ground Z) in room coordinates, and a name for the log; None if the ground is unknown."""
+        home = self._home_room()
+        ground = land["ground_z"] if land["ground_z"] is not None else (home[2] if home else None)
+        if land["at"] == "home":
+            return (home, "home") if home else (None, "home")
+        x, y = (last[0], last[1]) if land["at"] == "last" else (land["x"], land["y"])
+        name = "the last point" if land["at"] == "last" else "the landing point"
+        return ((x, y, ground) if ground is not None else None), name
+
+    def _return_and_land(self, home, speed, descent, yaw, name="home"):
+        """Above `home` (room point: x, y, ground Z) at the current height, slow descent to LAND_ABOVE_M
+        over it, then LAND (ArduPilot lands and disarms). Lighthouse lost in the descent: LAND at once."""
         pos, _ = self.state.latest()
         hx, hy, hz = home
         with self.lock:
-            self.status_.update(phase="return", target=[hx, hy, pos["z"]], hold_left=None)
+            self.status_.update(phase="return", target=[hx, hy, pos["z"]], hold_left=None, land_to=[hx, hy, hz],
+                                land_name=name)
         dist = math.dist((pos["x"], pos["y"]), (hx, hy))
-        self._log(f"return home: ({hx:.2f}, {hy:.2f}) at Z {pos['z']:.2f} m, {dist:.2f} m away")
+        self._log(f"to {name}: ({hx:.2f}, {hy:.2f}) at Z {pos['z']:.2f} m, {dist:.2f} m away, ground there Z {hz:.2f} m")
         self.fc.set_speed(speed)
-        if not self._fly_to(hx, hy, pos["z"], yaw, 0.10, 10.0 + 2.0 * dist / speed, "return home", horizontal=True):
+        if not self._fly_to(hx, hy, pos["z"], yaw, 0.10, 10.0 + 2.0 * dist / speed, f"to {name}", horizontal=True):
             return
         low = hz + self.LAND_ABOVE_M
         with self.lock:
             self.status_.update(phase="descend", target=[hx, hy, low])
         pos, _ = self.state.latest()
         if pos["z"] > low + 0.05:
-            self._log(f"descending at {100 * descent:.0f} cm/s to Z {low:.2f} m ({100 * self.LAND_ABOVE_M:.0f} cm above home)")
+            self._log(f"descending at {100 * descent:.0f} cm/s to Z {low:.2f} m ({100 * self.LAND_ABOVE_M:.0f} cm above the ground)")
             self._goto(hx, hy, low, yaw)
             self.fc.set_speed(descent)                     # after the target: climb / descent speed too
-            if not self._fly_to(hx, hy, low, yaw, 0.06, 10.0 + (pos["z"] - low) / descent * 1.5, "descent"):
+            if not self._fly_to(hx, hy, low, yaw, 0.06, 10.0 + (pos["z"] - low) / descent * 1.5, "descent",
+                                land_on_loss=True):
                 return
         with self.lock:
             self.status_.update(phase="land")
@@ -1467,7 +1510,7 @@ class MissionRunner:
             time.sleep(0.1)
         if self.fc.status()["mode"] != "LAND":
             self._hold_here()
-            self._finish("aborted", f"LAND refused (result {result}): hovering above home — land on the radio")
+            self._finish("aborted", f"LAND refused (result {result}): hovering above {name} — land on the radio")
             return
         self._log("LAND: touching down (LAND_SPEED), ArduPilot disarms on the ground")
         end = time.monotonic() + 30.0
@@ -1577,12 +1620,13 @@ class MissionRunner:
                         sent = now
                 self._log(f"point {leg + 1} reached")
             if land:
-                home = self._home_room()
-                if home is None:
+                spot, name = self._landing_spot(land, points[-1])
+                if spot is None:
                     self._hold_here()
-                    self._finish("done", "mission complete, but home is unknown: hovering at the last point — land on the radio")
+                    self._finish("done", f"mission complete, but the ground at {name} is unknown (no home): "
+                                         "hovering at the last point — land on the radio")
                     return
-                self._return_and_land(home, speed, land["descent"], yaw)
+                self._return_and_land(spot, speed, land["descent"], yaw, name)
                 return
             self._finish("done", "mission complete: hovering at the last point (GUIDED) — take over on the radio")
         except Exception as error:  # link or socket trouble: stop where we are
